@@ -340,9 +340,10 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
       return false;
     }
 
+    // NOTE: Current server RPC only supports 1-param version (p_facility_id UUID)
+    // The 3-param version (recipe_id, quantity) is not deployed yet
     const params: Record<string, unknown> = { p_facility_id: facilityId };
-    if (recipeId) params.p_recipe_id = recipeId;
-    if (quantity && quantity > 1) params.p_quantity = quantity;
+    // Don't pass recipeId or quantity to the RPC - server doesn't support them yet
 
     console.log("[facilityStore] startProduction RPC call with params:", params);
     const res = await api.rpc("start_facility_production", params);
