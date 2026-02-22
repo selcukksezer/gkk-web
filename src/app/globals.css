@@ -1,0 +1,183 @@
+@import "tailwindcss";
+
+/* ============================================================
+ * Gölge Krallık: Kadim Mühür'ün Çöküşü — Global Styles
+ * Kaynak: dark_theme.tres + main_theme.tres
+ * ============================================================ */
+
+:root {
+  /* Background */
+  --bg-dark: #1a1a1f;
+  --bg-darker: #141418;
+  --bg-card: #222228;
+  --bg-elevated: #2a2a32;
+  --bg-input: #1e1e24;
+
+  /* Accent */
+  --accent: #6633cc;
+  --accent-light: #8855ee;
+  --accent-dark: #4d1a99;
+
+  /* Text */
+  --text-primary: #e6e6e6;
+  --text-secondary: #a0a0a0;
+  --text-muted: #666666;
+  --text-inverse: #1a1a1f;
+
+  /* Status */
+  --color-success: #33cc33;
+  --color-error: #cc3333;
+  --color-warning: #cc9933;
+  --color-info: #3399cc;
+
+  /* Game Resources */
+  --color-energy: #33cccc;
+  --color-health: #cc3333;
+  --color-gold: #cccc33;
+  --color-gems: #cc33cc;
+
+  /* Rarity — Kaynak: dark_theme.tres tam değerler */
+  --rarity-common: #e6e6e6;
+  --rarity-uncommon: #33cc33;
+  --rarity-rare: #4d80ff;
+  --rarity-epic: #9933cc;
+  --rarity-legendary: #ff8000;
+  --rarity-mythic: #ff3333;
+
+  /* Border */
+  --border-default: #333340;
+  --border-light: #44444f;
+
+  /* Misc */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  /* Font */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@theme inline {
+  --color-background: var(--bg-dark);
+  --color-foreground: var(--text-primary);
+  --color-accent: var(--accent);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+/* ============================================================
+ * Base styles
+ * ============================================================ */
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--bg-darker);
+  color: var(--text-primary);
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  min-height: 100dvh;
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Safe area insets for Capacitor (notch, home indicator) */
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* ============================================================
+ * Scrollbar
+ * ============================================================ */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-darker);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-light);
+}
+
+/* ============================================================
+ * Rarity Glow Shadows
+ * ============================================================ */
+
+.glow-common {
+  box-shadow: 0 0 8px rgba(230, 230, 230, 0.3);
+}
+.glow-uncommon {
+  box-shadow: 0 0 10px rgba(51, 204, 51, 0.4);
+}
+.glow-rare {
+  box-shadow: 0 0 12px rgba(77, 128, 255, 0.5);
+}
+.glow-epic {
+  box-shadow: 0 0 14px rgba(153, 51, 204, 0.5);
+}
+.glow-legendary {
+  box-shadow: 0 0 16px rgba(255, 128, 0, 0.6);
+}
+.glow-mythic {
+  box-shadow: 0 0 20px rgba(255, 51, 51, 0.7);
+  animation: mythic-pulse 2s ease-in-out infinite;
+}
+
+@keyframes mythic-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(255, 51, 51, 0.7); }
+  50% { box-shadow: 0 0 30px rgba(255, 51, 51, 0.9); }
+}
+
+/* ============================================================
+ * Utility Classes
+ * ============================================================ */
+
+.text-gold { color: var(--color-gold); }
+.text-gems { color: var(--color-gems); }
+.text-energy { color: var(--color-energy); }
+.text-health { color: var(--color-health); }
+.text-accent { color: var(--accent); }
+
+.bg-card { background: var(--bg-card); }
+.bg-elevated { background: var(--bg-elevated); }
+
+.border-game { border-color: var(--border-default); }
+
+/* ============================================================
+ * Page transition animation
+ * ============================================================ */
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-page-enter {
+  animation: page-enter 0.3s ease-out;
+}
