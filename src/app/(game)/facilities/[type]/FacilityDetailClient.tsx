@@ -18,8 +18,6 @@ import { Modal } from "@/components/ui/Modal";
 import { FACILITIES_CONFIG } from "@/data/FacilityConfig";
 import { formatGold } from "@/lib/utils/string";
 import { PRODUCTION_DURATION_SECONDS } from "@/stores/facilityStore";
-import { useMemo } from "react";
-import useSWR from "swr";
 import type { FacilityType, ProductionQueueItem, FacilityRecipe } from "@/types/facility";
 
 export default function FacilityDetailClient({ type }: { type: string }) {
@@ -537,6 +535,11 @@ export default function FacilityDetailClient({ type }: { type: string }) {
 // ============================================================
 // Production Queue Row — Countdown + Collect
 // ============================================================
+
+function CountdownInline({ targetDate }: { targetDate: string }) {
+  const { formatted, isComplete } = useCountdown({ targetDate });
+  return <span>{isComplete ? <span className="text-[var(--color-success)]">✅</span> : formatted}</span>;
+}
 
 function ProductionQueueRow({
   item,
