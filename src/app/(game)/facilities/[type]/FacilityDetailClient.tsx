@@ -18,6 +18,8 @@ import { Modal } from "@/components/ui/Modal";
 import { FACILITIES_CONFIG } from "@/data/FacilityConfig";
 import { formatGold } from "@/lib/utils/string";
 import { PRODUCTION_DURATION_SECONDS } from "@/stores/facilityStore";
+import { useMemo } from "react";
+import useSWR from "swr";
 import type { FacilityType, ProductionQueueItem, FacilityRecipe } from "@/types/facility";
 
 export default function FacilityDetailClient({ type }: { type: string }) {
@@ -80,6 +82,22 @@ export default function FacilityDetailClient({ type }: { type: string }) {
   const productionTargetDate = productionStartedAt
     ? new Date(Date.parse(productionStartedAt) + PRODUCTION_DURATION_SECONDS * 1000).toISOString()
     : null;
+  // Compute live/estimated produced resources when production has started but queue is empty
+  const liveResources = useMemo(() => {
+    if (!productionStartedAt) return [] as Array<{ item_id: string; rarity: string; quantity: number }>;
+    // Estimate total count based on facility base_rate (per hour) and production duration
+    const baseRate = config.base_rate || 1; // per hour
+    const estimated = Math.max(1, Math.round(baseRate * (PRODUCTION_DURATION_SECONDS / 3600)));
+    const items = useFacilityStore.getState().calculateIdleResources(facilityType, facility.level, productionStartedAt, estimated);
+    // Aggregate counts by item_id and rarity
+    const agg: Record<string, { item_id: string; rarity: string; quantity: number }> = {};
+    for (const it of items) {
+      const key = `${it.item_id}::${it.rarity}`;
+      if (!agg[key]) agg[key] = { item_id: it.item_id, rarity: it.rarity, quantity: 0 };
+      agg[key].quantity += 1;
+    }
+    return Object.values(agg);
+  }, [productionStartedAt, facilityType, facility.level, config.base_rate]);
   const globalSuspicion = useFacilityStore((s) => s.getGlobalSuspicionRisk());
   const gems = usePlayerStore((s) => s.gems);
   const payBail = usePlayerStore((s) => s.payBail);
@@ -419,6 +437,11 @@ export default function FacilityDetailClient({ type }: { type: string }) {
                 <div>
                   <p className="text-xs text-[var(--text-muted)] mb-1">🟢 Üretim Sürüyor</p>
                   <p className="text-lg font-semibold text-[var(--color-success)]">{productionQueue.length > 0 ? `Kuyruk: ${productionQueue.length} item` : 'İşçiler çalışıyor...'}</p>
+                  {productionTargetDate && (
+                    <div className="mt-2 text-[12px] text-[var(--text-muted)]">
+                      ⏱️ Süre: <CountdownInline targetDate={productionTargetDate} />
+                    </div>
+                  )}
                 </div>
               ) : (productionQueue.length > 0 && productionQueue.some((q) => q.is_completed)) ? (
                 // Ready to collect
@@ -466,6 +489,27 @@ export default function FacilityDetailClient({ type }: { type: string }) {
                 Enerji harcı: 50
               </p>
             </div>
+          )}
+
+          {/* Live resources preview when production started but queue empty */}
+          {!!productionStartedAt && productionQueue.length === 0 && (
+            <Card>
+              <div className="p-4">
+                <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">📦 Üretim Önizlemesi</h3>
+                {liveResources.length === 0 ? (
+                  <p className="text-xs text-[var(--text-muted)]">Kaynak hesaplanıyor...</p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {liveResources.map((r) => (
+                      <div key={`${r.item_id}-${r.rarity}`} className="p-2 rounded-lg bg-[var(--bg-darker)] text-xs">
+                        <div className="font-medium text-[var(--text-primary)]">{r.item_id}</div>
+                        <div className="text-[10px] text-[var(--text-muted)]">{r.quantity} × {r.rarity}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Card>
           )}
         </>
       )}
