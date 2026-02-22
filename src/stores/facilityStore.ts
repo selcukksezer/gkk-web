@@ -7,7 +7,7 @@
 import { create } from "zustand";
 import { api } from "@/lib/api";
 import { APIEndpoints } from "@/lib/endpoints";
-import type { PlayerFacility, FacilityType, FacilityConfig, ProductionQueueItem, ResourceRarity, FacilityRecipe } from "@/types/facility";
+import type { PlayerFacility, FacilityType, FacilityConfig, ProductionQueueItem, ResourceRarity } from "@/types/facility";
 import { usePlayerStore } from "./playerStore";
 
 // ── Constants (from FacilityManager.gd) ──────────────────────
@@ -89,7 +89,6 @@ const QUEUE_FULL_THRESHOLD = 10;
 interface FacilityState {
   // State
   facilities: PlayerFacility[];
-  recipes: Record<FacilityType, FacilityRecipe[]>;
   selectedFacilityType: FacilityType | null;
   isLoading: boolean;
   error: string | null;
@@ -98,7 +97,7 @@ interface FacilityState {
 
   // Server-backed Actions
   fetchFacilities: (forceRefresh?: boolean) => Promise<void>;
-  fetchRecipes: (facilityType: FacilityType) => Promise<FacilityRecipe[]>;
+  // fetchRecipes removed: facility recipes are not used for facility production
   unlockFacility: (facilityType: FacilityType) => Promise<boolean>;
   upgradeFacility: (facilityId: string) => Promise<boolean>;
   startProduction: (facilityId: string, recipeId?: string, quantity?: number) => Promise<boolean>;
@@ -130,7 +129,6 @@ const CACHE_DURATION = 60_000; // 60 seconds
 
 export const useFacilityStore = create<FacilityState>()((set, get) => ({
   facilities: [],
-  recipes: {},
   selectedFacilityType: null,
   isLoading: false,
   error: null,
@@ -199,8 +197,6 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
               return {
                 id: item.id,
                 facility_id: item.facility_id,
-                recipe_id: item.recipe_id || 'unknown_recipe',
-                recipe_name: item.recipe_name || item.recipe_id || 'Unknown Recipe',
                 quantity: item.quantity || 1,
                 rarity: (item.rarity_outcome || item.rarity || 'common').toLowerCase(),
                 started_at: started,
@@ -230,45 +226,7 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
   },
 
   // ── Fetch recipes for facility ─────────────────────────────
-  fetchRecipes: async (facilityType: FacilityType) => {
-    const cached = get().recipes[facilityType];
-    if (cached && cached.length > 0) {
-      return cached;
-    }
-
-    try {
-      const res = await api.rpc<{ success: boolean; data: any }>(
-        "get_facility_recipes_rpc",
-        { p_facility_type: facilityType }
-      );
-
-      if (res.success && res.data) {
-        let recipesData: FacilityRecipe[] = [];
-        const data = res.data as any;
-
-        if (Array.isArray(data)) {
-          recipesData = data;
-        } else if (data.data && Array.isArray(data.data)) {
-          recipesData = data.data;
-        } else if (data.recipes && Array.isArray(data.recipes)) {
-          recipesData = data.recipes;
-        }
-
-        set((state) => ({
-          recipes: {
-            ...state.recipes,
-            [facilityType]: recipesData,
-          },
-        }));
-
-        return recipesData;
-      }
-      return [];
-    } catch (err) {
-      console.error(`Failed to fetch recipes for ${facilityType}:`, err);
-      return [];
-    }
-  },
+  // recipes fetching removed — facilities no longer use recipes
 
   // ── Unlock facility ────────────────────────────────────────
   unlockFacility: async (facilityType: FacilityType) => {
@@ -355,25 +313,13 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
       try {
         const facility = get().getFacilityById(facilityId);
         if (facility) {
-          // Determine duration from recipe if available
-          let durationMs = PRODUCTION_DURATION_SECONDS * 1000;
-          if (recipeId && get().recipes[facility.facility_type]) {
-            const found = get().recipes[facility.facility_type].find((r: any) => r.id === recipeId);
-            if (found && (found.duration_seconds || found.duration)) {
-              const secs = found.duration_seconds ?? found.duration;
-              durationMs = (Number(secs) || PRODUCTION_DURATION_SECONDS) * 1000;
-            }
-          }
-
+          // Use standard production duration (recipes removed for facilities)
+          const durationMs = PRODUCTION_DURATION_SECONDS * 1000;
           const nowIso = new Date().toISOString();
           const completesAt = new Date(Date.now() + durationMs).toISOString();
           const tempItem = {
             id: `tmp-${Date.now()}`,
             facility_id: facilityId,
-            recipe_id: recipeId || "unknown_recipe",
-            recipe_name: (recipeId && get().recipes[facility.facility_type]) ?
-              (get().recipes[facility.facility_type].find((r: any) => r.id === recipeId)?.output_item_id || recipeId) :
-              recipeId || "Auto",
             quantity: quantity || 1,
             rarity: "common",
             started_at: nowIso,

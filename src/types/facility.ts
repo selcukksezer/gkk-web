@@ -56,8 +56,6 @@ export interface PlayerFacility {
 export interface ProductionQueueItem {
   id: string;
   facility_id: string;
-  recipe_id: string;
-  recipe_name: string;
   quantity: number;
   rarity: string;
   started_at: string;
@@ -80,18 +78,5 @@ export interface ResourceRarityDistribution {
   legendary: number;
 }
 
-export interface FacilityRecipe {
-  id: string;
-  facility_type: FacilityType;
-  output_item_id: string;
-  output_quantity: number;
-  input_materials: Record<string, number>;
-  gold_cost: number;
-  duration_seconds: number;
-  required_level: number;
-  success_rate: number;
-  base_suspicion_increase: number;
-  production_speed_bonus: number;
-  rarity_distribution: ResourceRarityDistribution;
-  min_facility_level: number;
-}
+// Facility recipes are no longer used for facility production in the web client.
+// Keeping crafting recipes separate under `src/types/crafting.ts`.

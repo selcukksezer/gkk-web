@@ -18,7 +18,7 @@ import { Modal } from "@/components/ui/Modal";
 import { FACILITIES_CONFIG } from "@/data/FacilityConfig";
 import { formatGold } from "@/lib/utils/string";
 import { PRODUCTION_DURATION_SECONDS } from "@/stores/facilityStore";
-import type { FacilityType, ProductionQueueItem, FacilityRecipe } from "@/types/facility";
+import type { FacilityType, ProductionQueueItem } from "@/types/facility";
 
 export default function FacilityDetailClient({ type }: { type: string }) {
   const router = useRouter();
@@ -26,8 +26,6 @@ export default function FacilityDetailClient({ type }: { type: string }) {
   const config = FACILITIES_CONFIG[facilityType];
 
   const facilities = useFacilityStore((s) => s.facilities);
-  const recipes = useFacilityStore((s) => s.recipes);
-  const fetchRecipes = useFacilityStore((s) => s.fetchRecipes);
   const startProduction = useFacilityStore((s) => s.startProduction);
   const collectProduction = useFacilityStore((s) => s.collectProduction);
   const upgradeFacility = useFacilityStore((s) => s.upgradeFacility);
@@ -38,19 +36,16 @@ export default function FacilityDetailClient({ type }: { type: string }) {
   const addToast = useUiStore((s) => s.addToast);
 
   const [upgradeConfirm, setUpgradeConfirm] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "recipes" | "queue">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "queue">("overview");
 
   const facility = useMemo(
     () => facilities.find((f) => f.facility_type === facilityType),
     [facilities, facilityType]
   );
 
-  const facilityRecipes = useMemo(() => recipes[facilityType] || [], [recipes, facilityType]);
-
   useEffect(() => {
     fetchFacilities();
-    fetchRecipes(facilityType);
-  }, [fetchFacilities, fetchRecipes, facilityType]);
+  }, [fetchFacilities, facilityType]);
 
   if (!config) {
     return (
@@ -136,17 +131,7 @@ export default function FacilityDetailClient({ type }: { type: string }) {
       addToast("Cezaevindeyken üretim başlatılamaz", "warning");
       return;
     }
-    console.log("[FacilityDetail] Starting production, facility:", facility, "recipes:", facilityRecipes);
-    // If recipes exist, start the first available recipe by default
-    if (facilityRecipes && facilityRecipes.length > 0) {
-      const first = facilityRecipes[0];
-      console.log("[FacilityDetail] Using first recipe:", first);
-      const ok = await startProduction(facility.id, first.id, 1);
-      if (ok) addToast("Üretim başlatıldı!", "success");
-      else addToast(useFacilityStore.getState().error || "Üretim başlatılamadı", "error");
-      return;
-    }
-    console.log("[FacilityDetail] No recipes, starting without recipe ID");
+    console.log("[FacilityDetail] Starting production, facility:", facility);
     const ok = await startProduction(facility.id);
     if (ok) addToast("Üretim başlatıldı!", "success");
     else addToast(useFacilityStore.getState().error || "Üretim başlatılamadı", "error");
@@ -235,12 +220,6 @@ export default function FacilityDetailClient({ type }: { type: string }) {
           onClick={() => setActiveTab('overview')}
         >
           Genel
-        </button>
-        <button
-          className={`px-3 py-1 rounded ${activeTab === 'recipes' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-darker)]'}`}
-          onClick={() => setActiveTab('recipes')}
-        >
-          Tarifler
         </button>
         <button
           className={`px-3 py-1 rounded ${activeTab === 'queue' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-darker)]'}`}
@@ -345,115 +324,7 @@ export default function FacilityDetailClient({ type }: { type: string }) {
         </>
       )}
 
-      {/* Recipes tab: rarity + recipe list */}
-      {activeTab === 'recipes' && (
-        <>
-          {facility && facilityRecipes.length > 0 && (
-            <Card variant="elevated">
-              <div className="p-4">
-                <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">✨ Nadirlik Oranları (Lv. {facility.level})</h3>
-                <div className="grid grid-cols-5 gap-2">
-                  {facilityRecipes.length > 0 && facilityRecipes[0].rarity_distribution ? (
-                    Object.entries(facilityRecipes[0].rarity_distribution).map(([rarity, percent]: [string, any]) => {
-                      const rarityColors: Record<string, string> = {
-                        COMMON: "text-[var(--text-muted)]",
-                        UNCOMMON: "text-[var(--color-success)]",
-                        RARE: "text-[var(--color-info)]",
-                        EPIC: "text-[var(--color-warning)]",
-                        LEGENDARY: "text-[var(--color-error)]",
-                      };
-                      const rarityEmoji: Record<string, string> = { COMMON: "⚪", UNCOMMON: "🟢", RARE: "🔵", EPIC: "🟣", LEGENDARY: "🟡" };
-                      const upper = rarity.toUpperCase();
-                      const formatted = (upper === 'EPIC' || upper === 'LEGENDARY') ? Number(percent).toFixed(1) : Number(percent).toFixed(0);
-                      return (
-                        <div key={rarity} className="text-center">
-                          <div className={`text-lg ${rarityColors[rarity] || ""}`}>{rarityEmoji[rarity]}</div>
-                          <p className={`text-[10px] font-medium ${rarityColors[rarity] || ""}`}>{rarity}</p>
-                          <p className="text-[10px] text-[var(--text-muted)]">{formatted}%</p>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <p className="text-xs text-[var(--text-muted)]">Veri yükleniyorum...</p>
-                  )}
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {/* Fallback rarity display when recipes are missing: compute from store weights */}
-          {facilityRecipes.length === 0 && (
-            <Card variant="elevated">
-              <div className="p-4">
-                <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">✨ Nadirlik Oranları (Lv. {facility.level})</h3>
-                <div className="grid grid-cols-5 gap-2">
-                  {(() => {
-                    const weights = (useFacilityStore.getState()).getRarityWeightsAtLevel(facility.level);
-                    const total = Object.values(weights).reduce((s, v) => s + v, 0);
-                    const order: Array<[string, number]> = [
-                      ["COMMON", weights.common],
-                      ["UNCOMMON", weights.uncommon],
-                      ["RARE", weights.rare],
-                      ["EPIC", weights.epic],
-                      ["LEGENDARY", weights.legendary],
-                    ];
-                    return order.map(([k, v]) => {
-                      const pct = (v / total) * 100;
-                      const formatted = (k === 'EPIC' || k === 'LEGENDARY') ? pct.toFixed(1) : Math.round(pct).toFixed(0);
-                      return (
-                        <div key={k} className="text-center">
-                          <div className={`text-lg`}>{k === 'COMMON' ? '⚪' : k === 'UNCOMMON' ? '🟢' : k === 'RARE' ? '🔵' : k === 'EPIC' ? '🟣' : '🟡'}</div>
-                          <p className="text-[10px] font-medium">{k}</p>
-                          <p className="text-[10px] text-[var(--text-muted)]">{formatted}%</p>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {facilityRecipes.length > 0 && (
-            <Card>
-              <div className="p-4">
-                <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">📜 Mevcut Tarifler ({facilityRecipes.length})</h3>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {facilityRecipes.map((recipe) => (
-                    <div key={recipe.id} className="p-2 rounded-lg bg-[var(--bg-darker)] text-xs">
-                      <div className="flex items-start justify-between mb-1">
-                        <div>
-                          <span className="font-medium text-[var(--text-primary)]">{recipe.output_item_id}</span>
-                          <div className="text-[10px] text-[var(--text-muted)]">Lv. {recipe.required_level} {recipe.min_facility_level > 1 ? `• MinLv.${recipe.min_facility_level}` : ''}</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-[var(--color-success)]">×{recipe.output_quantity}</div>
-                          <div className="mt-2">
-                            <Button size="sm" variant="primary" disabled={inPrison || isLoading} onClick={async () => {
-                              // start this specific recipe
-                              const ok = await startProduction(facility.id, recipe.id, 1);
-                              if (ok) addToast('Üretim başlatıldı', 'success');
-                              else addToast('Üretim başlatılamadı', 'error');
-                            }}>
-                              ▶ Başlat
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 text-[10px] text-[var(--text-muted)]">
-                        <div>⏱️ {recipe.duration_seconds}s</div>
-                        <div>{recipe.gold_cost > 0 ? `💰 ${recipe.gold_cost}` : ""}</div>
-                        <div>{recipe.production_speed_bonus ? `⏩ Speed+${recipe.production_speed_bonus}` : ''}</div>
-                        <div>✅ {recipe.success_rate}%</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </Card>
-          )}
-        </>
-      )}
+      {/* Recipes removed: facilities don't use recipes anymore */}
 
       {/* Queue tab — Always show (Godot behavior: status + items or start button) */}
       {activeTab === 'queue' && (
@@ -602,7 +473,7 @@ function ProductionQueueRow({
       <div className="flex-1">
         <div className="flex items-center gap-2 mb-1">
           <span className={`text-sm ${rarityColor[item.rarity.toLowerCase()] || ""}`}>{rarityEmoji[item.rarity.toLowerCase()] || "⚪"}</span>
-          <p className="text-xs font-medium text-[var(--text-primary)]">{item.recipe_name}</p>
+          <p className="text-xs font-medium text-[var(--text-primary)]">Ürün</p>
           <span className="text-[10px] text-[var(--text-muted)]">×{item.quantity}</span>
         </div>
         <p className="text-[10px] text-[var(--text-muted)]">
