@@ -84,14 +84,17 @@ export default function FacilityDetailClient({ type }: { type: string }) {
       addToast("Cezaevindeyken üretim başlatılamaz", "warning");
       return;
     }
+    console.log("[FacilityDetail] Starting production, facility:", facility, "recipes:", facilityRecipes);
     // If recipes exist, start the first available recipe by default
     if (facilityRecipes && facilityRecipes.length > 0) {
       const first = facilityRecipes[0];
+      console.log("[FacilityDetail] Using first recipe:", first);
       const ok = await startProduction(facility.id, first.id, 1);
       if (ok) addToast("Üretim başlatıldı!", "success");
       else addToast(useFacilityStore.getState().error || "Üretim başlatılamadı", "error");
       return;
     }
+    console.log("[FacilityDetail] No recipes, starting without recipe ID");
     const ok = await startProduction(facility.id);
     if (ok) addToast("Üretim başlatıldı!", "success");
     else addToast(useFacilityStore.getState().error || "Üretim başlatılamadı", "error");

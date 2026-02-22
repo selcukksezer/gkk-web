@@ -344,7 +344,9 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
     if (recipeId) params.p_recipe_id = recipeId;
     if (quantity && quantity > 1) params.p_quantity = quantity;
 
+    console.log("[facilityStore] startProduction RPC call with params:", params);
     const res = await api.rpc("start_facility_production", params);
+    console.log("[facilityStore] startProduction RPC response:", res);
     if (res.success) {
       playerStore.consumeEnergy(PRODUCTION_ENERGY_COST);
       // Optimistic UI update: insert a temporary queue item so the modal
