@@ -82,7 +82,7 @@ export const FACILITIES_CONFIG: Record<FacilityType, FacilityConfig> = {
 };
 
 const PRODUCTION_ENERGY_COST = 50;
-const PRODUCTION_DURATION_SECONDS = 120; // 2 min test value
+export const PRODUCTION_DURATION_SECONDS = 120; // 2 min test value
 const RESOURCE_CAP = 100;
 const QUEUE_FULL_THRESHOLD = 10;
 

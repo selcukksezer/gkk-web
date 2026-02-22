@@ -17,6 +17,7 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Modal } from "@/components/ui/Modal";
 import { FACILITIES_CONFIG } from "@/data/FacilityConfig";
 import { formatGold } from "@/lib/utils/string";
+import { PRODUCTION_DURATION_SECONDS } from "@/stores/facilityStore";
 import type { FacilityType, ProductionQueueItem, FacilityRecipe } from "@/types/facility";
 
 export default function FacilityDetailClient({ type }: { type: string }) {
@@ -75,6 +76,10 @@ export default function FacilityDetailClient({ type }: { type: string }) {
   );
   const canUpgrade = gold >= upgradeCost;
   const productionQueue = facility.facility_queue || [];
+  const productionStartedAt = facility.production_started_at;
+  const productionTargetDate = productionStartedAt
+    ? new Date(Date.parse(productionStartedAt) + PRODUCTION_DURATION_SECONDS * 1000).toISOString()
+    : null;
   const globalSuspicion = useFacilityStore((s) => s.getGlobalSuspicionRisk());
   const gems = usePlayerStore((s) => s.gems);
   const payBail = usePlayerStore((s) => s.payBail);
@@ -409,13 +414,13 @@ export default function FacilityDetailClient({ type }: { type: string }) {
           {/* Status Header */}
           <Card className="bg-gradient-to-r from-[var(--bg-darker)] to-[var(--bg-card)]">
             <div className="p-3">
-              {productionQueue.length > 0 && !productionQueue.every((q) => q.is_completed) ? (
+              {((productionQueue.length > 0 && !productionQueue.every((q) => q.is_completed)) || (!!productionStartedAt && productionQueue.length === 0)) ? (
                 // Active production
                 <div>
                   <p className="text-xs text-[var(--text-muted)] mb-1">🟢 Üretim Sürüyor</p>
-                  <p className="text-lg font-semibold text-[var(--color-success)]">Kuyruk: {productionQueue.length} item</p>
+                  <p className="text-lg font-semibold text-[var(--color-success)]">{productionQueue.length > 0 ? `Kuyruk: ${productionQueue.length} item` : 'İşçiler çalışıyor...'}</p>
                 </div>
-              ) : productionQueue.length > 0 && productionQueue.some((q) => q.is_completed) ? (
+              ) : (productionQueue.length > 0 && productionQueue.some((q) => q.is_completed)) ? (
                 // Ready to collect
                 <div>
                   <p className="text-xs text-[var(--text-muted)] mb-1">🟡 Toplama Hazır</p>
