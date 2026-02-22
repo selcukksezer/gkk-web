@@ -83,10 +83,15 @@ export default function FacilityDetailClient({ type }: { type: string }) {
   // Compute live/estimated produced resources when production has started but queue is empty
   const liveResources = useMemo(() => {
     if (!productionStartedAt) return [] as Array<{ item_id: string; rarity: string; quantity: number }>;
-    // Estimate total count based on facility base_rate (per hour) and production duration
+    // Estimate total possible produced count during the duration based on base_rate (per hour)
     const baseRate = config.base_rate || 1; // per hour
-    const estimated = Math.max(1, Math.round(baseRate * (PRODUCTION_DURATION_SECONDS / 3600)));
-    const items = useFacilityStore.getState().calculateIdleResources(facilityType, facility.level, productionStartedAt, estimated);
+    const totalPossible = Math.max(1, Math.round(baseRate * (PRODUCTION_DURATION_SECONDS / 3600)));
+    // Compute produced so far based on elapsed time
+    const startedTs = Date.parse(productionStartedAt);
+    const now = Date.now();
+    const elapsedMs = Math.max(0, Math.min(now - startedTs, PRODUCTION_DURATION_SECONDS * 1000));
+    const producedSoFar = Math.floor((elapsedMs / (PRODUCTION_DURATION_SECONDS * 1000)) * totalPossible);
+    const items = useFacilityStore.getState().calculateIdleResources(facilityType, facility.level, productionStartedAt, Math.max(1, producedSoFar));
     // Aggregate counts by item_id and rarity
     const agg: Record<string, { item_id: string; rarity: string; quantity: number }> = {};
     for (const it of items) {
@@ -96,6 +101,32 @@ export default function FacilityDetailClient({ type }: { type: string }) {
     }
     return Object.values(agg);
   }, [productionStartedAt, facilityType, facility.level, config.base_rate]);
+
+  // Poll facility data briefly while production is active so UI updates when complete
+  useEffect(() => {
+    if (!productionStartedAt) return;
+    const startedTs = Date.parse(productionStartedAt);
+    const durationMs = PRODUCTION_DURATION_SECONDS * 1000;
+    let stopped = false;
+
+    const tick = async () => {
+      const now = Date.now();
+      const elapsed = now - startedTs;
+      // If production finished on server, refetch and stop polling
+      if (elapsed >= durationMs) {
+        await fetchFacilities();
+        stopped = true;
+        return;
+      }
+      // otherwise refresh lightweightly to update UI
+      await fetchFacilities();
+    };
+
+    const id = setInterval(() => { if (!stopped) tick(); }, 2000);
+    // initial tick
+    tick();
+    return () => clearInterval(id);
+  }, [productionStartedAt, fetchFacilities]);
   const globalSuspicion = useFacilityStore((s) => s.getGlobalSuspicionRisk());
   const gems = usePlayerStore((s) => s.gems);
   const payBail = usePlayerStore((s) => s.payBail);
