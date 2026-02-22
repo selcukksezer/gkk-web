@@ -9,7 +9,7 @@
 | # | Godot Ekranı | Web Sayfası | Durum |
 |---|---|---|---|
 | 1 | HomeScreen.gd | home/page.tsx | ✅ Eşleşiyor |
-| 2 | HospitalScreen.gd | hospital/page.tsx | ✅ Eşleşiyor |
+| 2 | HospitalScreen.gd | ba/page.tsx | ✅ Eşleşiyor |
 | 3 | PrisonScreen.gd | prison/page.tsx | ✅ Eşleşiyor |
 | 4 | DungeonScreen.gd | dungeon/page.tsx | ✅ Eşleşiyor |
 | 5 | DungeonBattleScreen.gd | dungeon/page.tsx (modal) | ⚠️ Kısmi — Web'de ayrı ekran yok |

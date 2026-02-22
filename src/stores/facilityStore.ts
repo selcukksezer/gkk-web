@@ -101,7 +101,7 @@ interface FacilityState {
   fetchRecipes: (facilityType: FacilityType) => Promise<FacilityRecipe[]>;
   unlockFacility: (facilityType: FacilityType) => Promise<boolean>;
   upgradeFacility: (facilityId: string) => Promise<boolean>;
-  startProduction: (facilityId: string) => Promise<boolean>;
+  startProduction: (facilityId: string, recipeId?: string, quantity?: number) => Promise<boolean>;
   collectProduction: (facilityId: string) => Promise<unknown>;
   collectResourcesV2: (facilityId: string, seed: number, totalCount: number) => Promise<unknown>;
   bribeOfficials: (facilityType: string, amountGems: number) => Promise<boolean>;
@@ -109,6 +109,7 @@ interface FacilityState {
   decrementSuspicion: (facilityId: string, amount?: number) => Promise<boolean>;
   syncGlobalRiskToDatabase: (globalSuspicion: number) => Promise<boolean>;
   calculateOfflineProduction: (facilityId: string) => Promise<unknown>;
+  resetAllProduction: () => Promise<{ success: boolean; facilities_reset?: number; queue_items_deleted?: number } | { success: false }>;
 
   // Local helpers / getters
   selectFacility: (type: FacilityType | null) => void;
@@ -164,18 +165,25 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
 
         // Normalize field names from Supabase
         facilitiesData = facilitiesData.map((f: any) => {
-          const timestampToISO = (ts: any) => {
-            if (!ts) return new Date().toISOString();
-            // Check if it's a Unix timestamp in seconds (< 10^13) or milliseconds (>= 10^13)
-            const num = typeof ts === 'string' ? parseInt(ts, 10) : ts;
-            if (num < 10000000000) {
-              // Likely seconds
-              return new Date(num * 1000).toISOString();
-            } else {
-              // Likely milliseconds
-              return new Date(num).toISOString();
-            }
-          };
+          const timestampToISO = (ts: any): string | null => {
+                    if (ts === null || ts === undefined || ts === "" ) return null;
+                    // If it's a numeric string or number, attempt numeric parse
+                    let num: number | null = null;
+                    if (typeof ts === 'number') num = ts;
+                    else if (typeof ts === 'string' && /^\d+$/.test(ts)) num = parseInt(ts, 10);
+
+                    if (typeof num === 'number' && !Number.isNaN(num)) {
+                      // Seconds vs milliseconds
+                      if (num < 10000000000) return new Date(num * 1000).toISOString();
+                      return new Date(num).toISOString();
+                    }
+
+                    // Try parsing ISO-like strings
+                    const parsed = Date.parse(String(ts));
+                    if (!Number.isNaN(parsed)) return new Date(parsed).toISOString();
+
+                    return null;
+                  };
 
           return {
             id: f.id,
@@ -183,18 +191,23 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
             level: f.level,
             suspicion: f.suspicion ?? f.suspicion_level ?? 0,
             is_active: f.is_active !== false,
-            production_started_at: f.production_started_at,
-            facility_queue: (f.facility_queue || []).map((item: any) => ({
-              id: item.id,
-              facility_id: item.facility_id,
-              recipe_id: item.recipe_id || 'unknown_recipe',
-              recipe_name: item.recipe_name || item.recipe_id || 'Unknown Recipe',
-              quantity: item.quantity || 1,
-              rarity: (item.rarity_outcome || 'common').toLowerCase(),
-              started_at: timestampToISO(item.started_at),
-              completes_at: timestampToISO(item.completed_at),
-              is_completed: item.status === 'completed' || item.collected === true,
-            })),
+            // Normalize production timestamp (or null when missing)
+            production_started_at: timestampToISO(f.production_started_at) || null,
+            facility_queue: (f.facility_queue || []).map((item: any) => {
+              const started = timestampToISO(item.started_at) || null;
+              const completed = timestampToISO(item.completed_at) || null;
+              return {
+                id: item.id,
+                facility_id: item.facility_id,
+                recipe_id: item.recipe_id || 'unknown_recipe',
+                recipe_name: item.recipe_name || item.recipe_id || 'Unknown Recipe',
+                quantity: item.quantity || 1,
+                rarity: (item.rarity_outcome || item.rarity || 'common').toLowerCase(),
+                started_at: started,
+                completes_at: completed,
+                is_completed: item.status === 'completed' || item.collected === true || !!item.completed_at,
+              };
+            }),
           };
         });
 
@@ -299,8 +312,14 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
 
     const res = await api.rpc("upgrade_facility", { p_facility_id: facilityId });
     if (res.success) {
+      // Update gold locally first (Godot does this)
       usePlayerStore.getState().updateGold(gold - cost);
+      // Wait for server settle (Godot timing)
+      await new Promise((r) => setTimeout(r, 500));
+      // Refetch facilities from server (Godot: fetch_my_facilities(true))
       await get().fetchFacilities(true);
+      // Refresh player data from server (Godot: State.refresh_data())
+      await usePlayerStore.getState().refreshData();
       return true;
     }
     set({ error: res.error || "Yükseltme başarısız" });
@@ -308,7 +327,7 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
   },
 
   // ── Start production (costs 50 energy) ─────────────────────
-  startProduction: async (facilityId: string) => {
+  startProduction: async (facilityId: string, recipeId?: string, quantity: number = 1) => {
     const playerStore = usePlayerStore.getState();
     if (playerStore.energy < PRODUCTION_ENERGY_COST) {
       set({ error: `${PRODUCTION_ENERGY_COST} enerji gerekli` });
@@ -321,9 +340,15 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
       return false;
     }
 
-    const res = await api.rpc("start_facility_production", { p_facility_id: facilityId });
+    const params: Record<string, unknown> = { p_facility_id: facilityId };
+    if (recipeId) params.p_recipe_id = recipeId;
+    if (quantity && quantity > 1) params.p_quantity = quantity;
+
+    const res = await api.rpc("start_facility_production", params);
     if (res.success) {
       playerStore.consumeEnergy(PRODUCTION_ENERGY_COST);
+      // Mimic Godot timing: wait briefly for server-side events to settle, then refresh
+      await new Promise((r) => setTimeout(r, 700));
       await get().fetchFacilities(true);
       return true;
     }
@@ -344,8 +369,10 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
     });
 
     if (res.success) {
-      // Increment suspicion after collection
+      // Increment suspicion after collection (server may already adjust, but keep client-side call)
       await get().incrementSuspicion(facilityId, 5);
+      // Small delay to imitate Godot refresh timing
+      await new Promise((r) => setTimeout(r, 600));
       await get().fetchFacilities(true);
       return res.data;
     }
@@ -376,7 +403,16 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
     });
     if (res.success) {
       set({ lastBribeAt: new Date().toISOString() });
+      // Wait for server settle (Godot timing)
+      await new Promise((r) => setTimeout(r, 500));
+      // Refetch facilities from server (Godot: fetch_my_facilities(true))
       await get().fetchFacilities(true);
+      // Refresh player data from server (Godot: State.refresh_data())
+      // This ensures gems, suspicion baseline, etc. are updated
+      await usePlayerStore.getState().refreshData();
+      // Sync global risk to database (Godot: sync_global_risk_to_database())
+      const globalRisk = get().getGlobalSuspicionRisk();
+      await get().syncGlobalRiskToDatabase(globalRisk);
       return true;
     }
     set({ error: res.error || "Rüşvet başarısız" });
@@ -416,6 +452,32 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
     return null;
   },
 
+  // ── Reset all production (admin / test RPC from DB) ─────────
+  resetAllProduction: async () => {
+    try {
+      const res = await api.rpc<{ success: boolean; facilities_reset?: number; queue_items_deleted?: number }>(
+        "reset_all_facility_production"
+      );
+
+      if (res.success) {
+        // Wait briefly to allow server side to commit
+        await new Promise((r) => setTimeout(r, 500));
+        await get().fetchFacilities(true);
+        return {
+          success: true,
+          facilities_reset: (res as any).facilities_reset || 0,
+          queue_items_deleted: (res as any).queue_items_deleted || 0,
+        };
+      }
+
+      set({ error: res.error || "Reset başarısız" });
+      return { success: false };
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : "Reset başarısız" });
+      return { success: false };
+    }
+  },
+
   // ── Selection ──────────────────────────────────────────────
   selectFacility: (type: FacilityType | null) => set({ selectedFacilityType: type }),
 
@@ -452,15 +514,14 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
   getGlobalSuspicionRisk: () => {
     const { facilities, lastBribeAt } = get();
     const bribeThreshold = lastBribeAt ?? "1970-01-01T00:00:00Z";
+    const bribeTs = Date.parse(bribeThreshold) || 0;
 
     let activeCount = 0;
     let levelSum = 0;
 
     for (const f of facilities) {
-      if (
-        f.production_started_at &&
-        f.production_started_at > bribeThreshold
-      ) {
+      const started = f.production_started_at ? Date.parse(String(f.production_started_at)) : NaN;
+      if (!Number.isNaN(started) && started > bribeTs) {
         activeCount++;
         levelSum += f.level;
       }

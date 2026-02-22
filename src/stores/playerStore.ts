@@ -62,6 +62,7 @@ interface PlayerState {
   updatePlayerData: (updates: Partial<Record<string, unknown>>) => void;
   syncToSupabase: () => Promise<void>;
   refreshData: () => Promise<void>;
+  payBail: () => Promise<{ success: boolean; gems_spent?: number; error?: string }>;
   reset: () => void;
 }
 
@@ -258,6 +259,32 @@ export const usePlayerStore = create<PlayerState>()(
       });
     } catch (err) {
       console.warn("[PlayerStore] syncToSupabase failed:", err);
+    }
+  },
+
+  // ── Pay bail / Release from prison via RPC ─────────────────
+  payBail: async () => {
+    set({ isLoading: true });
+    try {
+      const res = await api.rpc<any>("release_from_prison", { p_use_bail: true });
+      if (res && (res as any).success) {
+        const gemsSpent = (res.gems_spent || res.data?.gems_spent || (res as any).gems_spent || 0) as number;
+        if (gemsSpent > 0) {
+          // subtract gems (delta)
+          get().updateGems(-gemsSpent, true);
+        }
+        // Clear prison flags
+        set({ inPrison: false, prisonUntil: null, prisonReason: null });
+        // Refresh profile from server to ensure authoritative state
+        await get().fetchProfile();
+        set({ isLoading: false });
+        return { success: true, gems_spent: gemsSpent };
+      }
+      set({ isLoading: false });
+      return { success: false, error: (res as any)?.error || (res as any)?.message || "Kefalet başarısız" };
+    } catch (err) {
+      set({ isLoading: false });
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
     }
   },
 

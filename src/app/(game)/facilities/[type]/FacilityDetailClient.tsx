@@ -1,6 +1,6 @@
 // ============================================================
 // Facility Detail Client Component — Kaynak: FacilitiesScreen.gd detail modal
-// Üretim, kuyruk, şüphe, upgrade
+// Üretim, kuyruk, tarifler, upgrade (tabs)
 // ============================================================
 
 "use client";
@@ -33,20 +33,18 @@ export default function FacilityDetailClient({ type }: { type: string }) {
   const fetchFacilities = useFacilityStore((s) => s.fetchFacilities);
   const isLoading = useFacilityStore((s) => s.isLoading);
   const gold = usePlayerStore((s) => s.gold);
+  const inPrison = usePlayerStore((s) => s.inPrison);
   const addToast = useUiStore((s) => s.addToast);
 
   const [upgradeConfirm, setUpgradeConfirm] = useState(false);
-  const [selectedResource, setSelectedResource] = useState(0);
+  const [activeTab, setActiveTab] = useState<"overview" | "recipes" | "queue">("overview");
 
   const facility = useMemo(
     () => facilities.find((f) => f.facility_type === facilityType),
     [facilities, facilityType]
   );
 
-  const facilityRecipes = useMemo(
-    () => recipes[facilityType] || [],
-    [recipes, facilityType]
-  );
+  const facilityRecipes = useMemo(() => recipes[facilityType] || [], [recipes, facilityType]);
 
   useEffect(() => {
     fetchFacilities();
@@ -78,22 +76,40 @@ export default function FacilityDetailClient({ type }: { type: string }) {
   const canUpgrade = gold >= upgradeCost;
   const productionQueue = facility.facility_queue || [];
   const suspicion = facility.suspicion || 0;
+  const gems = usePlayerStore((s) => s.gems);
+  const payBail = usePlayerStore((s) => s.payBail);
 
   const handleStartProduction = async () => {
-    const resource = config.resources[selectedResource] || config.resources[0];
-    if (!resource) return;
-    await startProduction(facility.id);
-    addToast("Üretim başlatıldı!", "success");
+    if (inPrison) {
+      addToast("Cezaevindeyken üretim başlatılamaz", "warning");
+      return;
+    }
+    // If recipes exist, start the first available recipe by default
+    if (facilityRecipes && facilityRecipes.length > 0) {
+      const first = facilityRecipes[0];
+      const ok = await startProduction(facility.id, first.id, 1);
+      if (ok) addToast("Üretim başlatıldı!", "success");
+      else addToast("Üretim başlatılamadı", "error");
+      return;
+    }
+    const ok = await startProduction(facility.id);
+    if (ok) addToast("Üretim başlatıldı!", "success");
+    else addToast("Üretim başlatılamadı", "error");
   };
 
   const handleCollect = async (queueItemId: string) => {
+    if (inPrison) {
+      addToast("Cezaevindeyken toplama yapılamaz", "warning");
+      return;
+    }
     await collectProduction(facility.id);
     addToast("Üretim toplandı!", "success");
   };
 
   const handleUpgrade = async () => {
-    await upgradeFacility(facilityType);
-    addToast(`${config.name} yükseltildi! Lv.${facility.level + 1}`, "success");
+    const ok = await upgradeFacility(facility.id);
+    if (ok) addToast(`${config.name} yükseltildi! Lv.${facility.level + 1}`, "success");
+    else addToast(`${config.name} yükseltilemedi`, "error");
     setUpgradeConfirm(false);
   };
 
@@ -109,235 +125,315 @@ export default function FacilityDetailClient({ type }: { type: string }) {
         </button>
         <span className="text-3xl">{config.icon}</span>
         <div>
-          <h2 className="text-lg font-bold text-[var(--text-primary)]">
-            {config.name}
-          </h2>
-          <p className="text-xs text-[var(--text-muted)]">
-            Seviye {facility.level} • {config.description}
-          </p>
+          <h2 className="text-lg font-bold text-[var(--text-primary)]">{config.name}</h2>
+          <p className="text-xs text-[var(--text-muted)]">Seviye {facility.level} • {config.description}</p>
         </div>
       </div>
 
-      {/* Suspension */}
-      <Card>
-        <div className="p-3">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-[var(--text-secondary)]">🕵️ Şüphe</span>
-            <span
-              className="text-xs font-bold"
-              style={{
-                color:
-                  suspicion >= 80
-                    ? "var(--color-error)"
-                    : suspicion >= 50
-                    ? "var(--color-warning)"
-                    : "var(--color-success)",
-              }}
-            >
-              %{suspicion}
-            </span>
-          </div>
-          <ProgressBar
-            value={suspicion}
-            max={100}
-            color={suspicion >= 80 ? "health" : suspicion >= 50 ? "warning" : "success"}
-            size="sm"
-          />
-        </div>
-      </Card>
+        {/* Godot-style suspicion header - show both facility and global suspicion */}
+        <Card>
+          <div className="p-3 space-y-3">
+            {/* Facility-level suspicion */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm text-[var(--text-muted)]">🏢 Tesis Şüphesi</div>
+                <div className="text-xs text-[var(--text-muted)]">{suspicion}%</div>
+              </div>
+              <ProgressBar value={Math.min(100, Math.max(0, suspicion))} />
+            </div>
+            
+            {/* Global suspicion */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm text-[var(--text-muted)]">🌍 Genel Şüphe</div>
+                <div className="text-xs text-[var(--text-muted)]">{useFacilityStore.getState().getGlobalSuspicionRisk()}%</div>
+              </div>
+              <ProgressBar value={Math.min(100, Math.max(0, useFacilityStore.getState().getGlobalSuspicionRisk()))} />
+            </div>
 
-      {/* Rarity Rates — Level-based distribution */}
-      {facility && facilityRecipes.length > 0 && (
-        <Card variant="elevated">
-          <div className="p-4">
-            <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">
-              ✨ Nadirlik Oranları (Lv. {facility.level})
-            </h3>
-            <div className="grid grid-cols-5 gap-2">
-              {facilityRecipes.length > 0 && facilityRecipes[0].rarity_distribution ? (
-                Object.entries(facilityRecipes[0].rarity_distribution).map(
-                  ([rarity, percent]: [string, any]) => {
-                    const rarityColors: Record<string, string> = {
-                      COMMON: "text-[var(--text-muted)]",
-                      UNCOMMON: "text-[var(--color-success)]",
-                      RARE: "text-[var(--color-info)]",
-                      EPIC: "text-[var(--color-warning)]",
-                      LEGENDARY: "text-[var(--color-error)]",
-                    };
-                    const rarityEmoji: Record<string, string> = {
-                      COMMON: "⚪",
-                      UNCOMMON: "🟢",
-                      RARE: "🔵",
-                      EPIC: "🟣",
-                      LEGENDARY: "🟡",
-                    };
-                    return (
-                      <div key={rarity} className="text-center">
-                        <div className={`text-lg ${rarityColors[rarity] || ""}`}>
-                          {rarityEmoji[rarity]}
-                        </div>
-                        <p className={`text-[10px] font-medium ${rarityColors[rarity] || ""}`}>
-                          {rarity}
-                        </p>
-                        <p className="text-[10px] text-[var(--text-muted)]">
-                          {Number(percent).toFixed(1)}%
-                        </p>
-                      </div>
-                    );
+            {/* Bribe button */}
+            <div className="flex gap-2 pt-2">
+              <Button
+                size="sm"
+                variant="gold"
+                fullWidth
+                disabled={inPrison || gems < 5 || suspicion <= 0}
+                onClick={async () => {
+                  if (inPrison) { addToast('Cezaevindeyken rüşvet verilemez','warning'); return; }
+                  const ok = await useFacilityStore.getState().bribeOfficials(facilityType, 5);
+                  if (ok) {
+                    // Gems and suspicion will be updated via refetch in the store
+                    addToast('Rüşvet verildi', 'success');
+                  } else {
+                    addToast('Rüşvet başarısız', 'error');
                   }
-                )
-              ) : (
-                <p className="text-xs text-[var(--text-muted)]">Veri yükleniyorum...</p>
+                }}
+              >
+                💎 5 Rüşvet Ver
+              </Button>
+              {inPrison && (
+                <Button size="sm" variant="secondary" fullWidth onClick={async () => {
+                  const res = await payBail();
+                  if (res.success) addToast(`Kefalet ödendi (${res.gems_spent || 0} 💎)`, 'success');
+                  else addToast(res.error || 'Kefalet başarısız', 'error');
+                }}>💎 Kefaleti Öde</Button>
               )}
             </div>
           </div>
         </Card>
-      )}
 
-      {/* Resources */}
-      <Card variant="elevated">
-        <div className="p-4">
-          <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2">
-            📦 Üretilebilir Kaynaklar
-          </h3>
-          <div className="grid grid-cols-2 gap-2">
-            {config.resources.map((r, idx) => (
-              <button
-                key={r}
-                className={`text-xs rounded-lg p-2 text-left transition-colors ${
-                  selectedResource === idx
-                    ? "bg-[var(--accent)] bg-opacity-20 border border-[var(--accent)]"
-                    : "bg-[var(--bg-darker)]"
-                }`}
-                onClick={() => setSelectedResource(idx)}
-              >
-                <p className="font-medium text-[var(--text-primary)]">{r}</p>
-              </button>
-            ))}
-          </div>
-        </div>
-      </Card>
+      {/* Tabs header (Godot modal uses tabs) */}
+      <div className="flex gap-2">
+        <button
+          className={`px-3 py-1 rounded ${activeTab === 'overview' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-darker)]'}`}
+          onClick={() => setActiveTab('overview')}
+        >
+          Genel
+        </button>
+        <button
+          className={`px-3 py-1 rounded ${activeTab === 'recipes' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-darker)]'}`}
+          onClick={() => setActiveTab('recipes')}
+        >
+          Tarifler
+        </button>
+        <button
+          className={`px-3 py-1 rounded ${activeTab === 'queue' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-darker)]'}`}
+          onClick={() => setActiveTab('queue')}
+        >
+          Kuyruk
+        </button>
+      </div>
 
-      {/* Start Production */}
-      <Button
-        variant="primary"
-        fullWidth
-        isLoading={isLoading}
-        onClick={handleStartProduction}
-      >
-        ▶️ Üretim Başlat
-      </Button>
-
-      {/* Recipes — Available at current level */}
-      {facilityRecipes.length > 0 && (
-        <Card>
-          <div className="p-4">
-            <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">
-              📜 Mevcut Tarifler ({facilityRecipes.length})
-            </h3>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {facilityRecipes.map((recipe) => (
-                <div
-                  key={recipe.id}
-                  className="p-2 rounded-lg bg-[var(--bg-darker)] text-xs"
-                >
-                  <div className="flex items-start justify-between mb-1">
-                    <span className="font-medium text-[var(--text-primary)]">
-                      {recipe.output_item_id}
-                    </span>
-                    <span className="text-[var(--color-success)]">
-                      ×{recipe.output_quantity}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-[10px] text-[var(--text-muted)]">
-                    <div>⏱️ {recipe.duration_seconds}s</div>
-                    <div>
-                      {recipe.gold_cost > 0 ? `💰 ${recipe.gold_cost}` : ""}
+      {/* Overview tab: resources, start, upgrade, rarity table */}
+      {activeTab === 'overview' && (
+        <>
+          {/* Üretilebilir Kaynaklar - Non-selectable with current drop rate */}
+          <Card variant="elevated">
+            <div className="p-4">
+              <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">📦 Üretilebilir Kaynaklar (Lv.{facility.level})</h3>
+              <div className="grid grid-cols-2 gap-3">
+                {config.resources.map((item, idx) => {
+                  // Calculate rarity for this resource based on level
+                  const weights = useFacilityStore.getState().getRarityWeightsAtLevel(facility.level);
+                  const total = Object.values(weights).reduce((s, v) => s + v, 0);
+                  // Determine likely rarity (simple heuristic: index determines rarity tier)
+                  let rarityKey: keyof typeof weights = 'common';
+                  if (idx === 1 || idx === 2) rarityKey = 'uncommon';
+                  else if (idx === 3) rarityKey = 'rare';
+                  else if (idx === 4) rarityKey = 'legendary';
+                  
+                  const rarityPercent = (weights[rarityKey] / total) * 100;
+                  const rarityEmoji = { common: '⚪', uncommon: '🟢', rare: '🔵', epic: '🟣', legendary: '🟡' }[rarityKey] || '⚪';
+                  
+                  return (
+                    <div key={item} className="p-3 rounded-lg bg-[var(--bg-darker)]">
+                      <div className="text-lg mb-1">{rarityEmoji}</div>
+                      <p className="text-xs font-medium text-[var(--text-primary)]">{item}</p>
+                      <p className="text-[10px] text-[var(--text-muted)]">{rarityPercent.toFixed(1)}%</p>
                     </div>
-                    <div>
-                      Lv. {recipe.required_level} {recipe.min_facility_level > 1 ? `+Min.${recipe.min_facility_level}` : ""}
-                    </div>
-                    <div>✅ {recipe.success_rate}%</div>
-                  </div>
-                </div>
-              ))}
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+
+          <Button variant="primary" fullWidth isLoading={isLoading} onClick={handleStartProduction}>
+            ▶️ Üretim Başlat ({facility.level > 0 ? 'Lv.' + facility.level : '?'})
+          </Button>
+
+          {/* Nadirlik Tablo: Levels 1-20 */}
+          <Card variant="elevated">
+            <div className="p-4">
+              <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">✨ Nadirlik Oranları (1-20 Seviye)</h3>
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {Array.from({ length: 20 }, (_, i) => i + 1).map((level) => {
+                  const weights = useFacilityStore.getState().getRarityWeightsAtLevel(level);
+                  const total = Object.values(weights).reduce((s, v) => s + v, 0);
+                  const rarities: Array<{ name: string; key: keyof typeof weights; emoji: string }> = [
+                    { name: 'COMMON', key: 'common', emoji: '⚪' },
+                    { name: 'UNCOMMON', key: 'uncommon', emoji: '🟢' },
+                    { name: 'RARE', key: 'rare', emoji: '🔵' },
+                    { name: 'EPIC', key: 'epic', emoji: '🟣' },
+                    { name: 'LEGENDARY', key: 'legendary', emoji: '🟡' },
+                  ];
+                  
+                  return (
+                    <div key={level} className={`p-2 rounded-lg text-xs ${level === facility.level ? 'bg-[var(--accent)] bg-opacity-20 border border-[var(--accent)]' : 'bg-[var(--bg-darker)]'}`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium text-[var(--text-primary)]">Lv.{level}</span>
+                        <span className="text-[10px] text-[var(--text-muted)]">{level === facility.level ? '← Mevcut' : ''}</span>
+                      </div>
+                      <div className="grid grid-cols-5 gap-1">
+                        {rarities.map(({ name, key, emoji }) => {
+                          const pct = (weights[key] / total) * 100;
+                          const fmt = (key === 'epic' || key === 'legendary') ? pct.toFixed(1) : Math.round(pct).toFixed(0);
+                          return (
+                            <div key={key} className="text-center">
+                              <div className="text-sm">{emoji}</div>
+                              <p className="text-[9px] text-[var(--text-muted)]">{fmt}%</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </Card>
+
+          {/* Yükselt */}
+          <Card>
+            <div className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-[var(--text-primary)]">⬆️ Yükselt → Lv.{facility.level + 1}</h3>
+                  <p className="text-xs text-[var(--text-muted)]">Maliyet: 🪙 {formatGold(upgradeCost)}</p>
+                </div>
+                <Button variant="gold" size="sm" disabled={!canUpgrade || inPrison} onClick={() => setUpgradeConfirm(true)}>
+                  Yükselt
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </>
       )}
 
-      {/* Production Queue */}
-      {productionQueue.length > 0 && (
+      {/* Recipes tab: rarity + recipe list */}
+      {activeTab === 'recipes' && (
+        <>
+          {facility && facilityRecipes.length > 0 && (
+            <Card variant="elevated">
+              <div className="p-4">
+                <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">✨ Nadirlik Oranları (Lv. {facility.level})</h3>
+                <div className="grid grid-cols-5 gap-2">
+                  {facilityRecipes.length > 0 && facilityRecipes[0].rarity_distribution ? (
+                    Object.entries(facilityRecipes[0].rarity_distribution).map(([rarity, percent]: [string, any]) => {
+                      const rarityColors: Record<string, string> = {
+                        COMMON: "text-[var(--text-muted)]",
+                        UNCOMMON: "text-[var(--color-success)]",
+                        RARE: "text-[var(--color-info)]",
+                        EPIC: "text-[var(--color-warning)]",
+                        LEGENDARY: "text-[var(--color-error)]",
+                      };
+                      const rarityEmoji: Record<string, string> = { COMMON: "⚪", UNCOMMON: "🟢", RARE: "🔵", EPIC: "🟣", LEGENDARY: "🟡" };
+                      const upper = rarity.toUpperCase();
+                      const formatted = (upper === 'EPIC' || upper === 'LEGENDARY') ? Number(percent).toFixed(1) : Number(percent).toFixed(0);
+                      return (
+                        <div key={rarity} className="text-center">
+                          <div className={`text-lg ${rarityColors[rarity] || ""}`}>{rarityEmoji[rarity]}</div>
+                          <p className={`text-[10px] font-medium ${rarityColors[rarity] || ""}`}>{rarity}</p>
+                          <p className="text-[10px] text-[var(--text-muted)]">{formatted}%</p>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-xs text-[var(--text-muted)]">Veri yükleniyorum...</p>
+                  )}
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Fallback rarity display when recipes are missing: compute from store weights */}
+          {facilityRecipes.length === 0 && (
+            <Card variant="elevated">
+              <div className="p-4">
+                <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">✨ Nadirlik Oranları (Lv. {facility.level})</h3>
+                <div className="grid grid-cols-5 gap-2">
+                  {(() => {
+                    const weights = (useFacilityStore.getState()).getRarityWeightsAtLevel(facility.level);
+                    const total = Object.values(weights).reduce((s, v) => s + v, 0);
+                    const order: Array<[string, number]> = [
+                      ["COMMON", weights.common],
+                      ["UNCOMMON", weights.uncommon],
+                      ["RARE", weights.rare],
+                      ["EPIC", weights.epic],
+                      ["LEGENDARY", weights.legendary],
+                    ];
+                    return order.map(([k, v]) => {
+                      const pct = (v / total) * 100;
+                      const formatted = (k === 'EPIC' || k === 'LEGENDARY') ? pct.toFixed(1) : Math.round(pct).toFixed(0);
+                      return (
+                        <div key={k} className="text-center">
+                          <div className={`text-lg`}>{k === 'COMMON' ? '⚪' : k === 'UNCOMMON' ? '🟢' : k === 'RARE' ? '🔵' : k === 'EPIC' ? '🟣' : '🟡'}</div>
+                          <p className="text-[10px] font-medium">{k}</p>
+                          <p className="text-[10px] text-[var(--text-muted)]">{formatted}%</p>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {facilityRecipes.length > 0 && (
+            <Card>
+              <div className="p-4">
+                <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">📜 Mevcut Tarifler ({facilityRecipes.length})</h3>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {facilityRecipes.map((recipe) => (
+                    <div key={recipe.id} className="p-2 rounded-lg bg-[var(--bg-darker)] text-xs">
+                      <div className="flex items-start justify-between mb-1">
+                        <div>
+                          <span className="font-medium text-[var(--text-primary)]">{recipe.output_item_id}</span>
+                          <div className="text-[10px] text-[var(--text-muted)]">Lv. {recipe.required_level} {recipe.min_facility_level > 1 ? `• MinLv.${recipe.min_facility_level}` : ''}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-[var(--color-success)]">×{recipe.output_quantity}</div>
+                          <div className="mt-2">
+                            <Button size="sm" variant="primary" disabled={inPrison || isLoading} onClick={async () => {
+                              // start this specific recipe
+                              const ok = await startProduction(facility.id, recipe.id, 1);
+                              if (ok) addToast('Üretim başlatıldı', 'success');
+                              else addToast('Üretim başlatılamadı', 'error');
+                            }}>
+                              ▶ Başlat
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-[10px] text-[var(--text-muted)]">
+                        <div>⏱️ {recipe.duration_seconds}s</div>
+                        <div>{recipe.gold_cost > 0 ? `💰 ${recipe.gold_cost}` : ""}</div>
+                        <div>{recipe.production_speed_bonus ? `⏩ Speed+${recipe.production_speed_bonus}` : ''}</div>
+                        <div>✅ {recipe.success_rate}%</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Card>
+          )}
+        </>
+      )}
+
+      {/* Queue tab */}
+      {activeTab === 'queue' && productionQueue.length > 0 && (
         <Card>
           <div className="p-4">
-            <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2">
-              ⏳ Üretim Kuyruğu ({productionQueue.length})
-            </h3>
+            <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2">⏳ Üretim Kuyruğu ({productionQueue.length})</h3>
             <div className="space-y-2">
               {productionQueue.map((item) => (
-                <ProductionQueueRow
-                  key={item.id}
-                  item={item}
-                  onCollect={() => handleCollect(item.id)}
-                />
+                <ProductionQueueRow key={item.id} item={item} onCollect={() => handleCollect(item.id)} />
               ))}
             </div>
           </div>
         </Card>
       )}
 
-      {/* Upgrade */}
-      <Card>
-        <div className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-                ⬆️ Yükselt → Lv.{facility.level + 1}
-              </h3>
-              <p className="text-xs text-[var(--text-muted)]">
-                Maliyet: 🪙 {formatGold(upgradeCost)}
-              </p>
-            </div>
-            <Button
-              variant="gold"
-              size="sm"
-              disabled={!canUpgrade}
-              onClick={() => setUpgradeConfirm(true)}
-            >
-              Yükselt
-            </Button>
-          </div>
-        </div>
-      </Card>
-
       {/* Upgrade Confirm Modal */}
-      <Modal
-        isOpen={upgradeConfirm}
-        onClose={() => setUpgradeConfirm(false)}
-        title="Yükseltme Onayı"
-        size="sm"
-      >
+      <Modal isOpen={upgradeConfirm} onClose={() => setUpgradeConfirm(false)} title="Yükseltme Onayı" size="sm">
         <div className="space-y-3">
           <p className="text-sm text-[var(--text-secondary)]">
-            {config.name} tesisini Lv.{facility.level + 1}&apos;e yükseltmek için{" "}
-            <strong>{formatGold(upgradeCost)} altın</strong> harcanacak.
+            {config.name} tesisini Lv.{facility.level + 1}&apos;e yükseltmek için <strong>{formatGold(upgradeCost)} altın</strong> harcanacak.
           </p>
           <div className="flex gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              fullWidth
-              onClick={() => setUpgradeConfirm(false)}
-            >
+            <Button variant="secondary" size="sm" fullWidth onClick={() => setUpgradeConfirm(false)}>
               Vazgeç
             </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              fullWidth
-              isLoading={isLoading}
-              onClick={handleUpgrade}
-            >
+            <Button variant="primary" size="sm" fullWidth isLoading={isLoading} onClick={handleUpgrade} disabled={inPrison}>
               Onayla
             </Button>
           </div>
@@ -380,20 +476,12 @@ function ProductionQueueRow({
     <div className="flex items-center justify-between bg-[var(--bg-darker)] rounded-lg p-3">
       <div className="flex-1">
         <div className="flex items-center gap-2 mb-1">
-          <span className={`text-sm ${rarityColor[item.rarity.toLowerCase()] || ""}`}>
-            {rarityEmoji[item.rarity.toLowerCase()] || "⚪"}
-          </span>
-          <p className="text-xs font-medium text-[var(--text-primary)]">
-            {item.recipe_name}
-          </p>
+          <span className={`text-sm ${rarityColor[item.rarity.toLowerCase()] || ""}`}>{rarityEmoji[item.rarity.toLowerCase()] || "⚪"}</span>
+          <p className="text-xs font-medium text-[var(--text-primary)]">{item.recipe_name}</p>
           <span className="text-[10px] text-[var(--text-muted)]">×{item.quantity}</span>
         </div>
         <p className="text-[10px] text-[var(--text-muted)]">
-          {isComplete ? (
-            <span className="text-[var(--color-success)]">✅ Hazır!</span>
-          ) : (
-            `⏱️ ${formatted}`
-          )}
+          {isComplete ? <span className="text-[var(--color-success)]">✅ Hazır!</span> : `⏱️ ${formatted}`}
         </p>
       </div>
       {isComplete && (

@@ -41,17 +41,15 @@ export default function FacilitiesPage() {
   const level = usePlayerStore((s) => s.level);
   const gold = usePlayerStore((s) => s.gold);
   const gems = usePlayerStore((s) => s.gems);
+  const payBail = usePlayerStore((s) => (s as any).payBail);
+  const resetAllProduction = useFacilityStore((s) => (s as any).resetAllProduction);
   const prisonUntil = usePlayerStore((s) => s.prisonUntil);
   const addToast = useUiStore((s) => s.addToast);
 
   const inPrison = isInPrison(prisonUntil);
 
   // Global suspicion (average)
-  const globalSuspicion = useMemo(() => {
-    if (facilities.length === 0) return 0;
-    const total = facilities.reduce((sum, f) => sum + (f.suspicion || 0), 0);
-    return Math.round(total / facilities.length);
-  }, [facilities]);
+  const globalSuspicion = useFacilityStore((s) => s.getGlobalSuspicionRisk());
 
   useEffect(() => {
     fetchFacilities();
@@ -68,8 +66,10 @@ export default function FacilitiesPage() {
       addToast(`Seviye ${config.unlock_level} gerekli`, "warning");
       return;
     }
-    await unlockFacility(type);
-    addToast(`${config.name} açıldı!`, "success");
+    // Confirm like Godot
+    if (!window.confirm(`${config.name} açmak için ${formatGold(config.unlock_cost)} altını harcamak istediğinize emin misiniz?`)) return;
+    const ok = await unlockFacility(type);
+    if (ok) addToast(`${config.name} açıldı!`, "success");
   };
 
   const handleBribe = async () => {
@@ -85,8 +85,9 @@ export default function FacilitiesPage() {
       addToast("Şüphe zaten sıfır", "info");
       return;
     }
-    await bribeOfficials(highestSuspicion.facility_type || "mining", 5);
-    addToast("Rüşvet verildi, şüphe düştü!", "success");
+    if (!window.confirm(`Seçilen tesis: ${highestSuspicion.facility_type}. 5 Gem ile rüşvet vermek istiyor musunuz?`)) return;
+    const ok = await bribeOfficials(highestSuspicion.facility_type || "mining", 5);
+    if (ok) addToast("Rüşvet verildi, şüphe düştü!", "success");
   };
 
   // Group by tier
@@ -113,12 +114,44 @@ export default function FacilitiesPage() {
         <span className="text-xs text-[var(--text-muted)]">
           {facilities.length} / {Object.keys(FACILITY_TYPES).length} aktif
         </span>
+        {/* Dev/Test reset button (visible in development or for high-level accounts) */}
+        <div className="ml-2">
+          {(process.env.NODE_ENV === "development" || level >= 99) && (
+            <button
+              className="text-xs px-2 py-1 rounded bg-[var(--bg-darker)]"
+              onClick={async () => {
+                const res = await resetAllProduction();
+                if (res?.success) {
+                  addToast(`✅ Reset: ${res.facilities_reset} tesis, ${res.queue_items_deleted} kuyruk silindi`, "success");
+                } else {
+                  addToast("Reset başarısız", "error");
+                }
+              }}
+            >
+              🔧 TEST: Reset Tüm Üretim
+            </button>
+          )}
+        </div>
       </div>
 
       {inPrison && (
         <Card>
           <div className="p-3 text-center text-sm text-[var(--color-error)]">
             👮 Cezaevindeyken tesis işlemleri yapılamaz!
+            <div className="mt-2">
+              {/* Compute remaining minutes & bail cost */}
+              {prisonUntil && (
+                <PrisonBailRow prisonUntil={prisonUntil} gems={gems} onPay={async () => {
+                  const result = await payBail?.();
+                  if (result?.success) {
+                    addToast("✅ Kefalet ödendi, serbest bırakıldınız", "success");
+                    await fetchFacilities();
+                  } else {
+                    addToast(result?.error || "Kefalet başarısız", "error");
+                  }
+                }} />
+              )}
+            </div>
           </div>
         </Card>
       )}
@@ -178,6 +211,10 @@ export default function FacilitiesPage() {
                       : "bg-[var(--bg-darker)] border-[var(--border-subtle)] opacity-60"
                   }`}
                   onClick={() => {
+                    if (inPrison) {
+                      addToast("Cezaevindeyken detaylara erişilemez. Kefalet ödeyerek serbest kalabilirsiniz.", "warning");
+                      return;
+                    }
                     if (isUnlocked) {
                       router.push(`/facilities/${type}`);
                     } else if (canUnlock && !inPrison) {
@@ -225,6 +262,26 @@ export default function FacilitiesPage() {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function PrisonBailRow({ prisonUntil, gems, onPay }: { prisonUntil: string | null; gems: number; onPay: () => Promise<void> }) {
+  if (!prisonUntil) return null;
+  const remainingMs = Math.max(0, Date.parse(prisonUntil) - Date.now());
+  const remainingMins = Math.ceil(remainingMs / 60000);
+  const bailCost = Math.max(1, remainingMins);
+
+  return (
+    <div className="mt-2 flex items-center justify-center gap-2">
+      <span className="text-xs">⏱️ Kalan: {remainingMins} dk</span>
+      <button
+        className={`text-xs px-2 py-1 rounded ${gems >= bailCost ? 'bg-[var(--accent)]' : 'bg-[var(--bg-darker)] opacity-60'}`}
+        disabled={gems < bailCost}
+        onClick={async () => await onPay()}
+      >
+        💎 Kefalet Öde ({bailCost} Gem)
+      </button>
     </div>
   );
 }
