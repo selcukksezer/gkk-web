@@ -347,6 +347,52 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
     const res = await api.rpc("start_facility_production", params);
     if (res.success) {
       playerStore.consumeEnergy(PRODUCTION_ENERGY_COST);
+      // Optimistic UI update: insert a temporary queue item so the modal
+      // shows the new production immediately while we wait for server refresh.
+      try {
+        const facility = get().getFacilityById(facilityId);
+        if (facility) {
+          // Determine duration from recipe if available
+          let durationMs = PRODUCTION_DURATION_SECONDS * 1000;
+          if (recipeId && get().recipes[facility.facility_type]) {
+            const found = get().recipes[facility.facility_type].find((r: any) => r.id === recipeId);
+            if (found && (found.duration_seconds || found.duration)) {
+              const secs = found.duration_seconds ?? found.duration;
+              durationMs = (Number(secs) || PRODUCTION_DURATION_SECONDS) * 1000;
+            }
+          }
+
+          const nowIso = new Date().toISOString();
+          const completesAt = new Date(Date.now() + durationMs).toISOString();
+          const tempItem = {
+            id: `tmp-${Date.now()}`,
+            facility_id: facilityId,
+            recipe_id: recipeId || "unknown_recipe",
+            recipe_name: (recipeId && get().recipes[facility.facility_type]) ?
+              (get().recipes[facility.facility_type].find((r: any) => r.id === recipeId)?.output_item_id || recipeId) :
+              recipeId || "Auto",
+            quantity: quantity || 1,
+            rarity: "common",
+            started_at: nowIso,
+            completes_at: completesAt,
+            is_completed: false,
+          } as any;
+
+          set((state) => ({
+            facilities: state.facilities.map((f) => {
+              if (f.id !== facilityId) return f;
+              return {
+                ...f,
+                production_started_at: f.production_started_at || nowIso,
+                facility_queue: [...(f.facility_queue || []), tempItem],
+              } as any;
+            }),
+          }));
+        }
+      } catch (err) {
+        // non-fatal; continue to normal refresh
+        console.warn("Optimistic queue update failed:", err);
+      }
       // Mimic Godot timing: wait briefly for server-side events to settle, then refresh
       await new Promise((r) => setTimeout(r, 700));
       await get().fetchFacilities(true);

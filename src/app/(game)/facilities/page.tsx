@@ -77,17 +77,15 @@ export default function FacilitiesPage() {
       addToast("Rüşvet için 5 gem gerekli", "warning");
       return;
     }
-    // Bribe the facility with highest suspicion
-    const highestSuspicion = [...facilities]
-      .filter((f) => f.suspicion > 0)
-      .sort((a, b) => b.suspicion - a.suspicion)[0];
-    if (!highestSuspicion) {
-      addToast("Şüphe zaten sıfır", "info");
+    // Bribe using any unlocked facility type (we only track global suspicion)
+    const unlocked = facilities.find((f) => !!f);
+    if (!unlocked) {
+      addToast("Rüşve t için açık tesis yok", "info");
       return;
     }
-    if (!window.confirm(`Seçilen tesis: ${highestSuspicion.facility_type}. 5 Gem ile rüşvet vermek istiyor musunuz?`)) return;
-    const ok = await bribeOfficials(highestSuspicion.facility_type || "mining", 5);
-    if (ok) addToast("Rüşvet verildi, şüphe düştü!", "success");
+    if (!window.confirm(`Seçilen tesis: ${unlocked.facility_type}. 5 Gem ile rüşvet vermek istiyor musunuz?`)) return;
+    const ok = await bribeOfficials(unlocked.facility_type || "mining", 5);
+    if (ok) addToast("Rüşvet verildi, genel şüphe güncellendi!", "success");
   };
 
   // Group by tier
@@ -239,17 +237,7 @@ export default function FacilitiesPage() {
                         Lv.{playerFacility.level}
                         {productionCount > 0 && ` • ⏳${productionCount}`}
                       </p>
-                      {(playerFacility.suspicion || 0) > 0 && (
-                        <div className="w-full h-1 rounded-full bg-[var(--bg-darker)] mt-1">
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{
-                              width: `${playerFacility.suspicion}%`,
-                              backgroundColor: suspicionColor(playerFacility.suspicion || 0),
-                            }}
-                          />
-                        </div>
-                      )}
+                      
                     </div>
                   ) : (
                     <p className="text-[9px] text-[var(--text-muted)] mt-1">

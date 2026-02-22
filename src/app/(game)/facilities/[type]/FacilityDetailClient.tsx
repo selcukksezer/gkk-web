@@ -75,7 +75,7 @@ export default function FacilityDetailClient({ type }: { type: string }) {
   );
   const canUpgrade = gold >= upgradeCost;
   const productionQueue = facility.facility_queue || [];
-  const suspicion = facility.suspicion || 0;
+  const globalSuspicion = useFacilityStore((s) => s.getGlobalSuspicionRisk());
   const gems = usePlayerStore((s) => s.gems);
   const payBail = usePlayerStore((s) => s.payBail);
 
@@ -89,12 +89,12 @@ export default function FacilityDetailClient({ type }: { type: string }) {
       const first = facilityRecipes[0];
       const ok = await startProduction(facility.id, first.id, 1);
       if (ok) addToast("Üretim başlatıldı!", "success");
-      else addToast("Üretim başlatılamadı", "error");
+      else addToast(useFacilityStore.getState().error || "Üretim başlatılamadı", "error");
       return;
     }
     const ok = await startProduction(facility.id);
     if (ok) addToast("Üretim başlatıldı!", "success");
-    else addToast("Üretim başlatılamadı", "error");
+    else addToast(useFacilityStore.getState().error || "Üretim başlatılamadı", "error");
   };
 
   const handleCollect = async (queueItemId: string) => {
@@ -130,39 +130,30 @@ export default function FacilityDetailClient({ type }: { type: string }) {
         </div>
       </div>
 
-        {/* Godot-style suspicion header - show both facility and global suspicion */}
+        {/* Global suspicion header + bribe */}
         <Card>
           <div className="p-3 space-y-3">
-            {/* Facility-level suspicion */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-sm text-[var(--text-muted)]">🏢 Tesis Şüphesi</div>
-                <div className="text-xs text-[var(--text-muted)]">{suspicion}%</div>
-              </div>
-              <ProgressBar value={Math.min(100, Math.max(0, suspicion))} />
-            </div>
-            
-            {/* Global suspicion */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <div className="text-sm text-[var(--text-muted)]">🌍 Genel Şüphe</div>
-                <div className="text-xs text-[var(--text-muted)]">{useFacilityStore.getState().getGlobalSuspicionRisk()}%</div>
+                <div className="text-xs text-[var(--text-muted)]">{globalSuspicion}%</div>
               </div>
-              <ProgressBar value={Math.min(100, Math.max(0, useFacilityStore.getState().getGlobalSuspicionRisk()))} />
+              <ProgressBar value={Math.min(100, Math.max(0, globalSuspicion))} />
             </div>
 
-            {/* Bribe button */}
             <div className="flex gap-2 pt-2">
               <Button
                 size="sm"
                 variant="gold"
                 fullWidth
-                disabled={inPrison || gems < 5 || suspicion <= 0}
+                disabled={inPrison || gems < 5 || globalSuspicion <= 0}
                 onClick={async () => {
                   if (inPrison) { addToast('Cezaevindeyken rüşvet verilemez','warning'); return; }
-                  const ok = await useFacilityStore.getState().bribeOfficials(facilityType, 5);
+                  // Bribe using any unlocked facility type (server requires a type)
+                  const unlocked = useFacilityStore.getState().facilities.find((f) => !!f);
+                  const typeToBribe = unlocked?.facility_type || Object.keys(FACILITIES_CONFIG)[0];
+                  const ok = await useFacilityStore.getState().bribeOfficials(typeToBribe as any, 5);
                   if (ok) {
-                    // Gems and suspicion will be updated via refetch in the store
                     addToast('Rüşvet verildi', 'success');
                   } else {
                     addToast('Rüşvet başarısız', 'error');
@@ -409,18 +400,66 @@ export default function FacilityDetailClient({ type }: { type: string }) {
         </>
       )}
 
-      {/* Queue tab */}
-      {activeTab === 'queue' && productionQueue.length > 0 && (
-        <Card>
-          <div className="p-4">
-            <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2">⏳ Üretim Kuyruğu ({productionQueue.length})</h3>
-            <div className="space-y-2">
-              {productionQueue.map((item) => (
-                <ProductionQueueRow key={item.id} item={item} onCollect={() => handleCollect(item.id)} />
-              ))}
+      {/* Queue tab — Always show (Godot behavior: status + items or start button) */}
+      {activeTab === 'queue' && (
+        <>
+          {/* Status Header */}
+          <Card className="bg-gradient-to-r from-[var(--bg-darker)] to-[var(--bg-card)]">
+            <div className="p-3">
+              {productionQueue.length > 0 && !productionQueue.every((q) => q.is_completed) ? (
+                // Active production
+                <div>
+                  <p className="text-xs text-[var(--text-muted)] mb-1">🟢 Üretim Sürüyor</p>
+                  <p className="text-lg font-semibold text-[var(--color-success)]">Kuyruk: {productionQueue.length} item</p>
+                </div>
+              ) : productionQueue.length > 0 && productionQueue.some((q) => q.is_completed) ? (
+                // Ready to collect
+                <div>
+                  <p className="text-xs text-[var(--text-muted)] mb-1">🟡 Toplama Hazır</p>
+                  <p className="text-lg font-semibold text-[var(--color-warning)]">{productionQueue.filter((q) => q.is_completed).length} kaynak hazır</p>
+                </div>
+              ) : (
+                // Stopped
+                <div>
+                  <p className="text-xs text-[var(--text-muted)] mb-1">🔴 Üretim Durdu</p>
+                  <p className="text-lg font-semibold text-[var(--text-secondary)]">Depo boş</p>
+                </div>
+              )}
             </div>
-          </div>
-        </Card>
+          </Card>
+
+          {/* Queue Items */}
+          {productionQueue.length > 0 && (
+            <Card>
+              <div className="p-4">
+                <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">⏳ Üretim Kuyruğu ({productionQueue.length})</h3>
+                <div className="space-y-2">
+                  {productionQueue.map((item) => (
+                    <ProductionQueueRow key={item.id} item={item} onCollect={() => handleCollect(item.id)} />
+                  ))}
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Start Production Button (shown when queue is empty) */}
+          {productionQueue.length === 0 && (
+            <div className="space-y-2">
+              <Button
+                variant="primary"
+                fullWidth
+                isLoading={isLoading}
+                disabled={inPrison}
+                onClick={handleStartProduction}
+              >
+                ⚡ Üretimi Başlat
+              </Button>
+              <p className="text-xs text-[var(--text-muted)] text-center">
+                Enerji harcı: 50
+              </p>
+            </div>
+          )}
+        </>
       )}
 
       {/* Upgrade Confirm Modal */}
