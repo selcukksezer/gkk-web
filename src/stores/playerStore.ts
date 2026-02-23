@@ -16,6 +16,10 @@ import { supabase } from "@/lib/supabase";
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
 const SYNC_DEBOUNCE_MS = 2000;
 
+// Prison status polling interval (Godot: State.in_prison updated via signals)
+let prisonPollTimer: ReturnType<typeof setInterval> | null = null;
+const PRISON_POLL_INTERVAL_MS = 5000; // Check every 5 seconds
+
 function debouncedSync() {
   if (syncTimer) clearTimeout(syncTimer);
   syncTimer = setTimeout(() => {
@@ -38,17 +42,29 @@ interface PlayerState {
   pvpRating: number;
   pvpWins: number;
   pvpLosses: number;
+  
+  // Hospital status (Godot: StateStore.gd lines 89-96)
   inHospital: boolean;
   hospitalUntil: string | null;
   hospitalReason: string | null;
+  
+  // Prison status (Godot: StateStore.gd lines 97-104 — REAL-TIME VIA SIGNALS)
+  // Must be computed dynamically from prisonUntil (not just set once)
   inPrison: boolean;
   prisonUntil: string | null;
   prisonReason: string | null;
+  
+  // Global Suspicion (Godot: StateStore.gd line 105)
+  globalSuspicionLevel: number;
+  
+  // Bribe tracking (Godot: FacilityManager.gd)
   lastBribeAt: string | null;
+  
   isLoading: boolean;
 
   // Computed
   isRestricted: () => boolean;
+  computePrisonStatus: () => { inPrison: boolean; daysRemaining: number };
 
   // Actions
   loadPlayerData: (data: Record<string, unknown>) => void;
@@ -62,6 +78,8 @@ interface PlayerState {
   updatePlayerData: (updates: Partial<Record<string, unknown>>) => void;
   syncToSupabase: () => Promise<void>;
   refreshData: () => Promise<void>;
+  startPrisonPolling: () => void;
+  stopPrisonPolling: () => void;
   payBail: () => Promise<{ success: boolean; gems_spent?: number; error?: string }>;
   reset: () => void;
 }
@@ -90,7 +108,10 @@ const initialState = {
   inPrison: false,
   prisonUntil: null as string | null,
   prisonReason: null as string | null,
+  globalSuspicionLevel: 0,
   lastBribeAt: null as string | null,
+  // Timestamp (ms) until which client should suppress server-updated globalSuspicionLevel
+  bribeActiveUntil: null as number | null,
   isLoading: false,
 };
 
@@ -100,6 +121,21 @@ export const usePlayerStore = create<PlayerState>()(
       ...initialState,
 
       isRestricted: () => get().inHospital || get().inPrison,
+
+      // Godot: StateStore.gd lines 141-153 — in_prison computed from prison_until
+      computePrisonStatus: () => {
+        const { prisonUntil } = get();
+        const now = Date.now();
+        const prisonTime = prisonUntil ? Date.parse(prisonUntil) : 0;
+        
+        if (Number.isNaN(prisonTime) || prisonTime <= now) {
+          return { inPrison: false, daysRemaining: 0 };
+        }
+        
+        const msRemaining = prisonTime - now;
+        const daysRemaining = Math.ceil(msRemaining / (1000 * 60 * 60 * 24));
+        return { inPrison: true, daysRemaining };
+      },
 
   loadPlayerData: (data: Record<string, unknown>) => {
     // Attempt to drill down to the actual DB row or user_metadata if it's nested
@@ -126,7 +162,24 @@ export const usePlayerStore = create<PlayerState>()(
     const prisonUntil = ((dbData.prison_until || dbData.prisonUntil || data.prison_until) as string) ?? null;
     const prisonReason = ((dbData.prison_reason || dbData.prisonReason || data.prison_reason) as string) ?? null;
 
+    const globalSuspicionLevel = ((dbData.global_suspicion_level || dbData.globalSuspicionLevel || data.global_suspicion_level) as number) ?? 0;
     const lastBribeAt = ((dbData.last_bribe_at || data.last_bribe_at) as string) ?? null;
+
+    // Godot: StateStore.gd line 141 — in_prison computed at load time from prisonUntil
+    const prisonStatus = { inPrison: false, daysRemaining: 0 };
+    if (prisonUntil) {
+      const prisonTime = Date.parse(prisonUntil);
+      if (!Number.isNaN(prisonTime) && prisonTime > Date.now()) {
+        prisonStatus.inPrison = true;
+        prisonStatus.daysRemaining = Math.ceil((prisonTime - Date.now()) / (1000 * 60 * 60 * 24));
+      }
+    }
+
+    // Respect local bribe override: if bribeActiveUntil is set and still in future,
+    // keep the existing store globalSuspicionLevel to avoid immediate override by server.
+    const now = Date.now();
+    const localBribeUntil = (get() as any).bribeActiveUntil as number | null;
+    const finalGlobal = localBribeUntil && now < localBribeUntil ? get().globalSuspicionLevel : globalSuspicionLevel;
 
     set({
       player: finalPlayerObject,
@@ -145,10 +198,12 @@ export const usePlayerStore = create<PlayerState>()(
       inHospital: isActive(hospitalUntil),
       hospitalUntil,
       hospitalReason,
-      inPrison: isActive(prisonUntil),
+      inPrison: prisonStatus.inPrison,
       prisonUntil,
       prisonReason,
+      globalSuspicionLevel: finalGlobal,
       lastBribeAt,
+      bribeActiveUntil: get().bribeActiveUntil ?? null,
     });
   },
 
@@ -240,7 +295,20 @@ export const usePlayerStore = create<PlayerState>()(
     set((state) => {
       if (!state.player) return state;
       const updated = { ...state.player, ...updates } as unknown as PlayerProfile;
-      return { player: updated, profile: updated };
+
+      // Extract global_suspicion_level if in updates
+      const incomingGlobal = (updates.global_suspicion_level as number) ?? state.globalSuspicionLevel;
+
+      // If we have a recent local bribe override, suppress server-updated globalSuspicionLevel
+      const now = Date.now();
+      const bribeUntil = (state as any).bribeActiveUntil as number | null;
+      const finalGlobal = bribeUntil && now < bribeUntil ? state.globalSuspicionLevel : incomingGlobal;
+
+      return {
+        player: updated,
+        profile: updated,
+        globalSuspicionLevel: finalGlobal,
+      };
     });
   },
 
@@ -263,6 +331,7 @@ export const usePlayerStore = create<PlayerState>()(
   },
 
   // ── Pay bail / Release from prison via RPC ─────────────────
+  // Godot: PrisonManager.gd — pay_bail() -> release_from_prison RPC
   payBail: async () => {
     set({ isLoading: true });
     try {
@@ -270,12 +339,13 @@ export const usePlayerStore = create<PlayerState>()(
       if (res && (res as any).success) {
         const gemsSpent = (res.gems_spent || res.data?.gems_spent || (res as any).gems_spent || 0) as number;
         if (gemsSpent > 0) {
-          // subtract gems (delta)
           get().updateGems(-gemsSpent, true);
         }
-        // Clear prison flags
+        
+        // Godot: PrisonManager.gd lines 32-33 — Clear prison fields
         set({ inPrison: false, prisonUntil: null, prisonReason: null });
-        // Refresh profile from server to ensure authoritative state
+        
+        // Godot: PrisonManager.gd line 35 — refresh_data()
         await get().fetchProfile();
         set({ isLoading: false });
         return { success: true, gems_spent: gemsSpent };
@@ -285,6 +355,34 @@ export const usePlayerStore = create<PlayerState>()(
     } catch (err) {
       set({ isLoading: false });
       return { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  },
+
+  // Godot: StateStore.gd line 310 — Real-time prison status polling
+  // Polls server every 5 seconds to check if prison_until has changed
+  startPrisonPolling: () => {
+    if (prisonPollTimer) return; // Already running
+    
+    prisonPollTimer = setInterval(async () => {
+      try {
+        const state = get();
+        if (state.prisonUntil) {
+          const prisonStatus = state.computePrisonStatus();
+          if (!prisonStatus.inPrison) {
+            // Prison time expired — update state
+            set({ inPrison: false, prisonUntil: null, prisonReason: null });
+          }
+        }
+      } catch (err) {
+        console.warn("[PlayerStore] Prison polling error:", err);
+      }
+    }, PRISON_POLL_INTERVAL_MS);
+  },
+
+  stopPrisonPolling: () => {
+    if (prisonPollTimer) {
+      clearInterval(prisonPollTimer);
+      prisonPollTimer = null;
     }
   },
 
@@ -316,6 +414,7 @@ export const usePlayerStore = create<PlayerState>()(
         inPrison: state.inPrison,
         prisonUntil: state.prisonUntil,
         prisonReason: state.prisonReason,
+        globalSuspicionLevel: state.globalSuspicionLevel,
         lastBribeAt: state.lastBribeAt,
       }),
     }

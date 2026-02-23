@@ -24,6 +24,8 @@ export default function GameLayout({
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const checkSession = useAuthStore((s) => s.checkSession);
   const fetchProfile = usePlayerStore((s) => s.fetchProfile);
+  const startPrisonPolling = usePlayerStore((s) => s.startPrisonPolling);
+  const stopPrisonPolling = usePlayerStore((s) => s.stopPrisonPolling);
   const [isChecking, setIsChecking] = useState(true);
 
   // Energy regen timer
@@ -37,10 +39,17 @@ export default function GameLayout({
         return;
       }
       await fetchProfile();
+      // Godot: StateStore.gd line 310 — Start real-time prison status polling
+      startPrisonPolling();
       setIsChecking(false);
     }
     init();
-  }, [checkSession, fetchProfile, router]);
+
+    // Cleanup on unmount
+    return () => {
+      stopPrisonPolling();
+    };
+  }, [checkSession, fetchProfile, startPrisonPolling, stopPrisonPolling, router]);
 
   if (isChecking) {
     return <LoadingScreen message="Oturum kontrol ediliyor..." />;

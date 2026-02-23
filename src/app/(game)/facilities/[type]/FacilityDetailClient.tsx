@@ -5,10 +5,11 @@
 
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useFacilityStore } from "@/stores/facilityStore";
 import { usePlayerStore } from "@/stores/playerStore";
+import { useInventoryStore } from "@/stores/inventoryStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useCountdown } from "@/hooks/useCountdown";
 import { Card } from "@/components/ui/Card";
@@ -32,6 +33,7 @@ export default function FacilityDetailClient({ type }: { type: string }) {
   const fetchFacilities = useFacilityStore((s) => s.fetchFacilities);
   const isLoading = useFacilityStore((s) => s.isLoading);
   const gold = usePlayerStore((s) => s.gold);
+  const energy = usePlayerStore((s) => s.energy);
   const inPrison = usePlayerStore((s) => s.inPrison);
   const addToast = useUiStore((s) => s.addToast);
 
@@ -75,29 +77,57 @@ export default function FacilityDetailClient({ type }: { type: string }) {
   const productionTargetDate = productionStartedAt
     ? new Date(Date.parse(productionStartedAt) + PRODUCTION_DURATION_SECONDS * 1000).toISOString()
     : null;
-  // Compute live/estimated produced resources when production has started but queue is empty
-  const liveResources = useMemo(() => {
-    if (!productionStartedAt) return [] as Array<{ item_id: string; rarity: string; quantity: number }>;
-    // Estimate total possible produced count during the duration based on base_rate (per hour)
-    const baseRate = config.base_rate || 1; // per hour
-    const totalPossible = Math.max(1, Math.round(baseRate * (PRODUCTION_DURATION_SECONDS / 3600)));
-    // Compute produced so far based on elapsed time
+
+  // ── Godot ile birebir: gerçek zamanlı üretilen kaynaklar ──────────────
+  // Godot: hours_elapsed * base_rate * facility_level * 10 (test 10x multiplier)
+  const [liveResources, setLiveResources] = useState<Array<{ item_id: string; rarity: string; quantity: number }>>([]);
+
+  const calcLiveResources = useCallback(() => {
+    if (!productionStartedAt) {
+      setLiveResources([]);
+      return;
+    }
+    const baseRate = config.base_rate || 10;
+    const durationMs = PRODUCTION_DURATION_SECONDS * 1000;
     const startedTs = Date.parse(productionStartedAt);
     const now = Date.now();
-    const elapsedMs = Math.max(0, Math.min(now - startedTs, PRODUCTION_DURATION_SECONDS * 1000));
-    const producedSoFar = Math.floor((elapsedMs / (PRODUCTION_DURATION_SECONDS * 1000)) * totalPossible);
-    const items = useFacilityStore.getState().calculateIdleResources(facilityType, facility.level, productionStartedAt, Math.max(1, producedSoFar));
-    // Aggregate counts by item_id and rarity
+    const elapsedMs = Math.max(0, Math.min(now - startedTs, durationMs));
+
+    // Godot formülü: int(hours_elapsed * base_rate * level * 10)
+    const hoursElapsed = elapsedMs / 3_600_000;
+    const totalProduced = Math.floor(hoursElapsed * baseRate * (facility.level || 1) * 10);
+
+    if (totalProduced <= 0) {
+      setLiveResources([]);
+      return;
+    }
+
+    const items = useFacilityStore.getState().calculateIdleResources(
+      facilityType,
+      facility.level || 1,
+      productionStartedAt,
+      Math.min(totalProduced, 100)
+    );
+
+    // item_id + rarity'ye göre topla
     const agg: Record<string, { item_id: string; rarity: string; quantity: number }> = {};
     for (const it of items) {
       const key = `${it.item_id}::${it.rarity}`;
       if (!agg[key]) agg[key] = { item_id: it.item_id, rarity: it.rarity, quantity: 0 };
       agg[key].quantity += 1;
     }
-    return Object.values(agg);
+    setLiveResources(Object.values(agg));
   }, [productionStartedAt, facilityType, facility.level, config.base_rate]);
 
-  // Poll facility data briefly while production is active so UI updates when complete
+  // İlk render + her 5 saniyede kaynak hesapla (Godot'ta queue_update_timer gibi)
+  useEffect(() => {
+    calcLiveResources();
+    if (!productionStartedAt) return;
+    const id = setInterval(calcLiveResources, 5_000);
+    return () => clearInterval(id);
+  }, [productionStartedAt, calcLiveResources]);
+
+  // ── Üretim sürüyorken polling (forceRefresh=true ile cache atlatılır) ──
   useEffect(() => {
     if (!productionStartedAt) return;
     const startedTs = Date.parse(productionStartedAt);
@@ -105,26 +135,23 @@ export default function FacilityDetailClient({ type }: { type: string }) {
     let stopped = false;
 
     const tick = async () => {
-      const now = Date.now();
-      const elapsed = now - startedTs;
-      // If production finished on server, refetch and stop polling
+      if (stopped) return;
+      const elapsed = Date.now() - startedTs;
+      // Üretim tamamlandıysa force refresh ile son veriyi çek
+      await fetchFacilities(true);
       if (elapsed >= durationMs) {
-        await fetchFacilities();
         stopped = true;
-        return;
       }
-      // otherwise refresh lightweightly to update UI
-      await fetchFacilities();
     };
 
-    const id = setInterval(() => { if (!stopped) tick(); }, 2000);
-    // initial tick
-    tick();
-    return () => clearInterval(id);
+    // Her 10 saniyede sunucudan taze veri al (Godot: facilities_updated signal)
+    const id = setInterval(tick, 10_000);
+    tick(); // ilk anında da çalıştır
+    return () => {
+      stopped = true;
+      clearInterval(id);
+    };
   }, [productionStartedAt, fetchFacilities]);
-  const globalSuspicion = useFacilityStore((s) => s.getGlobalSuspicionRisk());
-  const gems = usePlayerStore((s) => s.gems);
-  const payBail = usePlayerStore((s) => s.payBail);
 
   const handleStartProduction = async () => {
     if (inPrison) {
@@ -138,12 +165,67 @@ export default function FacilityDetailClient({ type }: { type: string }) {
   };
 
   const handleCollect = async (queueItemId: string) => {
+    // Godot: DetailModal.gd line 682 — Prison check
     if (inPrison) {
       addToast("Cezaevindeyken toplama yapılamaz", "warning");
       return;
     }
-    await collectProduction(facility.id);
-    addToast("Üretim toplandı!", "success");
+
+    // Calculate resources that will be collected
+    const collectedCount = liveResources.reduce((sum, r) => sum + r.quantity, 0);
+    
+    // Godot: FacilityManager.gd lines 1070-1077 — Generate deterministic seed
+    const hashString = (str: string): number => {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash |= 0;
+      }
+      return hash;
+    };
+    const seed = Math.abs(hashString(productionStartedAt || "")) % 2147483647;
+    
+    console.log("[FacilityDetail] Collecting resources:", {
+      facilityId: facility.id,
+      collectedCount,
+      seed,
+      productionStartedAt,
+    });
+
+    // Godot: FacilityManager.gd lines 1085-1186
+    // Call collectResourcesV2 with deterministic seed
+    const collectResult = await useFacilityStore
+      .getState()
+      .collectResourcesV2(facility.id, seed, collectedCount);
+
+      if (collectResult) {
+      // Godot: DetailModal.gd lines 692-696 — Handle admission_occurred
+      const admissionOccurred = collectResult.admission_occurred || false;
+      
+      if (admissionOccurred) {
+        // Godot: DetailModal.gd line 693 — Show prison toast, resources lost
+        addToast(`⚠️  Hapse Düştünüz! ${collectedCount} kaynak kaybedildi`, "error");
+        // Note: In Godot, FacilityManager.collect_facility_resources() calls
+        // Scenes.change_scene("PrisonScreen") automatically after admission
+        // On Web, we let the app router handle navigation when inPrison becomes true
+        await usePlayerStore.getState().refreshData();
+      } else {
+        // Godot: DetailModal.gd line 695 — Show success toast
+        addToast(`✅ Toplandı: ${collectedCount} kaynak`, "success");
+      }
+      
+      // Godot: DetailModal.gd line 696 — _populate_queue_tab() (refresh UI)
+      // On Web, we refresh facilities, player and inventory (inventory only when not imprisoned)
+      await fetchFacilities(true);
+      await usePlayerStore.getState().refreshData();
+
+      // Always attempt inventory refresh — server authoritative will reflect no-change when admission occurred
+      await useInventoryStore.getState().fetchInventory();
+    } else {
+      const error = useFacilityStore.getState().error;
+      addToast(`❌ ${error || "Toplama başarısız"}`, "error");
+    }
   };
 
   const handleUpgrade = async () => {
@@ -170,48 +252,7 @@ export default function FacilityDetailClient({ type }: { type: string }) {
         </div>
       </div>
 
-        {/* Global suspicion header + bribe */}
-        <Card>
-          <div className="p-3 space-y-3">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-sm text-[var(--text-muted)]">🌍 Genel Şüphe</div>
-                <div className="text-xs text-[var(--text-muted)]">{globalSuspicion}%</div>
-              </div>
-              <ProgressBar value={Math.min(100, Math.max(0, globalSuspicion))} />
-            </div>
-
-            <div className="flex gap-2 pt-2">
-              <Button
-                size="sm"
-                variant="gold"
-                fullWidth
-                disabled={inPrison || gems < 5 || globalSuspicion <= 0}
-                onClick={async () => {
-                  if (inPrison) { addToast('Cezaevindeyken rüşvet verilemez','warning'); return; }
-                  // Bribe using any unlocked facility type (server requires a type)
-                  const unlocked = useFacilityStore.getState().facilities.find((f) => !!f);
-                  const typeToBribe = unlocked?.facility_type || Object.keys(FACILITIES_CONFIG)[0];
-                  const ok = await useFacilityStore.getState().bribeOfficials(typeToBribe as any, 5);
-                  if (ok) {
-                    addToast('Rüşvet verildi', 'success');
-                  } else {
-                    addToast('Rüşvet başarısız', 'error');
-                  }
-                }}
-              >
-                💎 5 Rüşvet Ver
-              </Button>
-              {inPrison && (
-                <Button size="sm" variant="secondary" fullWidth onClick={async () => {
-                  const res = await payBail();
-                  if (res.success) addToast(`Kefalet ödendi (${res.gems_spent || 0} 💎)`, 'success');
-                  else addToast(res.error || 'Kefalet başarısız', 'error');
-                }}>💎 Kefaleti Öde</Button>
-              )}
-            </div>
-          </div>
-        </Card>
+      
 
       {/* Tabs header (Godot modal uses tabs) */}
       <div className="flex gap-2">
@@ -262,9 +303,32 @@ export default function FacilityDetailClient({ type }: { type: string }) {
             </div>
           </Card>
 
-          <Button variant="primary" fullWidth isLoading={isLoading} onClick={handleStartProduction}>
-            ▶️ Üretim Başlat ({facility.level > 0 ? 'Lv.' + facility.level : '?'})
-          </Button>
+          {/* Godot: üretim devam ederken başlat butonunu gösterme */}
+          {productionStartedAt && !productionTargetDate ? null : productionStartedAt ? (
+            <div className="rounded-lg bg-[var(--bg-darker)] border border-[var(--border-default)] p-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-medium text-[var(--color-success)]">🟢 Üretim Sürüyor</span>
+                <span className="text-xs text-[var(--text-muted)]">
+                  ⏱️ <CountdownInline targetDate={productionTargetDate!} />
+                </span>
+              </div>
+              {liveResources.length > 0 && (
+                <div className="mt-2 grid grid-cols-2 gap-1">
+                  {liveResources.map((r) => (
+                    <div key={`${r.item_id}-${r.rarity}`} className="text-[10px] text-[var(--text-muted)] bg-[var(--bg-card)] rounded px-2 py-1">
+                      <span className="font-medium text-[var(--text-primary)]">{r.item_id}</span>{" "}
+                      <span>×{r.quantity}</span>{" "}
+                      <span className="opacity-60">[{r.rarity}]</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <Button variant="primary" fullWidth isLoading={isLoading} onClick={handleStartProduction}>
+              ▶️ Üretim Başlat ({facility.level > 0 ? 'Lv.' + facility.level : '?'})
+            </Button>
+          )}
 
           {/* Nadirlik Tablo: Levels 1-20 */}
           <Card variant="elevated">
@@ -326,90 +390,145 @@ export default function FacilityDetailClient({ type }: { type: string }) {
 
       {/* Recipes removed: facilities don't use recipes anymore */}
 
-      {/* Queue tab — Always show (Godot behavior: status + items or start button) */}
+      {/* Queue tab — Godot DetailModal._populate_queue_tab() gibi 4-case logic */}
       {activeTab === 'queue' && (
         <>
-          {/* Status Header */}
-          <Card className="bg-gradient-to-r from-[var(--bg-darker)] to-[var(--bg-card)]">
-            <div className="p-3">
-              {((productionQueue.length > 0 && !productionQueue.every((q) => q.is_completed)) || (!!productionStartedAt && productionQueue.length === 0)) ? (
-                // Active production
-                <div>
-                  <p className="text-xs text-[var(--text-muted)] mb-1">🟢 Üretim Sürüyor</p>
-                  <p className="text-lg font-semibold text-[var(--color-success)]">{productionQueue.length > 0 ? `Kuyruk: ${productionQueue.length} item` : 'İşçiler çalışıyor...'}</p>
-                  {productionTargetDate && (
-                    <div className="mt-2 text-[12px] text-[var(--text-muted)]">
-                      ⏱️ Süre: <CountdownInline targetDate={productionTargetDate} />
-                    </div>
-                  )}
-                </div>
-              ) : (productionQueue.length > 0 && productionQueue.some((q) => q.is_completed)) ? (
-                // Ready to collect
-                <div>
-                  <p className="text-xs text-[var(--text-muted)] mb-1">🟡 Toplama Hazır</p>
-                  <p className="text-lg font-semibold text-[var(--color-warning)]">{productionQueue.filter((q) => q.is_completed).length} kaynak hazır</p>
-                </div>
+          {/* 1. STATUS HEADER — Godot'taki match{active, expired, stopped} */}
+          <Card className="p-4 rounded-lg border">
+            <div className="flex items-center justify-between mb-2">
+              {productionTargetDate && Date.now() < Date.parse(productionTargetDate) ? (
+                <>
+                  <span className="text-sm font-medium text-[var(--color-success)]">🟢 Üretim Sürüyor</span>
+                  <span className="text-xs text-[var(--text-muted)]">
+                    ⏱️ <CountdownInline targetDate={productionTargetDate} />
+                  </span>
+                </>
+              ) : productionTargetDate && Date.now() >= Date.parse(productionTargetDate) && liveResources.length > 0 ? (
+                <>
+                  <span className="text-sm font-medium text-[var(--color-warning)]">🟡 Süre Doldu! (Yeniden Başlat)</span>
+                </>
               ) : (
-                // Stopped
-                <div>
-                  <p className="text-xs text-[var(--text-muted)] mb-1">🔴 Üretim Durdu</p>
-                  <p className="text-lg font-semibold text-[var(--text-secondary)]">Depo boş</p>
-                </div>
+                <>
+                  <span className="text-sm font-medium text-[var(--text-secondary)]">🔴 Üretim Durdu</span>
+                </>
               )}
             </div>
           </Card>
 
-          {/* Queue Items */}
-          {productionQueue.length > 0 && (
-            <Card>
-              <div className="p-4">
-                <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">⏳ Üretim Kuyruğu ({productionQueue.length})</h3>
-                <div className="space-y-2">
-                  {productionQueue.map((item) => (
-                    <ProductionQueueRow key={item.id} item={item} onCollect={() => handleCollect(item.id)} />
-                  ))}
-                </div>
-              </div>
-            </Card>
+          {/* 2. RESOURCES DISPLAY HEADER */}
+          <div className="text-sm font-semibold text-[var(--text-primary)] my-3">
+            📦 Toplam Kaynak: {liveResources.reduce((sum, r) => sum + r.quantity, 0)}
+          </div>
+
+          {/* Live Resources Cards */}
+          {liveResources.length > 0 && (
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {liveResources.map((r) => {
+                const rarityEmoji: Record<string, string> = {
+                  common: "⚪",
+                  uncommon: "🟢",
+                  rare: "🔵",
+                  epic: "🟣",
+                  legendary: "🟡",
+                };
+                const rarityColor: Record<string, string> = {
+                  common: "text-[var(--text-muted)]",
+                  uncommon: "text-[var(--color-success)]",
+                  rare: "text-[var(--color-info)]",
+                  epic: "text-[var(--color-warning)]",
+                  legendary: "text-[var(--color-error)]",
+                };
+                return (
+                  <div
+                    key={`${r.item_id}-${r.rarity}`}
+                    className="p-3 rounded-lg bg-[var(--bg-darker)] border border-[var(--border-subtle)]"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-sm ${rarityColor[r.rarity.toLowerCase()] || ""}`}>
+                        {rarityEmoji[r.rarity.toLowerCase()] || "⚪"}
+                      </span>
+                      <span className="text-xs font-medium text-[var(--text-primary)]">{r.item_id}</span>
+                    </div>
+                    <div className="text-[10px] text-[var(--text-muted)]">×{r.quantity}</div>
+                  </div>
+                );
+              })}
+            </div>
           )}
 
-          {/* Start Production Button (shown when queue is empty) */}
-          {productionQueue.length === 0 && (
-            <div className="space-y-2">
+          {/* No resources yet during active production */}
+          {liveResources.length === 0 && productionStartedAt && productionTargetDate && Date.now() < Date.parse(productionTargetDate) && (
+            <div className="text-center text-xs text-[var(--text-muted)] my-4 py-6">
+              🔨 İşçiler çalışıyor...
+            </div>
+          )}
+
+          {/* Empty depot when no production */}
+          {liveResources.length === 0 && !productionStartedAt && (
+            <div className="text-center text-xs text-[var(--text-muted)] my-4 py-6">
+              Depo boş. Üretimi başlatın.
+            </div>
+          )}
+
+          {/* Spacing */}
+          <div className="my-4" />
+
+          {/* 3. ACTION BUTTONS — Godot'taki 4 cases */}
+
+          {/* CASE A: Resources exist AND duration elapsed -> Can Collect */}
+          {liveResources.length > 0 && productionTargetDate && Date.now() >= Date.parse(productionTargetDate) && (
+            <>
               <Button
                 variant="primary"
                 fullWidth
-                isLoading={isLoading}
+                size="lg"
                 disabled={inPrison}
+                onClick={() => handleCollect(facility.id)}
+              >
+                ✅ Kaynakları Topla ({liveResources.reduce((sum, r) => sum + r.quantity, 0)})
+              </Button>
+              <p className="text-xs text-[var(--text-muted)] text-center mt-2">
+                (Yeni üretime başlamak için depoyu boşaltın)
+              </p>
+            </>
+          )}
+
+          {/* CASE B: Resources exist BUT duration NOT elapsed -> Disabled Collect (show timer) */}
+          {liveResources.length > 0 && productionTargetDate && Date.now() < Date.parse(productionTargetDate) && (
+            <>
+              <Button variant="secondary" fullWidth size="lg" disabled>
+                ⏳ Bekleyin: <CountdownInline targetDate={productionTargetDate} />
+              </Button>
+              <p className="text-xs text-[var(--text-muted)] text-center mt-2">
+                (Kaynakları toplamak için süresi dolmasını bekleyin)
+              </p>
+            </>
+          )}
+
+          {/* CASE C: Active production but no resources yet - nothing to show (handled above) */}
+
+          {/* CASE D: Stopped/Expired & Empty -> Can Start Production */}
+          {liveResources.length === 0 && !productionStartedAt && (
+            <>
+              <Button
+                variant="primary"
+                fullWidth
+                size="lg"
+                isLoading={isLoading}
+                disabled={inPrison || energy < 50}
                 onClick={handleStartProduction}
               >
                 ⚡ Üretimi Başlat
               </Button>
-              <p className="text-xs text-[var(--text-muted)] text-center">
-                Enerji harcı: 50
+              <p className="text-xs text-[var(--text-muted)] text-center mt-2">
+                Maliyet: 50 Enerji (Mevcut: {energy || 0})
               </p>
-            </div>
-          )}
-
-          {/* Live resources preview when production started but queue empty */}
-          {!!productionStartedAt && productionQueue.length === 0 && (
-            <Card>
-              <div className="p-4">
-                <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">📦 Üretim Önizlemesi</h3>
-                {liveResources.length === 0 ? (
-                  <p className="text-xs text-[var(--text-muted)]">Kaynak hesaplanıyor...</p>
-                ) : (
-                  <div className="grid grid-cols-2 gap-2">
-                    {liveResources.map((r) => (
-                      <div key={`${r.item_id}-${r.rarity}`} className="p-2 rounded-lg bg-[var(--bg-darker)] text-xs">
-                        <div className="font-medium text-[var(--text-primary)]">{r.item_id}</div>
-                        <div className="text-[10px] text-[var(--text-muted)]">{r.quantity} × {r.rarity}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </Card>
+              {energy < 50 && (
+                <p className="text-xs text-[var(--color-error)] text-center mt-1">
+                  ❌ Yetersiz enerji
+                </p>
+              )}
+            </>
           )}
         </>
       )}
@@ -435,56 +554,15 @@ export default function FacilityDetailClient({ type }: { type: string }) {
 }
 
 // ============================================================
-// Production Queue Row — Countdown + Collect
+// Countdown Inline — MM:SS format
 // ============================================================
 
 function CountdownInline({ targetDate }: { targetDate: string }) {
   const { formatted, isComplete } = useCountdown({ targetDate });
-  return <span>{isComplete ? <span className="text-[var(--color-success)]">✅</span> : formatted}</span>;
-}
-
-function ProductionQueueRow({
-  item,
-  onCollect,
-}: {
-  item: ProductionQueueItem;
-  onCollect: () => void;
-}) {
-  const { formatted, isComplete } = useCountdown({ targetDate: item.completes_at });
-
-  const rarityEmoji: Record<string, string> = {
-    common: "⚪",
-    uncommon: "🟢",
-    rare: "🔵",
-    epic: "🟣",
-    legendary: "🟡",
-  };
-
-  const rarityColor: Record<string, string> = {
-    common: "text-[var(--text-muted)]",
-    uncommon: "text-[var(--color-success)]",
-    rare: "text-[var(--color-info)]",
-    epic: "text-[var(--color-warning)]",
-    legendary: "text-[var(--color-error)]",
-  };
-
   return (
-    <div className="flex items-center justify-between bg-[var(--bg-darker)] rounded-lg p-3">
-      <div className="flex-1">
-        <div className="flex items-center gap-2 mb-1">
-          <span className={`text-sm ${rarityColor[item.rarity.toLowerCase()] || ""}`}>{rarityEmoji[item.rarity.toLowerCase()] || "⚪"}</span>
-          <p className="text-xs font-medium text-[var(--text-primary)]">Ürün</p>
-          <span className="text-[10px] text-[var(--text-muted)]">×{item.quantity}</span>
-        </div>
-        <p className="text-[10px] text-[var(--text-muted)]">
-          {isComplete ? <span className="text-[var(--color-success)]">✅ Hazır!</span> : `⏱️ ${formatted}`}
-        </p>
-      </div>
-      {isComplete && (
-        <Button variant="primary" size="sm" onClick={onCollect}>
-          Topla
-        </Button>
-      )}
-    </div>
+    <span>
+      {isComplete ? <span className="text-[var(--color-success)]">✅</span> : <span>{formatted}</span>}
+    </span>
   );
 }
+

@@ -119,6 +119,22 @@ Deno.serve(async (req)=>{
     }).eq('auth_id', playerId);
     if (gemError) {
       console.error('[bribe_officials] Gem deduction error:', gemError);
+      return new Response(JSON.stringify({ success: false, error: 'Failed to deduct gems' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    // Persist last_bribe_at and reset global suspicion on user record (align with SQL RPC behavior)
+    const bribeTimestamp = new Date().toISOString();
+    const { error: userUpdateError } = await supabase.from('users').update({
+      last_bribe_at: bribeTimestamp,
+      global_suspicion_level: 0,
+      updated_at: bribeTimestamp
+    }).eq('auth_id', playerId);
+    if (userUpdateError) {
+      console.error('[bribe_officials] Failed to update user last_bribe_at/global_suspicion:', userUpdateError);
+      // Continue, but log — we already deducted gems and updated facility
+    }
+    if (gemError) {
+      console.error('[bribe_officials] Gem deduction error:', gemError);
     }
     console.log(`[bribe_officials] Suspicion reduced from ${facility.suspicion_level} to ${newSuspicion}, cost: ${gemsAmount} gems`);
     return new Response(JSON.stringify({

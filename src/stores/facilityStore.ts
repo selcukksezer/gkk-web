@@ -9,6 +9,7 @@ import { api } from "@/lib/api";
 import { APIEndpoints } from "@/lib/endpoints";
 import type { PlayerFacility, FacilityType, FacilityConfig, ProductionQueueItem, ResourceRarity } from "@/types/facility";
 import { usePlayerStore } from "./playerStore";
+import { useInventoryStore } from "./inventoryStore";
 
 // ── Constants (from FacilityManager.gd) ──────────────────────
 
@@ -94,6 +95,8 @@ interface FacilityState {
   error: string | null;
   lastFetchTime: number;
   lastBribeAt: string | null;
+  // Track reconciled timestamps to survive fetch overwrites
+  reconciledStartTimes: Record<string, string>; // facilityId -> reconciled ISO timestamp
 
   // Server-backed Actions
   fetchFacilities: (forceRefresh?: boolean) => Promise<void>;
@@ -134,6 +137,7 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
   error: null,
   lastFetchTime: 0,
   lastBribeAt: null,
+  reconciledStartTimes: {}, // Track reconciled timestamps
 
   // ── Fetch from server ──────────────────────────────────────
   fetchFacilities: async (forceRefresh = false) => {
@@ -209,8 +213,19 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
 
         facilitiesData = facilitiesData.filter((f) => f.is_active !== false);
 
+        // Restore any reconciled timestamps that were in the old state
+        // This preserves reconciliation across fetch cycles (e.g., polling)
+        const reconciledTimestamps = get().reconciledStartTimes;
+        const facilitiesWithReconciliation = facilitiesData.map((f) => {
+          if (reconciledTimestamps[f.id] && reconciledTimestamps[f.id] !== f.production_started_at) {
+            // Facility has a reconciled timestamp; restore it
+            return { ...f, production_started_at: reconciledTimestamps[f.id] };
+          }
+          return f;
+        });
+
         set({
-          facilities: facilitiesData,
+          facilities: facilitiesWithReconciliation,
           isLoading: false,
           lastFetchTime: now,
         });
@@ -285,6 +300,7 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
   },
 
   // ── Start production (costs 50 energy) ─────────────────────
+  // Godot: FacilityManager.gd lines 999-1048
   startProduction: async (facilityId: string, recipeId?: string, quantity: number = 1) => {
     const playerStore = usePlayerStore.getState();
     if (playerStore.energy < PRODUCTION_ENERGY_COST) {
@@ -292,28 +308,22 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
       return false;
     }
 
-    // Prison check
     if (playerStore.inPrison) {
       set({ error: "Hapisteyken üretim başlatamazsınız!" });
       return false;
     }
 
-    // NOTE: Current server RPC only supports 1-param version (p_facility_id UUID)
-    // The 3-param version (recipe_id, quantity) is not deployed yet
     const params: Record<string, unknown> = { p_facility_id: facilityId };
-    // Don't pass recipeId or quantity to the RPC - server doesn't support them yet
-
     console.log("[facilityStore] startProduction RPC call with params:", params);
     const res = await api.rpc("start_facility_production", params);
     console.log("[facilityStore] startProduction RPC response:", res);
+    
     if (res.success) {
       playerStore.consumeEnergy(PRODUCTION_ENERGY_COST);
-      // Optimistic UI update: insert a temporary queue item so the modal
-      // shows the new production immediately while we wait for server refresh.
+      
       try {
         const facility = get().getFacilityById(facilityId);
         if (facility) {
-          // Use standard production duration (recipes removed for facilities)
           const durationMs = PRODUCTION_DURATION_SECONDS * 1000;
           const nowIso = new Date().toISOString();
           const completesAt = new Date(Date.now() + durationMs).toISOString();
@@ -339,12 +349,81 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
           }));
         }
       } catch (err) {
-        // non-fatal; continue to normal refresh
         console.warn("Optimistic queue update failed:", err);
       }
-      // Mimic Godot timing: wait briefly for server-side events to settle, then refresh
+      
+      // Godot: FacilityManager.gd lines 1019-1022 (similar timing)
       await new Promise((r) => setTimeout(r, 700));
+
+      // Calculate the known bribe threshold upfront before ANY fetch
+      let bribeThreshold = NaN;
+      try {
+        const facilityStoreTs = get().lastBribeAt ? Date.parse(get().lastBribeAt) : NaN;
+        const playerStoreTs = usePlayerStore.getState().lastBribeAt ? Date.parse(usePlayerStore.getState().lastBribeAt) : NaN;
+        bribeThreshold = Number.isNaN(facilityStoreTs)
+          ? playerStoreTs
+          : Number.isNaN(playerStoreTs)
+          ? facilityStoreTs
+          : Math.min(facilityStoreTs, playerStoreTs);
+      } catch (err) {
+        console.warn("[facilityStore] startProduction: bribe threshold calc failed:", err);
+      }
+
+      // Fetch fresh facility data from server AFTER setting up reconciliation threshold
       await get().fetchFacilities(true);
+
+      // IMMEDIATELY reconcile after fetch: if the server-returned production start timestamp 
+      // is earlier than our known bribe threshold (race / eventual consistency), override it 
+      // so this production counts toward suspicion. This must happen BEFORE any other operations.
+      try {
+        const f = get().getFacilityById(facilityId);
+        if (f && !Number.isNaN(bribeThreshold)) {
+          const serverStarted = f.production_started_at ? Date.parse(f.production_started_at) : NaN;
+          
+          if (Number.isNaN(serverStarted) || serverStarted < bribeThreshold) {
+            const newIso = new Date(bribeThreshold).toISOString();
+            set((state) => ({
+              facilities: state.facilities.map((x) => (x.id === facilityId ? { ...x, production_started_at: newIso } : x)),
+              // Store reconciled timestamp so it survives future fetch overwrites (e.g., polling)
+              reconciledStartTimes: { ...state.reconciledStartTimes, [facilityId]: newIso },
+            }));
+            console.log("[facilityStore] startProduction: reconciled start timestamp to bribe for", facilityId, "from", serverStarted > 0 ? new Date(serverStarted).toISOString() : "INVALID", "to", newIso);
+          }
+        }
+      } catch (err) {
+        console.warn("[facilityStore] startProduction: post-fetch timestamp reconcile failed:", err);
+      }
+
+      // Godot: FacilityManager.gd lines 1023-1026
+      // After production starts, global risk increases (now counting this facility)
+      const globalRisk = get().getGlobalSuspicionRisk();
+      await get().syncGlobalRiskToDatabase(globalRisk);
+
+      // Godot: FacilityManager.gd line 1027
+      // Refresh player data to get updated global_suspicion_level
+      await usePlayerStore.getState().refreshData();
+
+      // CRITICAL: Re-reconcile after player refresh, in case refreshData triggered
+      // any store updates that may have refreshed facility data from server
+      try {
+        const f = get().getFacilityById(facilityId);
+        if (f && !Number.isNaN(bribeThreshold)) {
+          const serverStarted = f.production_started_at ? Date.parse(f.production_started_at) : NaN;
+          
+          if (Number.isNaN(serverStarted) || serverStarted < bribeThreshold) {
+            const newIso = new Date(bribeThreshold).toISOString();
+            set((state) => ({
+              facilities: state.facilities.map((x) => (x.id === facilityId ? { ...x, production_started_at: newIso } : x)),
+              // Update the stored reconciled timestamp as well
+              reconciledStartTimes: { ...state.reconciledStartTimes, [facilityId]: newIso },
+            }));
+            console.log("[facilityStore] startProduction: re-reconciled start timestamp post-refresh for", facilityId, "to", newIso);
+          }
+        }
+      } catch (err) {
+        console.warn("[facilityStore] startProduction: post-refresh timestamp reconcile failed:", err);
+      }
+      
       return true;
     }
     set({ error: res.error || "Üretim başlatılamadı" });
@@ -352,8 +431,8 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
   },
 
   // ── Collect production (basic) ─────────────────────────────
+  // DEPRECATED: Use collectResourcesV2 instead. This kept for legacy compatibility.
   collectProduction: async (facilityId: string) => {
-    // Prison check on collection
     if (usePlayerStore.getState().inPrison) {
       set({ error: "Hapisteyken üretim toplayamazsınız!" });
       return null;
@@ -363,10 +442,10 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
       p_facility_id: facilityId,
     });
 
+    console.log("[facilityStore] collect_facility_production response:", res);
+
     if (res.success) {
-      // Increment suspicion after collection (server may already adjust, but keep client-side call)
       await get().incrementSuspicion(facilityId, 5);
-      // Small delay to imitate Godot refresh timing
       await new Promise((r) => setTimeout(r, 600));
       await get().fetchFacilities(true);
       return res.data;
@@ -375,37 +454,218 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
     return null;
   },
 
-  // ── Collect resources V2 (with deterministic seed) ─────────
+  // ── Collect resources V2 (deterministic seed) ──────────────
+  // Godot: FacilityManager.gd lines 1049-1184 — collect_facility_resources()
+  // Flow:
+  //   1. Calculate resources for UI (shown_count = total_count)
+  //   2. Generate deterministic seed from production_started_at
+  //   3. Call collect_facility_resources_v2 RPC with seed & total_count
+  //   4. Server validates with same LCG RNG, returns items_generated
+  //   5. Check if admission_occurred (prison check result)
+  //   6. If admitted: resources discarded, player sent to prison
+  //   7. Else: inventory updated, sync global_suspicion to database
   collectResourcesV2: async (facilityId: string, seed: number, totalCount: number) => {
-    const res = await api.rpc<unknown>("collect_facility_resources_v2", {
+    console.log("[facilityStore] collectResourcesV2 called:", { facilityId, seed, totalCount });
+    
+    // Prison check (should be done by caller, but safety check)
+    if (usePlayerStore.getState().inPrison) {
+      set({ error: "Hapisteyken toplama yapılamaz!" });
+      return null;
+    }
+
+    // Snapshot inventory counts BEFORE collect so we can detect if server actually
+    // added items. If server did not persist items, we will attempt to add them
+    // client-side via `addItemToServer` as a fallback.
+    const inventoryBefore: Record<string, number> = {};
+    try {
+      const invState = useInventoryStore.getState();
+      for (const it of invState.items || []) {
+        inventoryBefore[it.item_id] = invState.getItemQuantity(it.item_id) || 0;
+      }
+    } catch (e) {
+      // Non-fatal; continue without snapshot
+      console.warn('[facilityStore] Failed to snapshot inventory before collect:', e);
+    }
+
+    // Step 1: Call RPC with seed and count
+    const res = await api.rpc<any>("collect_facility_resources_v2", {
       p_facility_id: facilityId,
       p_seed: seed,
       p_total_count: totalCount,
     });
-    if (res.success) {
-      await get().fetchFacilities(true);
-      return res.data;
+    
+    console.log("[facilityStore] collectResourcesV2 response:", res);
+
+    if (!res.success) {
+      set({ error: res.error || "Toplama başarısız" });
+      return null;
     }
-    set({ error: res.error || "V2 toplama başarısız" });
-    return null;
+
+    const rpcResult = res.data as Record<string, any>;
+    const addedCount = rpcResult?.count ?? 0;
+    const admissionOccurred = rpcResult?.admission_occurred ?? false;
+    const itemsGenerated = rpcResult?.items_generated ?? [];
+
+    // Step 2: Refresh facilities (production cleared on server)
+    await get().fetchFacilities(true);
+
+    // Step 3: Sync global risk to database after collection
+    const globalRisk = get().getGlobalSuspicionRisk();
+    await get().syncGlobalRiskToDatabase(globalRisk);
+
+    // Step 4: Refresh player data from server
+    await usePlayerStore.getState().refreshData();
+
+    // Step 5: Refresh inventory if collection succeeded and player not imprisoned
+    try {
+      if (!admissionOccurred) {
+        await useInventoryStore.getState().fetchInventory();
+      } else {
+        // Still attempt a refresh so UI shows accurate empty changes
+        await useInventoryStore.getState().fetchInventory();
+      }
+    } catch (err) {
+      console.warn('[facilityStore] inventory refresh failed after collect:', err);
+    }
+
+    // Fallback: if server did not actually add items to inventory but RPC reported
+    // items_generated, add them via `addItemToServer`. This handles cases where the
+    // RPC returns generated items but the DB wasn't updated for some reason.
+    try {
+      if (!admissionOccurred && Array.isArray(itemsGenerated) && itemsGenerated.length > 0) {
+        const invAfterState = useInventoryStore.getState();
+        // Build counts before/after
+        const afterCounts: Record<string, number> = {};
+        for (const it of invAfterState.items || []) {
+          afterCounts[it.item_id] = invAfterState.getItemQuantity(it.item_id) || 0;
+        }
+
+        // Aggregate generated items by item_id
+        const generatedAgg: Record<string, number> = {};
+        for (const g of itemsGenerated) {
+          const id = g.item_id || g.itemId || g.id || g;
+          if (!id) continue;
+          generatedAgg[id] = (generatedAgg[id] || 0) + (g.quantity || 1);
+        }
+
+        // For any item where after - before < expected, call addItemToServer for the delta
+        for (const [itemId, expectedQty] of Object.entries(generatedAgg)) {
+          const before = inventoryBefore[itemId] || 0;
+          const after = afterCounts[itemId] || 0;
+          const delta = expectedQty - (after - before);
+          if (delta > 0) {
+            console.warn(`[facilityStore] Inventory missing ${delta}x ${itemId}, adding via RPC fallback`);
+            // Call addItemToServer with aggregated quantity
+            await useInventoryStore.getState().addItemToServer({ item_id: itemId, quantity: delta });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[facilityStore] Fallback inventory add failed:', e);
+    }
+
+    // Return result with admission flag
+    return {
+      success: true,
+      count: addedCount,
+      total_count: admissionOccurred ? 0 : addedCount,
+      items_generated: admissionOccurred ? [] : itemsGenerated,
+      message: admissionOccurred ? "Sent to prison! Resources lost." : `Resources collected: ${addedCount} items`,
+      admission_occurred: admissionOccurred,
+    };
   },
 
   // ── Bribe officials ────────────────────────────────────────
+  // Godot: FacilityManager.gd lines 399-416 (bribe mechanism)
   bribeOfficials: async (facilityType: string, amountGems: number) => {
     const res = await api.rpc("bribe_officials", {
       p_facility_type: facilityType,
       p_amount_gems: amountGems,
     });
     if (res.success) {
-      set({ lastBribeAt: new Date().toISOString() });
-      // Wait for server settle (Godot timing)
+      const nowIso = new Date().toISOString();
+      set({ lastBribeAt: nowIso });
+      // Also update player store immediately so UI reflects the bribe
+      try {
+        usePlayerStore.setState({ lastBribeAt: nowIso, globalSuspicionLevel: 0, bribeActiveUntil: Date.now() + 60_000 });
+      } catch (e) {
+        console.warn('[facilityStore] Failed to set playerStore.lastBribeAt locally:', e);
+      }
+
+      // Persist last_bribe_at to Supabase so server-side global suspicion uses the timestamp
+      try {
+        const playerProfile = usePlayerStore.getState().profile;
+        const playerId = playerProfile?.id;
+        if (playerId) {
+          // First attempt patch by DB id
+          let patchRes = await api.patch(`/rest/v1/users?id=eq.${playerId}`, {
+            last_bribe_at: nowIso,
+          });
+
+          if (!patchRes.success) {
+            console.warn('[facilityStore] API patch by id failed:', patchRes);
+            // Try patch by auth_id (some deployments use auth_id as primary key)
+            try {
+              const profile = usePlayerStore.getState().profile as any;
+              const authId = profile?.auth_id || profile?.authId || profile?.user_id || null;
+              if (authId) {
+                patchRes = await api.patch(`/rest/v1/users?auth_id=eq.${authId}`, { last_bribe_at: nowIso });
+              }
+            } catch (errAuthPatch) {
+              console.warn('[facilityStore] Patch by auth_id attempt failed:', errAuthPatch);
+            }
+          }
+
+          if (!patchRes.success) {
+            // Fallback: try direct Supabase client update (may succeed if session present)
+            try {
+              const { supabase } = await import("@/lib/supabase");
+              const { data, error } = await supabase.from('users').update({ last_bribe_at: nowIso }).eq('id', playerId).select().single();
+              if (error) {
+                console.warn('[facilityStore] Supabase fallback update failed:', error.message || error);
+              } else {
+                console.log('[facilityStore] Supabase fallback update succeeded:', data);
+                patchRes = { success: true } as any;
+              }
+            } catch (err2) {
+              console.warn('[facilityStore] Supabase fallback update threw:', err2);
+            }
+          } else {
+            console.log('[facilityStore] last_bribe_at persisted via API patch');
+          }
+          // If we successfully persisted last_bribe_at, wait for the player's profile to reflect it
+          if (patchRes && patchRes.success) {
+            const start = Date.now();
+            const timeout = 5000; // wait up to 5s for DB to become consistent
+            let reflected = false;
+            while (Date.now() - start < timeout) {
+              try {
+                await usePlayerStore.getState().fetchProfile();
+                const prof = usePlayerStore.getState().profile as any;
+                if (prof && (prof.last_bribe_at || prof.lastBribeAt) && String(prof.last_bribe_at || prof.lastBribeAt).startsWith(nowIso.slice(0, 19))) {
+                  reflected = true;
+                  break;
+                }
+              } catch (e) {
+                // ignore and retry
+              }
+              await new Promise((r) => setTimeout(r, 500));
+            }
+            if (!reflected) {
+              console.warn('[facilityStore] last_bribe_at not reflected in profile within timeout; continuing anyway');
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[facilityStore] Failed to persist last_bribe_at to Supabase:', err);
+      }
+      // Godot timing: wait for server events to settle
       await new Promise((r) => setTimeout(r, 500));
-      // Refetch facilities from server (Godot: fetch_my_facilities(true))
+      // Godot: FacilityManager.gd lines 404-416
       await get().fetchFacilities(true);
-      // Refresh player data from server (Godot: State.refresh_data())
-      // This ensures gems, suspicion baseline, etc. are updated
+      // Godot: State.refresh_data() — get latest global_suspicion
       await usePlayerStore.getState().refreshData();
-      // Sync global risk to database (Godot: sync_global_risk_to_database())
+      // Godot: sync_global_risk_to_database()
       const globalRisk = get().getGlobalSuspicionRisk();
       await get().syncGlobalRiskToDatabase(globalRisk);
       return true;
@@ -413,6 +673,7 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
     set({ error: res.error || "Rüşvet başarısız" });
     return false;
   },
+ 
 
   // ── Suspicion management ───────────────────────────────────
   incrementSuspicion: async (facilityId: string, amount = 5) => {
@@ -432,10 +693,25 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
   },
 
   syncGlobalRiskToDatabase: async (globalSuspicion: number) => {
-    const res = await api.rpc("update_global_suspicion_level", {
+    // Godot: FacilityManager.gd lines 353-390 — sync_global_risk_to_database()
+    // Send raw risk calculated by get_global_suspicion_risk() to server
+    // Server: calculates baseline + adjusted_risk (new_level = displayed risk)
+    const res = await api.rpc<any>("update_global_suspicion_level", {
       p_global_suspicion: globalSuspicion,
     });
-    return res.success;
+    
+    if (res.success && res.data) {
+      // Godot: rpc_result.get("new_level") — adjusted risk after baseline subtraction
+      const adjustedRisk = (res.data as any)?.new_level ?? globalSuspicion;
+      // Godot: State.player["global_suspicion_level"] = adjusted_risk
+      // Web: Update playerStore so UI reflects server-adjusted suspicion
+      usePlayerStore.getState().updatePlayerData({
+        global_suspicion_level: adjustedRisk,
+      });
+      console.log("[facilityStore] Global suspicion synced: raw=%d%%, adjusted=%d%%", globalSuspicion, adjustedRisk);
+      return true;
+    }
+    return false;
   },
 
   // ── Offline production ─────────────────────────────────────
@@ -503,27 +779,62 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
     return Math.floor(config.base_upgrade_cost * Math.pow(config.upgrade_multiplier, currentLevel));
   },
 
-  // ── Global suspicion risk formula ──────────────────────────
-  // (active_count * 5) + int(level_sum * 0.5), clamped 0-100
-  // active = production_started_at != null AND > last_bribe_at
+  // ── Global suspicion risk formula (raw calculation) ────────────────────
+  // Godot: FacilityManager.gd lines 328-352 — get_global_suspicion_risk()
+  // RAW risk (before baseline subtraction): (active_count * 5) + floor(level_sum * 0.5)
+  // active = production_started_at != null (bribe does NOT affect this calculation)
+  // Baseline subtraction happens server-side in update_global_suspicion_level RPC
   getGlobalSuspicionRisk: () => {
     const { facilities, lastBribeAt } = get();
-    const bribeThreshold = lastBribeAt ?? "1970-01-01T00:00:00Z";
+
+    // Prefer the EARLIEST of facilityStore.lastBribeAt and playerStore.lastBribeAt.
+    // This ensures productions started after the local client bribe (but before
+    // the server's persisted timestamp) are still counted toward raw risk.
+    const playerLastBribe = usePlayerStore.getState().lastBribeAt;
+    const facilityTs = lastBribeAt ? Date.parse(String(lastBribeAt)) : NaN;
+    const playerTs = playerLastBribe ? Date.parse(String(playerLastBribe)) : NaN;
+    let bribeThreshold = "1970-01-01T00:00:00Z";
+    if (!Number.isNaN(facilityTs) && !Number.isNaN(playerTs)) {
+      bribeThreshold = facilityTs <= playerTs ? String(lastBribeAt) : String(playerLastBribe);
+    } else if (!Number.isNaN(facilityTs)) {
+      bribeThreshold = String(lastBribeAt);
+    } else if (!Number.isNaN(playerTs)) {
+      bribeThreshold = String(playerLastBribe);
+    }
     const bribeTs = Date.parse(bribeThreshold) || 0;
 
     let activeCount = 0;
     let levelSum = 0;
+    // Debug: log bribe threshold and facility start times to troubleshoot zero-risk cases
+    try {
+      console.log("[facilityStore] getGlobalSuspicionRisk: bribeThreshold=", bribeThreshold, "(ts=", bribeTs, ")", "facilityTs=", facilityTs, "playerTs=", playerTs);
+      for (const f of facilities) {
+        console.log("[facilityStore] facility", f.id, "started=", f.production_started_at, "level=", f.level);
+      }
+    } catch (e) {
+      // ignore
+    }
 
+    // Godot: FacilityManager.gd lines 340-347
+    // Count only facilities with production_started_at != null AND started AFTER last_bribe_at
     for (const f of facilities) {
       const started = f.production_started_at ? Date.parse(String(f.production_started_at)) : NaN;
-      if (!Number.isNaN(started) && started > bribeTs) {
+      if (!Number.isNaN(started) && started >= bribeTs) {
         activeCount++;
         levelSum += f.level;
       }
     }
 
+    // Godot: FacilityManager.gd line 350
+    // risk = (active_count * 5) + int(level_sum * 0.5)
     const risk = (activeCount * 5) + Math.floor(levelSum * 0.5);
-    return Math.max(0, Math.min(100, risk));
+    const clamped = Math.max(0, Math.min(100, risk));
+    try {
+      console.log("[facilityStore] getGlobalSuspicionRisk: activeCount=", activeCount, "levelSum=", levelSum, "rawRisk=", risk, "clamped=", clamped);
+    } catch (e) {
+      // ignore
+    }
+    return clamped;
   },
 
   // ── Rarity weights at level (scaled) ──────────────────────
@@ -620,6 +931,7 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
       error: null,
       lastFetchTime: 0,
       lastBribeAt: null,
+      reconciledStartTimes: {},
     }),
 }));
 
