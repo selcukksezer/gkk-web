@@ -891,10 +891,10 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
         selectedRarity = "common"; // Downgrade to common
       }
 
-      // Select resource index using the same deterministic RNG value
-      // but allow selection across the full resource pool for more variety.
-      // This matches a more flexible server-side selection (updated in SQL backup).
-      const rngForIndex = ((detSeed + i) * 16807) % 2147483647 / 2147483647;
+      // Use a second, decorrelated deterministic RNG for resource index selection
+      // to reduce repetition while keeping results deterministic per seed.
+      // We use a different multiplier (48271) and step (i * 7) to decorrelate from rarity RNG.
+      const rngForIndex = ((detSeed + i * 7) * 48271) % 2147483647 / 2147483647;
       let resourceIndex = Math.floor(rngForIndex * resources.length);
       if (resourceIndex < 0) resourceIndex = 0;
       if (resourceIndex > resources.length - 1) resourceIndex = resources.length - 1;
