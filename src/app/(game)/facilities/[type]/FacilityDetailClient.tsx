@@ -79,17 +79,19 @@ export default function FacilityDetailClient({ type }: { type: string }) {
     : null;
 
   // ── Godot ile birebir: gerçek zamanlı üretilen kaynaklar ──────────────
-  // Godot: hours_elapsed * base_rate * facility_level * 10 (test 10x multiplier)
+  // Canlı üretim için detaylı konsol log (3s aralık)
   const [liveResources, setLiveResources] = useState<Array<{ item_id: string; rarity: string; quantity: number }>>([]);
 
   const calcLiveResources = useCallback(() => {
+    // Clear previous logs so console shows the latest snapshot only
+    console.clear();
+
     if (!productionStartedAt) {
+      console.log('[FacilityDetail] No active production for', facilityType);
       setLiveResources([]);
       return;
     }
-    // Match server RPC `collect_facility_resources_v2` formula from veritabani_schema.sql
-    // Server uses a fixed base_rate := 10 and multiplies by level and a 10x multiplier.
-    // total_qty = floor((elapsed_seconds / 3600) * (base_rate * level * 10)) capped at 100
+
     const SERVER_BASE_RATE = 10;
     const durationMs = PRODUCTION_DURATION_SECONDS * 1000;
     const startedTs = Date.parse(productionStartedAt);
@@ -100,33 +102,39 @@ export default function FacilityDetailClient({ type }: { type: string }) {
     const baseCalc = (elapsedSeconds / 3600.0) * (SERVER_BASE_RATE * (facility.level || 1) * 10);
     const totalProduced = Math.floor(baseCalc);
 
-    if (totalProduced <= 0) {
-      setLiveResources([]);
-      return;
-    }
+    const items = totalProduced > 0
+      ? useFacilityStore.getState().calculateIdleResources(
+          facilityType,
+          facility.level || 1,
+          productionStartedAt,
+          Math.min(totalProduced, 100)
+        )
+      : [];
 
-    const items = useFacilityStore.getState().calculateIdleResources(
-      facilityType,
-      facility.level || 1,
-      productionStartedAt,
-      Math.min(totalProduced, 100)
-    );
-
-    // item_id + rarity'ye göre topla
+    // Aggregate by item_id + rarity
     const agg: Record<string, { item_id: string; rarity: string; quantity: number }> = {};
     for (const it of items) {
       const key = `${it.item_id}::${it.rarity}`;
       if (!agg[key]) agg[key] = { item_id: it.item_id, rarity: it.rarity, quantity: 0 };
       agg[key].quantity += 1;
     }
-    setLiveResources(Object.values(agg));
-  }, [productionStartedAt, facilityType, facility.level, config.base_rate]);
+    const aggregated = Object.values(agg);
+    setLiveResources(aggregated);
 
-  // İlk render + her 5 saniyede kaynak hesapla (Godot'ta queue_update_timer gibi)
+    // Detailed console output
+    console.log('[FacilityDetail] Production snapshot — facility:', facilityType, 'level:', facility.level);
+    console.log('[FacilityDetail] production_started_at:', productionStartedAt, 'now:', new Date(now).toISOString());
+    console.log('[FacilityDetail] elapsed_seconds:', elapsedSeconds.toFixed(2), 'duration_seconds:', durationMs / 1000);
+    console.log('[FacilityDetail] baseCalc:', baseCalc.toFixed(3), 'totalProduced:', totalProduced);
+    console.log('[FacilityDetail] aggregated preview items count:', aggregated.reduce((s, a) => s + a.quantity, 0));
+    console.table(aggregated.slice(0, 50));
+  }, [productionStartedAt, facilityType, facility.level]);
+
+  // İlk render + her 3 saniyede kaynak hesapla (detaylı konsol log için)
   useEffect(() => {
     calcLiveResources();
     if (!productionStartedAt) return;
-    const id = setInterval(calcLiveResources, 5_000);
+    const id = setInterval(calcLiveResources, 3_000);
     return () => clearInterval(id);
   }, [productionStartedAt, calcLiveResources]);
 
