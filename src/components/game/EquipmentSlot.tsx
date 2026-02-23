@@ -5,6 +5,7 @@
 "use client";
 
 import type { InventoryItem } from "@/types/inventory";
+import { useDroppable } from "@dnd-kit/core";
 
 const RARITY_BORDER: Record<string, string> = {
   common: "#6b7280",
@@ -15,25 +16,54 @@ const RARITY_BORDER: Record<string, string> = {
 };
 
 interface EquipmentSlotProps {
-  label: string;
+  label?: string;
+  slotName?: string;
   item: InventoryItem | null;
-  onClick: () => void;
+  onClick?: () => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent) => void;
+  isDragOver?: boolean;
+  compact?: boolean;
 }
 
-export function EquipmentSlot({ label, item, onClick }: EquipmentSlotProps) {
+export function EquipmentSlot({
+  label,
+  slotName,
+  item,
+  onClick,
+  onDragOver,
+  onDrop,
+  isDragOver,
+  compact,
+}: EquipmentSlotProps) {
   const rarity = item?.rarity ?? "common";
   const borderColor = RARITY_BORDER[rarity] ?? RARITY_BORDER.common;
   const enhLvl = item?.enhancement_level ?? 0;
+  const displayLabel = label ?? slotName ?? "?";
+
+  const droppableId = `equip-${slotName}`;
+  const { isOver, setNodeRef } = useDroppable({ id: droppableId });
 
   return (
     <button
+      ref={setNodeRef as any}
       onClick={onClick}
-      className="relative w-[72px] h-[72px] rounded-lg flex flex-col items-center justify-center bg-[var(--surface)] hover:bg-[var(--surface-hover)] transition-colors"
-      style={{ border: `2px solid ${item ? borderColor : "var(--border)"}` }}
+      className={`
+        relative rounded-xl flex flex-col items-center justify-center transition-transform transform-gpu
+        ${compact ? "w-14 h-14" : "w-[76px] h-[76px]"}
+        backdrop-blur-sm bg-[var(--bg-card)]/55 border
+        hover:scale-105 active:scale-98
+      `}
+      style={{
+        borderColor: item ? borderColor : "var(--border)",
+        boxShadow: item ? `0 10px 30px ${borderColor}22, inset 0 0 12px ${borderColor}10` : undefined,
+      }}
     >
       {item ? (
         <>
-          <span className="text-2xl">{item.icon ?? "🛡️"}</span>
+          <span className={compact ? "text-lg" : "text-2xl"}>
+            {item.icon ?? "🛡️"}
+          </span>
           {enhLvl > 0 && (
             <span className="absolute top-0.5 right-1 text-[10px] text-[var(--gold)] font-bold">
               +{enhLvl}
@@ -41,8 +71,8 @@ export function EquipmentSlot({ label, item, onClick }: EquipmentSlotProps) {
           )}
         </>
       ) : (
-        <span className="text-[10px] text-[var(--text-secondary)] text-center leading-tight">
-          {label}
+        <span className={`text-center leading-tight text-[var(--text-secondary)] ${compact ? "text-[8px]" : "text-[10px]"}`}>
+          {displayLabel}
         </span>
       )}
     </button>

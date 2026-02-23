@@ -38,6 +38,8 @@ interface UIState {
     musicVolume: number;
     sfxVolume: number;
     notificationsEnabled: boolean;
+    autoBattle: boolean;
+    language: "tr" | "en";
   };
 
   // Actions
@@ -68,6 +70,8 @@ export const useUIStore = create<UIState>()((set, get) => ({
     musicVolume: 0.8,
     sfxVolume: 1.0,
     notificationsEnabled: true,
+    autoBattle: false,
+    language: "tr" as const,
   },
 
   navigate: (route: string) => {

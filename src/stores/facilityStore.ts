@@ -274,6 +274,7 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
     if (!facility) return false;
 
     const facilityType = facility.facility_type;
+    if (!facilityType) return false;
     const cost = get().getUpgradeCost(facilityType, facility.level);
 
     const gold = usePlayerStore.getState().gold;
@@ -358,8 +359,10 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
       // Calculate the known bribe threshold upfront before ANY fetch
       let bribeThreshold = NaN;
       try {
-        const facilityStoreTs = get().lastBribeAt ? Date.parse(get().lastBribeAt) : NaN;
-        const playerStoreTs = usePlayerStore.getState().lastBribeAt ? Date.parse(usePlayerStore.getState().lastBribeAt) : NaN;
+        const lastBribeAt = get().lastBribeAt;
+        const playerLastBribeAt = usePlayerStore.getState().lastBribeAt;
+        const facilityStoreTs = lastBribeAt ? Date.parse(lastBribeAt) : NaN;
+        const playerStoreTs = playerLastBribeAt ? Date.parse(playerLastBribeAt) : NaN;
         bribeThreshold = Number.isNaN(facilityStoreTs)
           ? playerStoreTs
           : Number.isNaN(playerStoreTs)
@@ -587,7 +590,12 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
       set({ lastBribeAt: nowIso });
       // Also update player store immediately so UI reflects the bribe
       try {
-        usePlayerStore.setState({ lastBribeAt: nowIso, globalSuspicionLevel: 0, bribeActiveUntil: Date.now() + 60_000 });
+        // bribeActiveUntil suppresses server-side suspicion override for 60s
+        (usePlayerStore.setState as (s: Partial<Record<string, unknown>>) => void)({
+          lastBribeAt: nowIso,
+          globalSuspicionLevel: 0,
+          bribeActiveUntil: Date.now() + 60_000,
+        });
       } catch (e) {
         console.warn('[facilityStore] Failed to set playerStore.lastBribeAt locally:', e);
       }

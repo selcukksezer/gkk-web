@@ -17,6 +17,7 @@ export interface InventoryItem {
   is_equipped: boolean;
   equipped_slot: string; // EquipSlot string or ''
   enhancement_level: number;
+  is_favorite: boolean;
   pending_sync: boolean;
 
   // Item catalog data (joined from items table)

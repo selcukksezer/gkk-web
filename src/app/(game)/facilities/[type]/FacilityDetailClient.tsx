@@ -223,7 +223,8 @@ export default function FacilityDetailClient({ type }: { type: string }) {
 
       if (collectResult) {
       // Godot: DetailModal.gd lines 692-696 — Handle admission_occurred
-      const admissionOccurred = collectResult.admission_occurred || false;
+      const result = collectResult as Record<string, unknown>;
+      const admissionOccurred = result.admission_occurred || false;
       
       if (admissionOccurred) {
         // Godot: DetailModal.gd line 693 — Show prison toast, resources lost
@@ -300,11 +301,6 @@ export default function FacilityDetailClient({ type }: { type: string }) {
             <div className="p-4">
               <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">📦 Üretilebilir Kaynaklar (Lv.{facility.level})</h3>
               <div className="grid grid-cols-2 gap-3">
-                {(() => {
-                  try {
-                    console.log('[FacilityDetail] resources for', facilityType, '->', config.resources, 'level=', facility.level);
-                  } catch (e) {}
-                })()}
 
                 {config.resources.map((item, idx) => {
                   const weights = useFacilityStore.getState().getRarityWeightsAtLevel(facility.level);

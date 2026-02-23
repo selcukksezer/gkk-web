@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import type { BattlePassInfo } from "@/hooks/useSeason";
 
-export const dynamic = "force-dynamic";
-
 export async function GET() {
   const info: BattlePassInfo = {
     currentTier: 1,

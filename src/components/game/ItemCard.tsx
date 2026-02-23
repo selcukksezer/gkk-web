@@ -14,6 +14,7 @@ interface ItemCardProps {
   item: InventoryItem;
   isSelected?: boolean;
   isEquipped?: boolean;
+  isDragging?: boolean;
   compact?: boolean;
   onClick?: () => void;
   onDoubleClick?: () => void;
@@ -36,6 +37,7 @@ export function ItemCard({
   item,
   isSelected,
   isEquipped,
+  isDragging,
   compact,
   onClick,
   onDoubleClick,
@@ -52,20 +54,30 @@ export function ItemCard({
 
   return (
     <motion.button
-      whileTap={{ scale: 0.93 }}
+      initial={{ opacity: 1, scale: 1 }}
+      animate={{
+        opacity: isDragging ? 0.6 : 1,
+        scale: isDragging ? 1.06 : 1,
+      }}
+      transition={{ duration: 0.12 }}
+      whileHover={{ scale: isDragging ? 1.06 : 1.08 }}
+      whileTap={{ scale: 0.95 }}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       className={cn(
-        "relative flex flex-col items-center justify-center rounded-lg border transition-all",
-        compact ? "w-14 h-14" : "w-16 h-16",
+        "relative flex flex-col items-center justify-center rounded-xl border backdrop-blur-sm transition-all cursor-grab active:cursor-grabbing",
+        compact ? "w-14 h-14" : "w-18 h-18",
         isSelected
           ? "border-[var(--accent)] bg-[var(--accent)]/15"
-          : "border-[var(--border-default)] bg-[var(--bg-card)]",
+          : "border-[var(--border-default)] bg-[var(--bg-card)]/50",
         isEquipped && "ring-2 ring-[var(--color-success)]",
+        isDragging && "shadow-2xl",
         rarityGlowClass
       )}
       style={{
         borderColor: isSelected ? "var(--accent)" : rarityColor,
+        boxShadow: isDragging ? `0 20px 50px ${rarityColor}40, inset 0 0 18px ${rarityColor}20` : `0 6px 18px rgba(0,0,0,0.35)`,
+        backgroundImage: isSelected ? `linear-gradient(135deg, ${rarityColor}15, transparent)` : undefined,
       }}
     >
       {/* Type emoji */}

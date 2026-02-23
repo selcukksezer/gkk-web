@@ -19,6 +19,8 @@ const MENU_ITEMS = [
   { path: "/equipment", label: "Teçhizat", icon: "🛡️" },
   { path: "/quests", label: "Görevler", icon: "📜" },
   { path: "/dungeon", label: "Zindan", icon: "🏰" },
+  { path: "/hospital", label: "Hastane", icon: "🏥" },
+  { path: "/prison", label: "Cezaevi", icon: "🚓" },
   { path: "/pvp", label: "PvP Arena", icon: "⚔️" },
   { path: "/crafting", label: "Zanaat", icon: "🔨" },
   { path: "/enhancement", label: "Güçlendirme", icon: "🔥" },
