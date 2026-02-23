@@ -5,6 +5,8 @@
 import { FACILITIES_CONFIG } from "@/data/FacilityConfig";
 import FacilityDetailClient from "./FacilityDetailClient";
 
+export const dynamic = "force-dynamic";
+
 export function generateStaticParams() {
   return Object.keys(FACILITIES_CONFIG).map((type) => ({ type }));
 }

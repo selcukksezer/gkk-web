@@ -33,12 +33,34 @@ export default function SettingsPage() {
   const fetchProfile = usePlayerStore((s) => s.fetchProfile);
 
   const [logoutConfirm, setLogoutConfirm] = useState(false);
+  const [deleteAccountConfirm, setDeleteAccountConfirm] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [newDisplayName, setNewDisplayName] = useState("");
   const [isSavingName, setIsSavingName] = useState(false);
 
   const handleLogout = async () => {
     await logout();
     router.replace("/login");
+  };
+
+  // Godot: SettingsScreen._on_delete_account
+  const handleDeleteAccount = async () => {
+    setIsDeletingAccount(true);
+    try {
+      const res = await api.rpc("delete_account", {});
+      if (res.success) {
+        addToast("Hesabınız silindi", "info");
+        await logout();
+        router.replace("/login");
+      } else {
+        addToast(res.error || "Hesap silinemedi", "error");
+      }
+    } catch {
+      addToast("Hesap silinemedi", "error");
+    } finally {
+      setIsDeletingAccount(false);
+      setDeleteAccountConfirm(false);
+    }
   };
 
   const handleSaveDisplayName = async () => {
@@ -137,7 +159,7 @@ export default function SettingsPage() {
       <Card>
         <div className="p-4 space-y-3">
           <h3 className="text-sm font-semibold text-[var(--text-secondary)]">
-            📱 Bildirimler
+            📱 Bildirimler & Oyun
           </h3>
 
           <div className="flex items-center justify-between">
@@ -159,6 +181,61 @@ export default function SettingsPage() {
                   settings.notificationsEnabled ? "left-5" : "left-0.5"
                 }`}
               />
+            </button>
+          </div>
+
+          {/* Auto Battle Toggle — Godot: SettingsScreen.auto_battle_toggle */}
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-xs text-[var(--text-muted)]">
+                ⚔️ Otomatik Savaş
+              </span>
+              <p className="text-[10px] text-[var(--text-muted)] opacity-60">PvP ve zindan savaşlarını otomatik yönet</p>
+            </div>
+            <button
+              onClick={() => updateSettings({ autoBattle: !settings.autoBattle })}
+              className={`w-10 h-5 rounded-full transition-colors ${
+                settings.autoBattle
+                  ? "bg-[var(--color-success)]"
+                  : "bg-[var(--border-default)]"
+              } relative`}
+            >
+              <span
+                className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                  settings.autoBattle ? "left-5" : "left-0.5"
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+      </Card>
+
+      {/* Language — Godot: SettingsScreen.language_option_button (TR/EN) */}
+      <Card>
+        <div className="p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-[var(--text-secondary)]">
+            🌐 Dil
+          </h3>
+          <div className="flex gap-2">
+            <button
+              onClick={() => updateSettings({ language: "tr" })}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                settings.language === "tr"
+                  ? "bg-[var(--accent)] text-white"
+                  : "bg-[var(--bg-card)] text-[var(--text-secondary)]"
+              }`}
+            >
+              🇹🇷 Türkçe
+            </button>
+            <button
+              onClick={() => updateSettings({ language: "en" })}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                settings.language === "en"
+                  ? "bg-[var(--accent)] text-white"
+                  : "bg-[var(--bg-card)] text-[var(--text-secondary)]"
+              }`}
+            >
+              🇬🇧 English
             </button>
           </div>
         </div>
@@ -208,6 +285,15 @@ export default function SettingsPage() {
           >
             Çıkış Yap
           </Button>
+          {/* Account deletion — Godot: SettingsScreen.delete_account_button */}
+          <Button
+            variant="danger"
+            size="sm"
+            fullWidth
+            onClick={() => setDeleteAccountConfirm(true)}
+          >
+            🗑️ Hesabı Sil
+          </Button>
         </div>
       </Card>
 
@@ -233,6 +319,36 @@ export default function SettingsPage() {
             </Button>
             <Button variant="danger" size="sm" fullWidth onClick={handleLogout}>
               Çıkış Yap
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Account Confirm — Godot: SettingsScreen._on_delete_account */}
+      <Modal
+        isOpen={deleteAccountConfirm}
+        onClose={() => setDeleteAccountConfirm(false)}
+        title="⚠️ Hesabı Sil"
+        size="sm"
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-[var(--text-secondary)]">
+            Bu işlem <strong>geri alınamaz!</strong> Tüm ilerleme, altın, gem ve eşyaların kalıcı olarak silinecek.
+          </p>
+          <p className="text-xs text-[var(--color-error)]">
+            Emin misin? Bu işlem geri alınamaz.
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              fullWidth
+              onClick={() => setDeleteAccountConfirm(false)}
+            >
+              Vazgeç
+            </Button>
+            <Button variant="danger" size="sm" fullWidth onClick={handleDeleteAccount} isLoading={isDeletingAccount}>
+              Evet, Sil
             </Button>
           </div>
         </div>

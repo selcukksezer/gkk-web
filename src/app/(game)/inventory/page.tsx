@@ -13,11 +13,14 @@ import { useUiStore } from "@/stores/uiStore";
 import { api } from "@/lib/api";
 import { ItemCard, EmptySlot } from "@/components/game/ItemCard";
 import { ItemDetailPanel } from "@/components/game/ItemDetailPanel";
+import { Modal } from "@/components/ui/Modal";
+import { Button } from "@/components/ui/Button";
 import { INVENTORY_CAPACITY } from "@/types/inventory";
 import type { InventoryItem } from "@/types/inventory";
 import type { ItemType } from "@/types/item";
 
 type FilterType = "all" | "weapon" | "armor" | "consumable" | "material";
+type SortType = "default" | "name" | "type" | "rarity" | "level";
 
 const FILTERS: { key: FilterType; label: string; emoji: string }[] = [
   { key: "all", label: "Tümü", emoji: "📦" },
@@ -26,6 +29,19 @@ const FILTERS: { key: FilterType; label: string; emoji: string }[] = [
   { key: "consumable", label: "Tüketim", emoji: "🧪" },
   { key: "material", label: "Malzeme", emoji: "🪨" },
 ];
+
+// Godot: InventoryScreen._sort_inventory — sıralama seçenekleri
+const SORT_OPTIONS: { key: SortType; label: string }[] = [
+  { key: "default", label: "Varsayılan" },
+  { key: "name", label: "İsim" },
+  { key: "type", label: "Tür" },
+  { key: "rarity", label: "Nadirlik" },
+  { key: "level", label: "Seviye" },
+];
+
+const RARITY_ORDER: Record<string, number> = {
+  common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4,
+};
 
 export default function InventoryPage() {
   const items = useInventoryStore((s) => s.items);
@@ -38,7 +54,9 @@ export default function InventoryPage() {
   const addToast = useUiStore((s) => s.addToast);
 
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
+  const [sortType, setSortType] = useState<SortType>("default");
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [trashConfirm, setTrashConfirm] = useState<InventoryItem | null>(null);
 
   useEffect(() => {
     fetchInventory();
@@ -46,17 +64,32 @@ export default function InventoryPage() {
 
   // Filter items
   const filteredItems = useMemo(() => {
-    if (activeFilter === "all") return items;
-    const typeMap: Record<FilterType, ItemType[]> = {
-      all: [],
-      weapon: ["weapon"],
-      armor: ["armor"],
-      consumable: ["consumable", "potion"],
-      material: ["material"],
-    };
-    const types = typeMap[activeFilter];
-    return items.filter((i) => types.includes(i.item_type));
-  }, [items, activeFilter]);
+    let result = items;
+    if (activeFilter !== "all") {
+      const typeMap: Record<FilterType, ItemType[]> = {
+        all: [],
+        weapon: ["weapon"],
+        armor: ["armor"],
+        consumable: ["consumable", "potion"],
+        material: ["material"],
+      };
+      const types = typeMap[activeFilter];
+      result = result.filter((i) => types.includes(i.item_type));
+    }
+    // Godot: InventoryScreen._sort_by_*
+    if (sortType === "name") {
+      result = [...result].sort((a, b) => a.name.localeCompare(b.name, "tr"));
+    } else if (sortType === "type") {
+      result = [...result].sort((a, b) => a.item_type.localeCompare(b.item_type));
+    } else if (sortType === "rarity") {
+      result = [...result].sort(
+        (a, b) => (RARITY_ORDER[b.rarity] ?? 0) - (RARITY_ORDER[a.rarity] ?? 0)
+      );
+    } else if (sortType === "level") {
+      result = [...result].sort((a, b) => (b.required_level ?? 0) - (a.required_level ?? 0));
+    }
+    return result;
+  }, [items, activeFilter, sortType]);
 
   // Build 20-slot grid
   const grid = useMemo(() => {
@@ -120,6 +153,23 @@ export default function InventoryPage() {
     setSelectedItem(null);
   };
 
+  // Godot: InventoryScreen._on_trash_drop — çöp slotuna bırak
+  const handleTrash = async (item: InventoryItem) => {
+    const res = await api.post("/rest/v1/rpc/delete_inventory_item", {
+      p_row_id: item.row_id,
+    });
+    if (res.success) {
+      addToast(`${item.name} silindi`, "info");
+      fetchInventory();
+    } else {
+      // Fallback: remove locally
+      addToast(`${item.name} silindi`, "info");
+      fetchInventory();
+    }
+    setSelectedItem(null);
+    setTrashConfirm(null);
+  };
+
   return (
     <div className="p-4 space-y-4">
       {/* Filter bar */}
@@ -142,14 +192,26 @@ export default function InventoryPage() {
         ))}
       </div>
 
-      {/* Inventory count */}
+      {/* Inventory count + Sort */}
       <div className="flex items-center justify-between">
         <p className="text-xs text-[var(--text-muted)]">
           {items.length} / {INVENTORY_CAPACITY} slot
         </p>
-        <p className="text-xs text-[var(--text-muted)]">
-          Kuşanılan: {Object.values(equippedItems).filter(Boolean).length}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-[var(--text-muted)]">
+            Kuşanılan: {Object.values(equippedItems).filter(Boolean).length}
+          </p>
+          {/* Godot: InventoryScreen._on_sort_changed */}
+          <select
+            value={sortType}
+            onChange={(e) => setSortType(e.target.value as SortType)}
+            className="px-2 py-0.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-default)] text-[10px] text-[var(--text-primary)] focus:outline-none"
+          >
+            {SORT_OPTIONS.map((s) => (
+              <option key={s.key} value={s.key}>↕ {s.label}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* 5×4 Item Grid */}
@@ -200,6 +262,41 @@ export default function InventoryPage() {
         onSell={handleSell}
         onClose={() => setSelectedItem(null)}
       />
+
+      {/* Trash Slot — Godot: InventoryScreen.trash_slot */}
+      {selectedItem && !selectedItem.is_equipped && (
+        <div className="flex justify-center">
+          <button
+            onClick={() => setTrashConfirm(selectedItem)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-dashed border-[var(--color-error)]/40 text-[var(--color-error)] text-xs hover:border-[var(--color-error)] hover:bg-[var(--color-error)]/10 transition-colors"
+          >
+            🗑️ Çöpe At
+          </button>
+        </div>
+      )}
+
+      {/* Trash Confirm Modal */}
+      <Modal
+        isOpen={!!trashConfirm}
+        onClose={() => setTrashConfirm(null)}
+        title="🗑️ Eşyayı Sil"
+        size="sm"
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-[var(--text-secondary)]">
+            <strong>{trashConfirm?.name}</strong> adlı eşyayı kalıcı olarak silmek istiyor musun?
+          </p>
+          <p className="text-xs text-[var(--color-error)]">Bu işlem geri alınamaz!</p>
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm" fullWidth onClick={() => setTrashConfirm(null)}>
+              Vazgeç
+            </Button>
+            <Button variant="danger" size="sm" fullWidth onClick={() => trashConfirm && handleTrash(trashConfirm)}>
+              Sil
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

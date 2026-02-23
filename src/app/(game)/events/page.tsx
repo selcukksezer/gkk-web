@@ -65,6 +65,7 @@ export default function EventsPage() {
   const [events, setEvents] = useState<GameEvent[]>(FALLBACK_EVENTS);
   const [isLoading, setIsLoading] = useState(true);
   const [participatingId, setParticipatingId] = useState<string | null>(null);
+  const [claimingId, setClaimingId] = useState<string | null>(null);
   const addToast = useUiStore((s) => s.addToast);
 
   // Fetch events from API — Godot: GET /v1/events/{tab}
@@ -110,6 +111,25 @@ export default function EventsPage() {
       addToast("Bağlantı hatası", "error");
     } finally {
       setParticipatingId(null);
+    }
+  };
+
+  // Claim event reward — Godot: POST /v1/events/claim_reward
+  const claimReward = async (eventId: string) => {
+    setClaimingId(eventId);
+    try {
+      const res = await api.post("/rest/v1/rpc/claim_event_reward", { p_event_id: eventId });
+      if (res.success) {
+        addToast("Ödül toplandı!", "success");
+        setEvents((prev) => prev.map((e) => e.id === eventId ? { ...e, participated: true } : e));
+        await fetchEvents();
+      } else {
+        addToast(res.error || "Ödül toplanamadı", "error");
+      }
+    } catch {
+      addToast("Bağlantı hatası", "error");
+    } finally {
+      setClaimingId(null);
     }
   };
 
@@ -178,11 +198,22 @@ export default function EventsPage() {
                 </div>
 
                 {event.status === "active" && (
-                  <Button variant="primary" size="sm" fullWidth className="mt-3"
-                    onClick={() => participateInEvent(event.id)}
-                    disabled={event.participated || participatingId === event.id}>
-                    {event.participated ? "✅ Katıldınız" : participatingId === event.id ? "Katılınıyor..." : "Katıl"}
-                  </Button>
+                  <div className="mt-3 space-y-2">
+                    <Button variant="primary" size="sm" fullWidth
+                      onClick={() => participateInEvent(event.id)}
+                      disabled={event.participated || participatingId === event.id}>
+                      {event.participated ? "✅ Katıldınız" : participatingId === event.id ? "Katılınıyor..." : "Katıl"}
+                    </Button>
+                    {/* Claim reward — Godot: POST /v1/events/claim_reward */}
+                    {event.progress !== undefined && event.maxProgress !== undefined &&
+                      event.progress >= event.maxProgress && !event.participated && (
+                        <Button variant="gold" size="sm" fullWidth
+                          onClick={() => claimReward(event.id)}
+                          disabled={claimingId === event.id}>
+                          {claimingId === event.id ? "Toplanıyor..." : "🎁 Ödülü Topla"}
+                        </Button>
+                      )}
+                  </div>
                 )}
               </div>
             </Card>

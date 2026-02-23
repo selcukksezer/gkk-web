@@ -22,6 +22,26 @@ import type { MarketOrder } from "@/types/market";
 
 type MarketTab = "browse" | "sell" | "orders";
 
+// Godot: PazarScreen.gd category filter — CATEGORY_FILTERS
+const CATEGORY_FILTERS = [
+  { key: "", label: "Tümü" },
+  { key: "weapon", label: "⚔️ Silah" },
+  { key: "armor", label: "🛡️ Zırh" },
+  { key: "consumable", label: "🧪 İksir" },
+  { key: "material", label: "🪨 Malzeme" },
+  { key: "accessory", label: "💍 Aksesuar" },
+];
+
+// Godot: PazarScreen.gd rarity filter — RARITY_FILTERS
+const RARITY_FILTERS = [
+  { key: "", label: "Tüm Nadirlik" },
+  { key: "common", label: "Yaygın" },
+  { key: "uncommon", label: "Olağandışı" },
+  { key: "rare", label: "Nadir" },
+  { key: "epic", label: "Destansı" },
+  { key: "legendary", label: "Efsanevi" },
+];
+
 export default function MarketPage() {
   const tickers = useMarketStore((s) => s.tickers);
   const orderBook = useMarketStore((s) => s.orderBook);
@@ -39,6 +59,9 @@ export default function MarketPage() {
 
   const [tab, setTab] = useState<MarketTab>("browse");
   const [search, setSearch] = useState("");
+  // Godot: PazarScreen._on_category_changed / _on_rarity_changed
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [rarityFilter, setRarityFilter] = useState("");
   const [buyConfirm, setBuyConfirm] = useState<MarketOrder | null>(null);
   const [sellItem, setSellItem] = useState<{
     row_id: string;
@@ -57,16 +80,20 @@ export default function MarketPage() {
     if (tab === "orders") fetchMyOrders();
   }, [tab, fetchTickers, fetchMyOrders]);
 
-  // Filter tickers by search
+  // Filter tickers by search, category, rarity — Godot: _apply_filters
   const filteredTickers = useMemo(() => {
-    if (!search.trim()) return tickers;
-    const q = search.toLowerCase();
-    return tickers.filter(
-      (t) =>
-        t.item_name.toLowerCase().includes(q) ||
-        t.item_type?.toLowerCase().includes(q)
-    );
-  }, [tickers, search]);
+    return tickers.filter((t) => {
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        if (!t.item_name.toLowerCase().includes(q) && !t.item_type?.toLowerCase().includes(q)) {
+          return false;
+        }
+      }
+      if (categoryFilter && t.item_type !== categoryFilter) return false;
+      if (rarityFilter && t.rarity !== rarityFilter) return false;
+      return true;
+    });
+  }, [tickers, search, categoryFilter, rarityFilter]);
 
   // Tradeable items for sell tab
   const tradeableItems = useMemo(() => {
@@ -153,6 +180,27 @@ export default function MarketPage() {
             placeholder="Eşya ara..."
             className="w-full px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-default)] text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)]"
           />
+          {/* Category & Rarity filters — Godot: PazarScreen._on_category_changed */}
+          <div className="flex gap-2">
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="flex-1 px-2 py-1.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-default)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
+            >
+              {CATEGORY_FILTERS.map((f) => (
+                <option key={f.key} value={f.key}>{f.label}</option>
+              ))}
+            </select>
+            <select
+              value={rarityFilter}
+              onChange={(e) => setRarityFilter(e.target.value)}
+              className="flex-1 px-2 py-1.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-default)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
+            >
+              {RARITY_FILTERS.map((f) => (
+                <option key={f.key} value={f.key}>{f.label}</option>
+              ))}
+            </select>
+          </div>
           {isLoading ? (
             <div className="text-center text-sm text-[var(--text-muted)] py-8">
               Yükleniyor...

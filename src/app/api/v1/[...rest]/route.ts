@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 
-export const dynamic = "force-dynamic";
-
 function handle(req: Request) {
   // fallback for any unimplemented API calls
   const url = new URL(req.url);

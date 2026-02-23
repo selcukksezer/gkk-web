@@ -44,6 +44,14 @@ const RARITY_BG: Record<string, string> = {
   epic: "border-purple-500/30", legendary: "border-yellow-500/30",
 };
 
+// Godot: ShopScreen._load_gold_packages — altın paketleri (gem ile satın alınır)
+const GOLD_PACKAGES: { id: string; gold: number; gemCost: number }[] = [
+  { id: "gp1", gold: 5000, gemCost: 10 },
+  { id: "gp2", gold: 15000, gemCost: 25 },
+  { id: "gp3", gold: 50000, gemCost: 75 },
+  { id: "gp4", gold: 150000, gemCost: 200 },
+];
+
 export default function ShopPage() {
   const {
     offers,
@@ -74,6 +82,30 @@ export default function ShopPage() {
   ];
 
   const [buyingId, setBuyingId] = useState<string | null>(null);
+  const [buyingGoldId, setBuyingGoldId] = useState<string | null>(null);
+
+  // Godot: ShopScreen._on_gold_package_pressed — gem ile altın satın al
+  const buyGoldPackage = async (pkg: { id: string; gold: number; gemCost: number }) => {
+    if (gems < pkg.gemCost) { addToast("Yetersiz gem!", "error"); return; }
+    setBuyingGoldId(pkg.id);
+    try {
+      const res = await api.post("/rest/v1/rpc/buy_gold_with_gems", {
+        p_gold_amount: pkg.gold,
+        p_gem_cost: pkg.gemCost,
+      });
+      if (res.success) {
+        addToast(`${pkg.gold.toLocaleString()} altın satın alındı!`, "success");
+        const { usePlayerStore: pStore } = await import("@/stores/playerStore");
+        pStore.getState().fetchProfile();
+      } else {
+        addToast(res.error || "Satın alma başarısız", "error");
+      }
+    } catch {
+      addToast("Bağlantı hatası", "error");
+    } finally {
+      setBuyingGoldId(null);
+    }
+  };
 
   const buyItem = async (item: ShopItem) => {
     if (item.currency === "gems" && gems < item.price) { addToast("Yetersiz gem!", "error"); return; }
@@ -129,25 +161,58 @@ export default function ShopPage() {
         ))}
       </div>
 
-      {/* ─── Gem Packages ─── */}
+      {/* ─── Gem Packages (Gold→Gem) + Gold Packages (Gem→Gold) ─── */}
       {activeTab === "gems" && (
-        <div className="grid grid-cols-2 gap-3">
-          {gemPackages.map((pkg) => (
-            <motion.button key={pkg.id} whileTap={{ scale: 0.97 }}
-              className="bg-[var(--card-bg)] border border-[var(--border)] rounded-xl p-4 text-center relative overflow-hidden"
-              onClick={() => purchaseGemPackage(pkg.id)} disabled={isPurchasing}>
-              {pkg.bonus > 0 && (
-                <div className="absolute top-0 right-0 bg-green-600 text-[10px] text-white px-2 py-0.5 rounded-bl-lg font-medium">
-                  +{pkg.bonus} BONUS
-                </div>
-              )}
-              <p className="text-2xl mb-1">💎</p>
-              <p className="font-bold text-lg text-blue-400">{pkg.gems}</p>
-              {pkg.bonus > 0 && <p className="text-xs text-green-400">+{pkg.bonus} bonus</p>}
-              <p className="text-sm text-[var(--text-secondary)] mt-1">{pkg.label}</p>
-              <div className="mt-2 bg-[var(--primary)] rounded-lg py-1.5 text-white text-sm font-medium">${pkg.price}</div>
-            </motion.button>
-          ))}
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-xs font-semibold text-[var(--text-muted)] mb-2">💎 Gem Satın Al (Gerçek Para)</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {gemPackages.map((pkg) => (
+                <motion.button key={pkg.id} whileTap={{ scale: 0.97 }}
+                  className="bg-[var(--card-bg)] border border-[var(--border)] rounded-xl p-4 text-center relative overflow-hidden"
+                  onClick={() => purchaseGemPackage(pkg.id)} disabled={isPurchasing}>
+                  {pkg.bonus > 0 && (
+                    <div className="absolute top-0 right-0 bg-green-600 text-[10px] text-white px-2 py-0.5 rounded-bl-lg font-medium">
+                      +{pkg.bonus} BONUS
+                    </div>
+                  )}
+                  <p className="text-2xl mb-1">💎</p>
+                  <p className="font-bold text-lg text-blue-400">{pkg.gems}</p>
+                  {pkg.bonus > 0 && <p className="text-xs text-green-400">+{pkg.bonus} bonus</p>}
+                  <p className="text-sm text-[var(--text-secondary)] mt-1">{pkg.label}</p>
+                  <div className="mt-2 bg-[var(--primary)] rounded-lg py-1.5 text-white text-sm font-medium">${pkg.price}</div>
+                </motion.button>
+              ))}
+            </div>
+          </div>
+
+          {/* Godot: ShopScreen._load_gold_packages — Gem→Gold packages */}
+          <div>
+            <h3 className="text-xs font-semibold text-[var(--text-muted)] mb-2">🪙 Altın Satın Al (Gem ile)</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {GOLD_PACKAGES.map((pkg) => {
+                const canAfford = gems >= pkg.gemCost;
+                return (
+                  <motion.button
+                    key={pkg.id}
+                    whileTap={{ scale: canAfford ? 0.97 : 1 }}
+                    className={`bg-[var(--card-bg)] border rounded-xl p-4 text-center ${
+                      canAfford ? "border-yellow-600/40" : "border-[var(--border)] opacity-60"
+                    }`}
+                    onClick={() => buyGoldPackage(pkg)}
+                    disabled={isPurchasing || !canAfford || buyingGoldId === pkg.id}
+                  >
+                    <p className="text-2xl mb-1">🪙</p>
+                    <p className="font-bold text-lg text-[var(--gold)]">{pkg.gold.toLocaleString()}</p>
+                    <div className="mt-2 bg-blue-600 rounded-lg py-1.5 text-white text-sm font-medium">
+                      {buyingGoldId === pkg.id ? "İşleniyor..." : `💎 ${pkg.gemCost} Gem`}
+                    </div>
+                    {!canAfford && <p className="text-[10px] text-red-400 mt-1">Yetersiz gem</p>}
+                  </motion.button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 

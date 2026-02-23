@@ -47,6 +47,7 @@ const QUICK_ACTIONS = [
   { path: "/events", label: "Etkinlikler", icon: "🎉" },
   { path: "/guild", label: "Lonca", icon: "🏰" },
   { path: "/trade", label: "Ticaret", icon: "💱" },
+  { path: "/building", label: "Binalar", icon: "🏗️" },
 ];
 
 export default function HomePage() {
