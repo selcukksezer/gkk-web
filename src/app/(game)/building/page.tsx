@@ -101,7 +101,7 @@ export default function BuildingPage() {
 
   useEffect(() => { fetchBuildings(); }, [fetchBuildings]);
 
-  // Auto-update collected amounts based on time elapsed
+  // Auto-update collected amounts based on time elapsed (every 30s to reduce re-renders)
   useEffect(() => {
     const interval = setInterval(() => {
       setBuildings((prev) =>
@@ -117,7 +117,7 @@ export default function BuildingPage() {
           return { ...b, collected_amount: produced };
         })
       );
-    }, 10000); // Update every 10s
+    }, 30000); // Update every 30s
     return () => clearInterval(interval);
   }, []);
 
@@ -149,7 +149,7 @@ export default function BuildingPage() {
         addToast(res.error || "Toplama başarısız", "error");
       }
     } catch {
-      // Fallback: update locally
+      // API unavailable — update locally so UI reflects the collection
       addToast(
         `${building.collected_amount} ${building.resource_type.replace(/_/g, " ")} toplandı!`,
         "success"
