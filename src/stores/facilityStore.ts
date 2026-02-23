@@ -105,7 +105,7 @@ interface FacilityState {
   upgradeFacility: (facilityId: string) => Promise<boolean>;
   startProduction: (facilityId: string, recipeId?: string, quantity?: number) => Promise<boolean>;
   collectProduction: (facilityId: string) => Promise<unknown>;
-  collectResourcesV2: (facilityId: string, seed: number, totalCount: number) => Promise<unknown>;
+  collectResourcesV2: (facilityId: string, seed: number, totalCount: number) => Promise<{ success: boolean; count: number; total_count: number; items_generated: unknown[]; message: string; admission_occurred: boolean } | null>;
   bribeOfficials: (facilityType: string, amountGems: number) => Promise<boolean>;
   incrementSuspicion: (facilityId: string, amount?: number) => Promise<boolean>;
   decrementSuspicion: (facilityId: string, amount?: number) => Promise<boolean>;
@@ -274,6 +274,7 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
     if (!facility) return false;
 
     const facilityType = facility.facility_type;
+    if (!facilityType) return false;
     const cost = get().getUpgradeCost(facilityType, facility.level);
 
     const gold = usePlayerStore.getState().gold;
@@ -358,8 +359,10 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
       // Calculate the known bribe threshold upfront before ANY fetch
       let bribeThreshold = NaN;
       try {
-        const facilityStoreTs = get().lastBribeAt ? Date.parse(get().lastBribeAt) : NaN;
-        const playerStoreTs = usePlayerStore.getState().lastBribeAt ? Date.parse(usePlayerStore.getState().lastBribeAt) : NaN;
+        const facilityLastBribeAt = get().lastBribeAt;
+        const facilityStoreTs = facilityLastBribeAt ? Date.parse(facilityLastBribeAt) : NaN;
+        const playerStoreLastBribeAt = usePlayerStore.getState().lastBribeAt;
+        const playerStoreTs = playerStoreLastBribeAt ? Date.parse(playerStoreLastBribeAt) : NaN;
         bribeThreshold = Number.isNaN(facilityStoreTs)
           ? playerStoreTs
           : Number.isNaN(playerStoreTs)

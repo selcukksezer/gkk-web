@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import type { BattlePassInfo } from "@/hooks/useSeason";
 
-export const dynamic = "force-dynamic";
+// Static API route — compatible with output: export (Capacitor builds)
+export const dynamic = "force-static";
 
 export async function GET() {
   const info: BattlePassInfo = {
