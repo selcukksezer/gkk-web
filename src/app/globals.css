@@ -164,6 +164,41 @@ body {
 .border-game { border-color: var(--border-default); }
 
 /* ============================================================
+ * Drag-Drop Optimization (Gemini's Recommendations)
+ * ============================================================ */
+
+/* Prevent browser default drag behaviors */
+.inventory-slot,
+[data-dnd-droppable],
+.dnd-item {
+  -webkit-user-drag: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  touch-action: none; /* Prevent mobile scroll during drag */
+  -webkit-touch-callout: none; /* Prevent iOS callout */
+}
+
+/* Smooth layout transitions for items */
+.inventory-item {
+  transition: none; /* Let Framer Motion handle transitions */
+  will-change: transform, opacity;
+}
+
+/* Dragging visual feedback */
+.dnd-active {
+  opacity: 0.5;
+  z-index: 50;
+}
+
+.dnd-over-target {
+  background: rgba(102, 51, 204, 0.1);
+  border-color: var(--accent-light);
+  box-shadow: inset 0 0 12px rgba(102, 51, 204, 0.2);
+}
+
+/* ============================================================
  * Page transition animation
  * ============================================================ */
 

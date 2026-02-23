@@ -25,9 +25,13 @@ interface InventoryState {
   equipItem: (itemId: string, slot: string) => Promise<boolean>;
   unequipItem: (slot: string) => Promise<boolean>;
   swapSlots: (fromSlot: number, toSlot: number) => Promise<boolean>;
+  moveItemToSlot: (rowId: string, targetSlot: number) => Promise<boolean>;
   batchUpdatePositions: (updates: Array<{ row_id: string; slot_position: number }>) => Promise<boolean>;
   updateItemEnhancement: (rowId: string, newLevel: number) => Promise<boolean>;
   useItem: (itemId: string) => Promise<boolean>;
+  splitStack: (rowId: string, splitQuantity: number) => Promise<boolean>;
+  trashItem: (rowId: string) => Promise<boolean>;
+  toggleFavorite: (rowId: string) => Promise<boolean>;
 
   // Local helpers
   addItemLocal: (item: InventoryItem) => void;
@@ -188,32 +192,42 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
   },
 
   // ── Equip item ─────────────────────────────────────────────
-  equipItem: async (itemId: string, slot: string) => {
+  equipItem: async (rowId: string, slot: string) => {
+    // Optimistic update: update local state immediately
+    set((s) => {
+      const item = s.items.find((i) => i.row_id === rowId);
+      if (!item) return s;
+
+      const updatedItems = s.items.map((i) => {
+        if (i.row_id === rowId) {
+          return { ...i, is_equipped: true, equip_slot: slot };
+        }
+        // Unequip other items in this slot
+        if (i.equip_slot === slot && i.is_equipped) {
+          return { ...i, is_equipped: false, equip_slot: null };
+        }
+        return i;
+      });
+
+      const equipped = { ...s.equippedItems };
+      equipped[slot] = item || null;
+
+      return { items: updatedItems, equippedItems: equipped };
+    });
+
+    // Send to server
     const res = await api.rpc("equip_item", {
-      p_item_id: itemId,
+      p_row_id: rowId,
       p_slot: slot,
     });
 
-    if (res.success) {
-      set((s) => {
-        const updatedItems = s.items.map((i) => {
-          if (i.item_id === itemId) {
-            return { ...i, is_equipped: true, equipped_slot: slot };
-          }
-          if (i.equipped_slot === slot && i.is_equipped) {
-            return { ...i, is_equipped: false, equipped_slot: "" };
-          }
-          return i;
-        });
-
-        const equipped = { ...s.equippedItems };
-        equipped[slot] = updatedItems.find((i) => i.item_id === itemId) || null;
-
-        return { items: updatedItems, equippedItems: equipped };
-      });
-      return true;
+    if (!res.success) {
+      // Revert optimistic update on error
+      await get().fetchInventory();
+      set({ error: res.error || "Equip failed" });
+      return false;
     }
-    return false;
+    return true;
   },
 
   // ── Unequip item ───────────────────────────────────────────
@@ -239,12 +253,46 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
 
   // ── Swap slots ─────────────────────────────────────────────
   swapSlots: async (fromSlot: number, toSlot: number) => {
-    const res = await api.rpc("swap_slots", {
-      p_from_slot: fromSlot,
-      p_to_slot: toSlot,
-    });
+    // Prefer calling the dedicated RPC if available, but fall back to
+    // `update_item_positions` when the RPC is not present (404) so the
+    // client remains usable without server-side function parity during dev.
+    try {
+      const res = await api.rpc("swap_slots", {
+        p_from_slot: fromSlot,
+        p_to_slot: toSlot,
+      });
 
-    if (res.success) {
+      if (res.success) {
+        set((s) => ({
+          items: s.items.map((item) => {
+            if (item.slot_position === fromSlot) return { ...item, slot_position: toSlot };
+            if (item.slot_position === toSlot) return { ...item, slot_position: fromSlot };
+            return item;
+          }),
+        }));
+        return true;
+      }
+
+      // If RPC returned but was not successful, fallthrough to fallback below
+      console.warn("swap_slots RPC failed, attempting fallback update_item_positions:", res.error);
+    } catch (err) {
+      console.warn("swap_slots RPC call errored — falling back to update_item_positions", err);
+    }
+
+    // Fallback: perform a batch positional update using row_ids for the two slots
+    const state = get();
+    const a = state.items.find((it) => it.slot_position === fromSlot);
+    const b = state.items.find((it) => it.slot_position === toSlot);
+
+    // If neither item exists at the slots, nothing to do
+    if (!a && !b) return false;
+
+    const updates: Array<{ row_id: string; slot_position: number }> = [];
+    if (a) updates.push({ row_id: a.row_id, slot_position: toSlot });
+    if (b) updates.push({ row_id: b.row_id, slot_position: fromSlot });
+
+    const res2 = await api.rpc("update_item_positions", { p_updates: updates });
+    if (res2.success) {
       set((s) => ({
         items: s.items.map((item) => {
           if (item.slot_position === fromSlot) return { ...item, slot_position: toSlot };
@@ -254,6 +302,8 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
       }));
       return true;
     }
+
+    set({ error: res2.error || "Swap failed" });
     return false;
   },
 
@@ -315,6 +365,112 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
       await get().fetchInventory();
       return true;
     }
+    return false;
+  },
+
+  // ── Move item to specific slot (drag-drop) ─────────────────
+  moveItemToSlot: async (rowId: string, targetSlot: number) => {
+    if (targetSlot < 0 || targetSlot >= INVENTORY_CAPACITY) {
+      set({ error: `Geçersiz slot pozisyonu: ${targetSlot}` });
+      return false;
+    }
+
+    const res = await api.rpc("update_item_positions", {
+      p_updates: [{ row_id: rowId, slot_position: targetSlot }],
+    });
+
+    if (res.success) {
+      set((s) => ({
+        items: s.items.map((i) =>
+          i.row_id === rowId ? { ...i, slot_position: targetSlot } : i
+        ),
+      }));
+      return true;
+    }
+    set({ error: res.error || "Eşya taşıma başarısız" });
+    return false;
+  },
+
+  // ── Split stack item ───────────────────────────────────────
+  splitStack: async (rowId: string, splitQuantity: number) => {
+    const item = get().getItemByRowId(rowId);
+    if (!item) {
+      set({ error: "Eşya bulunamadı" });
+      return false;
+    }
+
+    if (!item.is_stackable || item.quantity <= 1) {
+      set({ error: "Bu eşya bölünemez" });
+      return false;
+    }
+
+    if (splitQuantity <= 0 || splitQuantity >= item.quantity) {
+      set({ error: `Geçersiz bölme miktarı (1-${item.quantity - 1})` });
+      return false;
+    }
+
+    // Find first empty slot for new stack
+    const targetSlot = get().findFirstEmptySlot();
+    if (targetSlot === -1) {
+      set({ error: "Envanter dolu, bölme yapılamadı" });
+      return false;
+    }
+
+    // Call RPC to split stack
+    const res = await api.rpc("split_stack_item", {
+      p_row_id: rowId,
+      p_split_quantity: splitQuantity,
+      p_target_slot: targetSlot,
+    });
+
+    if (res.success) {
+      await get().fetchInventory();
+      return true;
+    }
+    set({ error: res.error || "Stack bölme başarısız" });
+    return false;
+  },
+
+  // ── Trash/Delete item ──────────────────────────────────────
+  trashItem: async (rowId: string) => {
+    const res = await api.rpc("trash_item", { p_row_id: rowId });
+
+    if (res.success) {
+      set((s) => ({
+        items: s.items.filter((i) => i.row_id !== rowId),
+      }));
+      return true;
+    }
+    set({ error: res.error || "Eşya silinme başarısız" });
+    return false;
+  },
+
+  // ── Toggle favorite ────────────────────────────────────────
+  toggleFavorite: async (rowId: string) => {
+    const item = get().getItemByRowId(rowId);
+    if (!item) {
+      set({ error: "Eşya bulunamadı" });
+      return false;
+    }
+
+    const newFavoriteState = !item.is_favorite;
+    
+    const res = await api.rpc("toggle_item_favorite", {
+      p_row_id: rowId,
+      p_is_favorite: newFavoriteState,
+    });
+
+    if (res.success) {
+      set((s) => ({
+        items: s.items.map((i) =>
+          i.row_id === rowId
+            ? { ...i, is_favorite: newFavoriteState }
+            : i
+        ),
+      }));
+      return true;
+    }
+    set({ error: res.error || "Favori durumu değiştirilemiyor" });
     return false;
   },
 
