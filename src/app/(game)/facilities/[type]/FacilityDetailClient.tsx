@@ -87,15 +87,18 @@ export default function FacilityDetailClient({ type }: { type: string }) {
       setLiveResources([]);
       return;
     }
-    const baseRate = config.base_rate || 10;
+    // Match server RPC `collect_facility_resources_v2` formula from veritabani_schema.sql
+    // Server uses a fixed base_rate := 10 and multiplies by level and a 10x multiplier.
+    // total_qty = floor((elapsed_seconds / 3600) * (base_rate * level * 10)) capped at 100
+    const SERVER_BASE_RATE = 10;
     const durationMs = PRODUCTION_DURATION_SECONDS * 1000;
     const startedTs = Date.parse(productionStartedAt);
     const now = Date.now();
     const elapsedMs = Math.max(0, Math.min(now - startedTs, durationMs));
 
-    // Godot formülü: int(hours_elapsed * base_rate * level * 10)
-    const hoursElapsed = elapsedMs / 3_600_000;
-    const totalProduced = Math.floor(hoursElapsed * baseRate * (facility.level || 1) * 10);
+    const elapsedSeconds = elapsedMs / 1000;
+    const baseCalc = (elapsedSeconds / 3600.0) * (SERVER_BASE_RATE * (facility.level || 1) * 10);
+    const totalProduced = Math.floor(baseCalc);
 
     if (totalProduced <= 0) {
       setLiveResources([]);
