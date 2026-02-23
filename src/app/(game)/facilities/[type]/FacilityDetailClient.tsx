@@ -304,6 +304,7 @@ export default function FacilityDetailClient({ type }: { type: string }) {
                   try {
                     console.log('[FacilityDetail] resources for', facilityType, '->', config.resources, 'level=', facility.level);
                   } catch (e) {}
+                  return null;
                 })()}
 
                 {config.resources.map((item, idx) => {
