@@ -891,28 +891,13 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
         selectedRarity = "common"; // Downgrade to common
       }
 
-      // Select resource index by rarity
-      let resourceIndex: number;
-      switch (selectedRarity) {
-        case "common":
-          resourceIndex = (detSeed + i) % 2; // index 0 or 1
-          break;
-        case "uncommon":
-          resourceIndex = 2;
-          break;
-        case "rare":
-        case "epic":
-          resourceIndex = 3;
-          break;
-        case "legendary":
-          resourceIndex = 4;
-          break;
-        default:
-          resourceIndex = 0;
-      }
-
-      // Clamp to pool size
-      resourceIndex = Math.min(resourceIndex, resources.length - 1);
+      // Select resource index using the same deterministic RNG value
+      // but allow selection across the full resource pool for more variety.
+      // This matches a more flexible server-side selection (updated in SQL backup).
+      const rngForIndex = ((detSeed + i) * 16807) % 2147483647 / 2147483647;
+      let resourceIndex = Math.floor(rngForIndex * resources.length);
+      if (resourceIndex < 0) resourceIndex = 0;
+      if (resourceIndex > resources.length - 1) resourceIndex = resources.length - 1;
 
       results.push({
         item_id: resources[resourceIndex],
