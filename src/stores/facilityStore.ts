@@ -858,7 +858,11 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
     const resources = FACILITY_RESOURCES_FULL[facilityType] || [];
     if (resources.length === 0 || totalCount === 0) return [];
 
-    const clampedCount = Math.min(totalCount, RESOURCE_CAP);
+    // Clamp requested totalCount to what can actually be produced within the configured production duration
+    const facilityConfig = FACILITIES_CONFIG[facilityType] || { base_rate: 10 };
+    const baseRate = facilityConfig.base_rate || 10;
+    const fullDurationTotal = Math.floor((PRODUCTION_DURATION_SECONDS / 3600.0) * (baseRate * facilityLevel * 10));
+    const clampedCount = Math.min(totalCount, Math.max(fullDurationTotal, 0));
 
     // Deterministic seed from production_started_at
     let detSeed = hashString(productionStartedAt) % 2147483647;
@@ -870,39 +874,114 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
     const totalWeight = rarities.reduce((sum, r) => sum + weights[r], 0);
 
     const results: Array<{ item_id: string; rarity: ResourceRarity }> = [];
+    // Ensure each resource gets a single, consistent rarity for this generation run
+    const resourceRarityMap: Record<string, ResourceRarity> = {};
 
-    for (let i = 1; i <= clampedCount; i++) {
-      // LCG RNG matching Godot: ((seed + i) * 16807) % 2147483647
-      const rngVal = ((detSeed + i) * 16807) % 2147483647 / 2147483647;
+    const _debugSamples: Array<{ i: number; rngVal: number; rngForIndex: number; resourceIndex: number }> = [];
+    // Quota-based deterministic rarity distribution adjusted to match Godot's
+    // Each resource has a fixed tier by index (0..4 => common,common,uncommon,rare,legendary)
+    const LCG_MOD = 2147483647;
+    const LCG_RARITY_MULT = 16807;
+    const LCG_IDX_MULT = 48271;
 
-      // Select rarity by cumulative threshold
-      let selectedRarity: ResourceRarity = "common";
-      let cumulative = 0;
-      for (const r of rarities) {
-        cumulative += weights[r] / totalWeight;
-        if (rngVal < cumulative) {
-          selectedRarity = r;
-          break;
-        }
+    let rarityState = (detSeed + 13579) % LCG_MOD;
+    let indexState = (detSeed + 24680) % LCG_MOD;
+
+    // Map resource index -> inherent tier (from Godot MD)
+    const indexToTier: ResourceRarity[] = ["common", "common", "uncommon", "rare", "legendary"];
+
+    // Calculate expected counts per rarity (fractional), floor them and distribute remainders
+    const rawCounts: Record<ResourceRarity, number> = { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0 };
+    for (const r of rarities) rawCounts[r] = (weights[r] / totalWeight) * clampedCount;
+
+    const baseCounts: Record<ResourceRarity, number> = { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0 };
+    const rems: Array<{ r: ResourceRarity; rem: number }> = [];
+    let baseSum = 0;
+    for (const r of rarities) {
+      baseCounts[r] = Math.floor(rawCounts[r]);
+      baseSum += baseCounts[r];
+      rems.push({ r, rem: rawCounts[r] - baseCounts[r] });
+    }
+    let remaining = clampedCount - baseSum;
+    // Sort remainders descending, tie-break with rarityState
+    rems.sort((a, b) => {
+      if (a.rem !== b.rem) return b.rem - a.rem;
+      rarityState = (rarityState * LCG_RARITY_MULT) % LCG_MOD;
+      return (rarityState / LCG_MOD) - 0.5;
+    });
+
+    const quota: Record<ResourceRarity, number> = { ...baseCounts };
+    for (let i = 0; i < remaining; i++) {
+      const r = rems[i % rems.length].r;
+      quota[r] = (quota[r] || 0) + 1;
+    }
+
+    try {
+      console.log("[facilityStore] calculateIdleResources quotas:", quota);
+    } catch (e) {}
+
+    // For each rarity, distribute its quota across the resources whose inherent tier == rarity
+    // If facility level does not unlock that rarity, treat those resources as common.
+    const countsPerResource: Record<string, number> = {};
+    for (let idx = 0; idx < resources.length; idx++) countsPerResource[resources[idx]] = 0;
+
+    for (const r of rarities) {
+      let targetR = r;
+      // if facility level doesn't unlock this rarity, downgrades to common
+      if (facilityLevel < (RARITY_UNLOCK_LEVELS[targetR] || Infinity)) targetR = "common" as ResourceRarity;
+
+      const countForR = quota[r] || 0;
+      if (countForR <= 0) continue;
+
+      // resources that belong to this rarity by index
+      const pool = resources
+        .map((id, i) => ({ id, i }))
+        .filter(({ i }) => indexToTier[Math.min(i, indexToTier.length - 1)] === r)
+        .map((p) => p.id);
+
+      const effectivePool = pool.length > 0 ? pool : resources.slice();
+
+      // Round-robin allocate countForR across effectivePool
+      for (let k = 0; k < countForR; k++) {
+        const pick = effectivePool[k % effectivePool.length];
+        countsPerResource[pick] = (countsPerResource[pick] || 0) + 1;
       }
+    }
 
-      // Check if rarity is unlocked at facility level
-      if (facilityLevel < RARITY_UNLOCK_LEVELS[selectedRarity]) {
-        selectedRarity = "common"; // Downgrade to common
+    // Build results from countsPerResource, assigning final rarity per resource (downgrade if needed)
+    let built = 0;
+    for (let idx = 0; idx < resources.length && built < clampedCount; idx++) {
+      const id = resources[idx];
+      let assignedRarity: ResourceRarity = indexToTier[Math.min(idx, indexToTier.length - 1)];
+      if (facilityLevel < (RARITY_UNLOCK_LEVELS[assignedRarity] || Infinity)) assignedRarity = "common" as ResourceRarity;
+      const qty = countsPerResource[id] || 0;
+      for (let q = 0; q < qty && built < clampedCount; q++) {
+        results.push({ item_id: id, rarity: assignedRarity });
+        built++;
+        if (results.length >= clampedCount) break;
       }
+    }
 
-      // Use a second, decorrelated deterministic RNG for resource index selection
-      // to reduce repetition while keeping results deterministic per seed.
-      // We use a different multiplier (48271) and step (i * 7) to decorrelate from rarity RNG.
-      const rngForIndex = ((detSeed + i * 7) * 48271) % 2147483647 / 2147483647;
-      let resourceIndex = Math.floor(rngForIndex * resources.length);
-      if (resourceIndex < 0) resourceIndex = 0;
-      if (resourceIndex > resources.length - 1) resourceIndex = resources.length - 1;
+    // If for some reason we haven't filled results, pad with common items (first resource)
+    while (results.length < clampedCount) {
+      const fallback = resources[0] || "unknown";
+      results.push({ item_id: fallback, rarity: "common" });
+    }
 
-      results.push({
-        item_id: resources[resourceIndex],
-        rarity: selectedRarity,
-      });
+    if (_debugSamples.length > 0) {
+      try {
+        const meta = {
+          detSeed,
+          productionStartedAt,
+          facilityType,
+          facilityLevel,
+          resources: resources.slice(0, 10),
+          clampedCount,
+        };
+        console.log("[facilityStore] calculateIdleResources debug — meta:\n" + JSON.stringify(meta, null, 2) + "\n samples:\n" + JSON.stringify(_debugSamples, null, 2));
+      } catch (e) {
+        // ignore logging errors
+      }
     }
 
     return results;

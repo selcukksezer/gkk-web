@@ -18,7 +18,7 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Modal } from "@/components/ui/Modal";
 import { FACILITIES_CONFIG } from "@/data/FacilityConfig";
 import { formatGold } from "@/lib/utils/string";
-import { PRODUCTION_DURATION_SECONDS } from "@/stores/facilityStore";
+import { PRODUCTION_DURATION_SECONDS, RARITY_UNLOCK_LEVELS } from "@/stores/facilityStore";
 import type { FacilityType, ProductionQueueItem } from "@/types/facility";
 
 export default function FacilityDetailClient({ type }: { type: string }) {
@@ -107,7 +107,7 @@ export default function FacilityDetailClient({ type }: { type: string }) {
           facilityType,
           facility.level || 1,
           productionStartedAt,
-          Math.min(totalProduced, 100)
+          Math.min(totalProduced, 1000000) // allow calculateIdleResources to clamp by duration
         )
       : [];
 
@@ -118,7 +118,14 @@ export default function FacilityDetailClient({ type }: { type: string }) {
       if (!agg[key]) agg[key] = { item_id: it.item_id, rarity: it.rarity, quantity: 0 };
       agg[key].quantity += 1;
     }
-    const aggregated = Object.values(agg);
+    // Sort aggregated results by rarity/value (legendary -> epic -> rare -> uncommon -> common)
+    const rarityRank: Record<string, number> = { legendary: 5, epic: 4, rare: 3, uncommon: 2, common: 1 };
+    const aggregated = Object.values(agg).sort((a, b) => {
+      const ra = rarityRank[a.rarity] || 0;
+      const rb = rarityRank[b.rarity] || 0;
+      if (ra !== rb) return rb - ra; // higher rarity first
+      return b.quantity - a.quantity; // then by quantity
+    });
     setLiveResources(aggregated);
 
     // Detailed console output
@@ -137,6 +144,10 @@ export default function FacilityDetailClient({ type }: { type: string }) {
     const id = setInterval(calcLiveResources, 3_000);
     return () => clearInterval(id);
   }, [productionStartedAt, calcLiveResources]);
+
+  // Not: `calcLiveResources` her 3 saniyede çalışarak önizlemeyi güncelliyor —
+  // bu sadece UI güncelleme sıklığıdır. Üretim süresi `PRODUCTION_DURATION_SECONDS`
+  // ile tanımlanır (varsayılan 120s) ve üretim bu süre tamamlanana dek sürer.
 
   // ── Üretim sürüyorken polling (forceRefresh=true ile cache atlatılır) ──
   useEffect(() => {
@@ -289,24 +300,37 @@ export default function FacilityDetailClient({ type }: { type: string }) {
             <div className="p-4">
               <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">📦 Üretilebilir Kaynaklar (Lv.{facility.level})</h3>
               <div className="grid grid-cols-2 gap-3">
+                {(() => {
+                  try {
+                    console.log('[FacilityDetail] resources for', facilityType, '->', config.resources, 'level=', facility.level);
+                  } catch (e) {}
+                })()}
+
                 {config.resources.map((item, idx) => {
-                  // Calculate rarity for this resource based on level
                   const weights = useFacilityStore.getState().getRarityWeightsAtLevel(facility.level);
                   const total = Object.values(weights).reduce((s, v) => s + v, 0);
-                  // Determine likely rarity (simple heuristic: index determines rarity tier)
-                  let rarityKey: keyof typeof weights = 'common';
-                  if (idx === 1 || idx === 2) rarityKey = 'uncommon';
-                  else if (idx === 3) rarityKey = 'rare';
-                  else if (idx === 4) rarityKey = 'legendary';
-                  
-                  const rarityPercent = (weights[rarityKey] / total) * 100;
-                  const rarityEmoji = { common: '⚪', uncommon: '🟢', rare: '🔵', epic: '🟣', legendary: '🟡' }[rarityKey] || '⚪';
-                  
+                  const indexToTier: Record<number, keyof typeof weights> = { 0: 'common', 1: 'common', 2: 'uncommon', 3: 'rare', 4: 'legendary' };
+                  const inherentTier = (indexToTier[idx] || 'common') as keyof typeof weights;
+
+                  const effectiveTier = facility.level >= (RARITY_UNLOCK_LEVELS as any)[inherentTier] ? inherentTier : 'common';
+
+                  const effectiveIndexToTier = (i: number) => {
+                    const t = (indexToTier[i] || 'common') as keyof typeof weights;
+                    return facility.level >= (RARITY_UNLOCK_LEVELS as any)[t] ? t : 'common';
+                  };
+
+                  const tierCount = config.resources.reduce((c, _, i) => c + (effectiveIndexToTier(i) === effectiveTier ? 1 : 0), 0) || 1;
+
+                  const rarityPercent = (weights[effectiveTier] / total) * (1 / tierCount) * 100;
+                  const rarityEmoji = { common: '⚪', uncommon: '🟢', rare: '🔵', epic: '🟣', legendary: '🟡' }[effectiveTier] || '⚪';
+
+                  const locked = inherentTier !== effectiveTier;
+
                   return (
                     <div key={item} className="p-3 rounded-lg bg-[var(--bg-darker)]">
                       <div className="text-lg mb-1">{rarityEmoji}</div>
                       <p className="text-xs font-medium text-[var(--text-primary)]">{item}</p>
-                      <p className="text-[10px] text-[var(--text-muted)]">{rarityPercent.toFixed(1)}%</p>
+                      <p className="text-[10px] text-[var(--text-muted)]">{rarityPercent.toFixed(1)}%{locked ? ' (locked→common)' : ''}</p>
                     </div>
                   );
                 })}
