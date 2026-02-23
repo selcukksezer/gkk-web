@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import type { ShopOffer } from "@/hooks/useShop";
 
-// ensure API route runs dynamically (not exported as static HTML)
-export const dynamic = "force-dynamic";
+// Static API route — compatible with output: export (Capacitor builds)
+export const dynamic = "force-static";
 
 export async function GET() {
   // simple mock response, adjust as needed

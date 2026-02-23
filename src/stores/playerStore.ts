@@ -60,6 +60,9 @@ interface PlayerState {
   // Bribe tracking (Godot: FacilityManager.gd)
   lastBribeAt: string | null;
   
+  // Client-side bribe override: suppress server globalSuspicionLevel until this timestamp (ms)
+  bribeActiveUntil: number | null;
+  
   isLoading: boolean;
 
   // Computed
@@ -337,7 +340,7 @@ export const usePlayerStore = create<PlayerState>()(
     try {
       const res = await api.rpc<any>("release_from_prison", { p_use_bail: true });
       if (res && (res as any).success) {
-        const gemsSpent = (res.gems_spent || res.data?.gems_spent || (res as any).gems_spent || 0) as number;
+        const gemsSpent = (res.data?.gems_spent || 0) as number;
         if (gemsSpent > 0) {
           get().updateGems(-gemsSpent, true);
         }

@@ -300,12 +300,6 @@ export default function FacilityDetailClient({ type }: { type: string }) {
             <div className="p-4">
               <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">📦 Üretilebilir Kaynaklar (Lv.{facility.level})</h3>
               <div className="grid grid-cols-2 gap-3">
-                {(() => {
-                  try {
-                    console.log('[FacilityDetail] resources for', facilityType, '->', config.resources, 'level=', facility.level);
-                  } catch (e) {}
-                })()}
-
                 {config.resources.map((item, idx) => {
                   const weights = useFacilityStore.getState().getRarityWeightsAtLevel(facility.level);
                   const total = Object.values(weights).reduce((s, v) => s + v, 0);
