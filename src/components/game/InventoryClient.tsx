@@ -6,19 +6,25 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { DndContext, DragEndEvent, DragStartEvent, DragCancelEvent, pointerWithin } from "@dnd-kit/core";
 import { PointerSensor, useSensor, useSensors, KeyboardSensor } from "@dnd-kit/core";
 import { useInventoryStore } from "@/stores/inventoryStore";
 import { usePlayerStore } from "@/stores/playerStore";
+import { useUiStore } from "@/stores/uiStore";
 import type { InventoryItem } from "@/types/inventory";
 import { INVENTORY_CAPACITY } from "@/types/inventory";
+import type { Rarity } from "@/types/item";
 import { InventoryGrid } from "./InventoryGrid";
 import { InventoryDetailPanel } from "./InventoryDetailPanel";
 import { EquipmentGrid } from "./EquipmentGrid";
 import { InventoryDragOverlay } from "./InventoryDragOverlay";
 import { SellDialog, SplitStackDialog, DeleteConfirmDialog } from "./InventoryDialogs";
+import { InventoryFilterBar, type FilterType } from "./InventoryFilterBar";
+import { InventorySortControls, type SortType } from "./InventorySortControls";
+
+const RARITY_ORDER: Rarity[] = ["common", "uncommon", "rare", "epic", "legendary", "mythic"];
 
 export function InventoryClient() {
   const {
@@ -35,16 +41,19 @@ export function InventoryClient() {
     removeItemByRowId,
     splitStack,
     toggleFavorite,
+    useItem,
   } = useInventoryStore();
 
-  const player = usePlayerStore((s) => s.player);
   const level = usePlayerStore((s) => s.level);
-  const xp = usePlayerStore((s) => s.xp);
-  const gold = usePlayerStore((s) => s.gold);
-  const gems = usePlayerStore((s) => s.gems);
+  const addToast = useUiStore((s) => s.addToast);
 
   // UI State
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+
+  // Filter & Sort State — Godot: InventoryScreen._on_filter_button_pressed / _on_sort_button_pressed
+  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
+  const [sortBy, setSortBy] = useState<SortType>("name");
+  const [sortAscending, setSortAscending] = useState(true);
 
   // Dialog State
   const [activeSellDialog, setActiveSellDialog] = useState(false);
@@ -65,10 +74,73 @@ export function InventoryClient() {
     fetchInventory();
   }, [fetchInventory]);
 
+  // =========== COMPUTED VALUES ===========
+
+  // Total stats from equipped items — Godot: EquipmentScreen stats_recalculated signal
+  const totalStats = useMemo(() => {
+    const stats = { attack: 0, defense: 0, health: 0, power: 0 };
+    Object.values(equippedItems).forEach((item) => {
+      if (item) {
+        const bonus = 1 + (item.enhancement_level ?? 0) * 0.1;
+        stats.attack += Math.floor((item.attack ?? 0) * bonus);
+        stats.defense += Math.floor((item.defense ?? 0) * bonus);
+        stats.health += Math.floor((item.health ?? 0) * bonus);
+        stats.power += Math.floor((item.power ?? 0) * bonus);
+      }
+    });
+    return stats;
+  }, [equippedItems]);
+
+  // Filtered items — Godot: InventoryScreen._on_filter_button_pressed
+  const filteredItems = useMemo(() => {
+    const nonEquipped = items.filter((i) => !i.is_equipped);
+    if (activeFilter === "all") return nonEquipped;
+    return nonEquipped.filter((i) => {
+      if (activeFilter === "weapon") return i.item_type === "weapon";
+      if (activeFilter === "armor") return i.item_type === "armor";
+      if (activeFilter === "potion") return i.item_type === "potion" || i.item_type === "consumable";
+      if (activeFilter === "material") return i.item_type === "material";
+      return true;
+    });
+  }, [items, activeFilter]);
+
+  // Sorted display items — Godot: InventoryScreen._on_sort_button_pressed
+  const displayItems = useMemo(() => {
+    const isSorted = sortBy !== "name" || !sortAscending;
+    const isFiltered = activeFilter !== "all";
+    if (!isSorted && !isFiltered) return items; // default: use original slot positions
+
+    const sorted = [...filteredItems].sort((a, b) => {
+      let cmp = 0;
+      switch (sortBy) {
+        case "name": cmp = a.name.localeCompare(b.name); break;
+        case "rarity": cmp = RARITY_ORDER.indexOf(a.rarity) - RARITY_ORDER.indexOf(b.rarity); break;
+        case "level": cmp = (a.required_level ?? 0) - (b.required_level ?? 0); break;
+        case "type": cmp = a.item_type.localeCompare(b.item_type); break;
+      }
+      return sortAscending ? cmp : -cmp;
+    });
+    // Remap display positions for sorted/filtered view (visual only)
+    return sorted.map((item, idx) => ({ ...item, slot_position: idx }));
+  }, [items, filteredItems, sortBy, sortAscending, activeFilter]);
+
   // =========== HANDLERS ===========
 
   const handleItemClick = (item: InventoryItem) => {
     setSelectedItem(item);
+  };
+
+  // Use consumable/potion — Godot: InventoryScreen._on_use_button_pressed
+  const handleUseItem = async () => {
+    if (!selectedItem) return;
+    const success = await useItem(selectedItem.item_id);
+    if (success) {
+      addToast(`${selectedItem.name} kullanıldı!`, "success");
+      setSelectedItem(null);
+      await fetchInventory();
+    } else {
+      addToast("Eşya kullanılamadı", "error");
+    }
   };
 
   const handleSellItem = async (quantity: number) => {
@@ -245,17 +317,42 @@ export function InventoryClient() {
         onDragCancel={handleDragCancel}
       >
       <div className="flex flex-col lg:flex-row gap-4 w-full items-stretch">
-        {/* Left Column: Equipment Grid */}
+        {/* Left Column: Equipment Grid + Total Stats */}
         <motion.div
           initial={{ x: -30, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="w-full lg:w-80 flex-shrink-0 bg-gradient-to-br from-[var(--bg-card)] to-[var(--bg-darker)] p-4 rounded-xl border border-[var(--border-subtle)] shadow-lg"
+          className="w-full lg:w-80 flex-shrink-0 bg-gradient-to-br from-[var(--bg-card)] to-[var(--bg-darker)] p-4 rounded-xl border border-[var(--border-subtle)] shadow-lg space-y-4"
         >
-          <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3">
+          <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
             🛡️ Kuşanılan Eşyalar
           </p>
           <EquipmentGrid equippedItems={equippedItems} />
+
+          {/* Total Stats Panel — Godot: EquipmentScreen stats_recalculated */}
+          <div className="pt-2 border-t border-[var(--border-subtle)]">
+            <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">
+              📊 Toplam İstatistik
+            </p>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="flex justify-between bg-[var(--bg-darker)] rounded px-2 py-1">
+                <span className="text-[var(--text-muted)]">⚔️ Saldırı</span>
+                <span className="text-red-400 font-bold">+{totalStats.attack}</span>
+              </div>
+              <div className="flex justify-between bg-[var(--bg-darker)] rounded px-2 py-1">
+                <span className="text-[var(--text-muted)]">🛡️ Savunma</span>
+                <span className="text-blue-400 font-bold">+{totalStats.defense}</span>
+              </div>
+              <div className="flex justify-between bg-[var(--bg-darker)] rounded px-2 py-1">
+                <span className="text-[var(--text-muted)]">❤️ Can</span>
+                <span className="text-green-400 font-bold">+{totalStats.health}</span>
+              </div>
+              <div className="flex justify-between bg-[var(--bg-darker)] rounded px-2 py-1">
+                <span className="text-[var(--text-muted)]">💥 Güç</span>
+                <span className="text-purple-400 font-bold">+{totalStats.power}</span>
+              </div>
+            </div>
+          </div>
         </motion.div>
 
         {/* Right Column: Character Stats / Detail Panel */}
@@ -268,6 +365,7 @@ export function InventoryClient() {
           <InventoryDetailPanel
             item={selectedItem}
             onClose={() => setSelectedItem(null)}
+            onUseClick={handleUseItem}
             onEquipClick={() => {
               if (selectedItem && selectedItem.equip_slot !== "none" && !selectedItem.is_equipped) {
                 equipItem(selectedItem.row_id, selectedItem.equip_slot);
@@ -289,9 +387,19 @@ export function InventoryClient() {
         className="bg-gradient-to-br from-[var(--bg-card)] to-[var(--bg-darker)] p-6 rounded-xl border border-[var(--border-subtle)] shadow-lg"
       >
         <div className="mb-4">
-          <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
-            📦 Envanter - {items.length.toString().padStart(2, "0")}/{INVENTORY_CAPACITY} Slot
+          <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3">
+            📦 Envanter - {items.filter((i) => !i.is_equipped).length.toString().padStart(2, "0")}/{INVENTORY_CAPACITY} Slot
           </p>
+          {/* Filter & Sort Controls — Godot: InventoryScreen filter/sort buttons */}
+          <InventoryFilterBar activeFilter={activeFilter} onFilterChange={setActiveFilter} />
+          <div className="mt-2">
+            <InventorySortControls
+              sortBy={sortBy}
+              isAscending={sortAscending}
+              onSortChange={setSortBy}
+              onToggleOrder={() => setSortAscending((v) => !v)}
+            />
+          </div>
         </div>
 
         {isLoading ? (
@@ -307,7 +415,7 @@ export function InventoryClient() {
         ) : (
           <>
             <InventoryGrid
-              items={items}
+              items={displayItems}
               selectedItemId={selectedItem?.row_id}
               activeItemId={activeId}
               onItemClick={handleItemClick}

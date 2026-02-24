@@ -83,6 +83,10 @@ export default function ShopPage() {
 
   const [buyingId, setBuyingId] = useState<string | null>(null);
   const [buyingGoldId, setBuyingGoldId] = useState<string | null>(null);
+  // Godot: ShopScreen — purchase quantity dialog with real-time total calculation
+  const [purchaseDialog, setPurchaseDialog] = useState<ShopItem | null>(null);
+  const [purchaseQuantity, setPurchaseQuantity] = useState(1);
+  const purchaseInProgress = buyingId !== null;
 
   // Godot: ShopScreen._on_gold_package_pressed — gem ile altın satın al
   const buyGoldPackage = async (pkg: { id: string; gold: number; gemCost: number }) => {
@@ -107,21 +111,35 @@ export default function ShopPage() {
     }
   };
 
-  const buyItem = async (item: ShopItem) => {
+  const openPurchaseDialog = (item: ShopItem) => {
     if (item.currency === "gems" && gems < item.price) { addToast("Yetersiz gem!", "error"); return; }
     if (item.currency === "gold" && gold < item.price) { addToast("Yetersiz altın!", "error"); return; }
+    setPurchaseQuantity(1);
+    setPurchaseDialog(item);
+  };
+
+  const buyItem = async (item: ShopItem, quantity: number) => {
+    if (item.currency === "gems" && gems < item.price * quantity) { addToast("Yetersiz gem!", "error"); return; }
+    if (item.currency === "gold" && gold < item.price * quantity) { addToast("Yetersiz altın!", "error"); return; }
     setBuyingId(item.id);
     try {
       const res = await api.post("/rest/v1/rpc/buy_shop_item", {
         p_item_id: item.id,
         p_currency: item.currency,
-        p_price: item.price,
+        p_price: item.price * quantity,
+        p_quantity: quantity,
       });
       if (res.success) {
         addToast(`${item.name} satın alındı!`, "success");
-        // Refresh player balance
-        const { usePlayerStore: pStore } = await import("@/stores/playerStore");
-        pStore.getState().fetchProfile();
+        // Refresh player balance and inventory after purchase — Godot: ShopScreen fetch_inventory()
+        const [{ usePlayerStore: pStore }, { useInventoryStore: iStore }] = await Promise.all([
+          import("@/stores/playerStore"),
+          import("@/stores/inventoryStore"),
+        ]);
+        await Promise.all([
+          pStore.getState().fetchProfile(),
+          iStore.getState().fetchInventory(),
+        ]);
       } else {
         addToast(res.error || `${item.name} satın alınamadı`, "error");
       }
@@ -129,6 +147,7 @@ export default function ShopPage() {
       addToast("Bağlantı hatası", "error");
     } finally {
       setBuyingId(null);
+      setPurchaseDialog(null);
     }
   };
 
@@ -309,12 +328,66 @@ export default function ShopPage() {
                   <h3 className="text-sm font-medium text-[var(--text-primary)]">{item.name}</h3>
                   <p className="text-[10px] text-[var(--text-muted)]">{item.description}</p>
                 </div>
-                <Button variant="primary" size="sm" onClick={() => buyItem(item)} disabled={buyingId === item.id}>
+                <Button variant="primary" size="sm" onClick={() => openPurchaseDialog(item)} disabled={purchaseInProgress}>
                   {buyingId === item.id ? "..." : item.currency === "gems" ? `💎${item.price}` : `🪙${item.price}`}
                 </Button>
               </div>
             </Card>
           ))}
+        </div>
+      )}
+
+      {/* Purchase Quantity Dialog — Godot: ShopScreen spinbox + real-time total */}
+      {purchaseDialog && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => !purchaseInProgress && setPurchaseDialog(null)}>
+          <div className="bg-[var(--bg-card)] rounded-xl p-6 w-80 border border-[var(--border-default)] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold mb-1">{purchaseDialog.name}</h2>
+            <p className="text-xs text-[var(--text-muted)] mb-4">{purchaseDialog.description}</p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-[var(--text-secondary)]">Adet</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <button
+                    className="w-8 h-8 rounded bg-[var(--bg-input)] text-lg font-bold disabled:opacity-40"
+                    onClick={() => setPurchaseQuantity((q) => Math.max(1, q - 1))}
+                    disabled={purchaseQuantity <= 1}
+                  >−</button>
+                  <input
+                    type="number"
+                    min={1}
+                    value={purchaseQuantity}
+                    onChange={(e) => {
+                      const v = Math.max(1, parseInt(e.target.value) || 1);
+                      setPurchaseQuantity(v);
+                    }}
+                    className="flex-1 text-center px-2 py-1 rounded bg-[var(--bg-input)] border border-[var(--border-default)] text-sm"
+                  />
+                  <button
+                    className="w-8 h-8 rounded bg-[var(--bg-input)] text-lg font-bold"
+                    onClick={() => setPurchaseQuantity((q) => q + 1)}
+                  >+</button>
+                </div>
+              </div>
+
+              {/* Real-time total — Godot: spinbox.value_changed.connect */}
+              <div className="flex justify-between items-center py-2 border-t border-[var(--border-subtle)]">
+                <span className="text-sm text-[var(--text-secondary)]">Toplam:</span>
+                <span className="text-base font-bold text-[var(--gold)]">
+                  {purchaseDialog.currency === "gems" ? "💎" : "🪙"} {(purchaseDialog.price * purchaseQuantity).toLocaleString()}
+                </span>
+              </div>
+
+              <div className="flex gap-2">
+                <Button variant="secondary" size="sm" fullWidth onClick={() => setPurchaseDialog(null)} disabled={purchaseInProgress}>
+                  Vazgeç
+                </Button>
+                <Button variant="primary" size="sm" fullWidth onClick={() => buyItem(purchaseDialog, purchaseQuantity)} disabled={purchaseInProgress}>
+                  {purchaseInProgress ? "İşleniyor..." : "Satın Al"}
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

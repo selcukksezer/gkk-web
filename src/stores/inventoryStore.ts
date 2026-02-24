@@ -200,11 +200,11 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
 
       const updatedItems = s.items.map((i) => {
         if (i.row_id === rowId) {
-          return { ...i, is_equipped: true, equip_slot: slot };
+          return { ...i, is_equipped: true, equip_slot: slot as import("@/types/item").EquipSlot };
         }
         // Unequip other items in this slot
         if (i.equip_slot === slot && i.is_equipped) {
-          return { ...i, is_equipped: false, equip_slot: null };
+          return { ...i, is_equipped: false, equip_slot: "none" as import("@/types/item").EquipSlot };
         }
         return i;
       });
