@@ -42,7 +42,6 @@ export interface ApiResponse<T = unknown> {
 }
 
 async function getAuthHeaders(endpoint: string): Promise<Record<string, string>> {
-  const { data: { session } } = await supabase.auth.getSession();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "apikey": supabaseAnonKey,
@@ -51,11 +50,21 @@ async function getAuthHeaders(endpoint: string): Promise<Record<string, string>>
   // Do not send expired/current user token when explicitly trying to login/register
   const isAuthRoute = endpoint.includes('/auth-login') || endpoint.includes('/auth-register');
 
+  // If Supabase env is not configured, avoid calling supabase.auth.getSession()
+  // which may perform network calls against placeholder client and hang.
+  if (!supabaseUrl || !supabaseAnonKey) {
+    headers["Authorization"] = `Bearer ${supabaseAnonKey || ""}`;
+    return headers;
+  }
+
+  const { data: { session } } = await supabase.auth.getSession();
+
   if (session?.access_token && !isAuthRoute) {
     headers["Authorization"] = `Bearer ${session.access_token}`;
   } else {
     headers["Authorization"] = `Bearer ${supabaseAnonKey}`;
   }
+
   return headers;
 }
 
@@ -84,12 +93,17 @@ async function request<T = unknown>(
 
   consumeToken();
 
-  // Determine base URL: Edge Functions and Supabase REST should use Supabase directly
-  const isSupabaseEndpoint = endpoint.startsWith("/functions/v1/") || 
-                             endpoint.startsWith("/auth/v1/") || 
-                             endpoint.startsWith("/rest/v1/");
-  const baseUrl = isSupabaseEndpoint ? supabaseUrl : getBaseUrl();
-  const url = baseUrl + endpoint;
+  // Determine base URL:
+  // - Internal Next API routes (starting with `/api/`) should be requested via relative path
+  //   so the browser talks to our Next server (avoids CORS to Supabase).
+  // - Edge Functions and Supabase REST should use Supabase directly.
+  const isInternalApi = endpoint.startsWith("/api/");
+  const isSupabaseEndpoint = endpoint.startsWith("/functions/v1/") ||
+    endpoint.startsWith("/auth/v1/") ||
+    endpoint.startsWith("/rest/v1/");
+
+  const baseUrl = isInternalApi ? "" : (isSupabaseEndpoint ? supabaseUrl : getBaseUrl());
+  const url = (baseUrl || "") + endpoint;
   const headers = await getAuthHeaders(endpoint);
 
   // AbortController for request timeout

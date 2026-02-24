@@ -1,5 +1,5 @@
 // ============================================================
-// BottomNav — Godot aynısı: Home, Map, Inventory, Market, Guild
+// BottomNav — Godot aynısı: Home, Shop, Inventory, Market, Guild
 // Kaynak: scenes/ui/components/BottomNav.gd
 // ============================================================
 
@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils/cn";
 
 const NAV_ITEMS = [
   { path: "/home", label: "Ana Sayfa", icon: "🏠" },
-  { path: "/map", label: "Harita", icon: "🗺️" },
+  { path: "/shop", label: "Mağaza", icon: "🛒" },
   { path: "/inventory", label: "Envanter", icon: "🎒" },
   { path: "/market", label: "Pazar", icon: "🏪" },
   { path: "/guild", label: "Lonca", icon: "⚔️" },

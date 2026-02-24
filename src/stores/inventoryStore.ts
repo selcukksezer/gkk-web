@@ -24,6 +24,7 @@ interface InventoryState {
   removeItemByRowId: (rowId: string, quantity?: number) => Promise<boolean>;
   equipItem: (itemId: string, slot: string) => Promise<boolean>;
   unequipItem: (slot: string) => Promise<boolean>;
+  unequipItemToSlot: (rowId: string, slotName: string, targetSlot: number) => Promise<boolean>;
   swapSlots: (fromSlot: number, toSlot: number) => Promise<boolean>;
   moveItemToSlot: (rowId: string, targetSlot: number) => Promise<boolean>;
   batchUpdatePositions: (updates: Array<{ row_id: string; slot_position: number }>) => Promise<boolean>;
@@ -59,37 +60,77 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
   fetchInventory: async () => {
     set({ isLoading: true, error: null });
     try {
-      const res = await api.rpc<{ items: InventoryItem[] }>("get_inventory");
+      // Envanter ve kuşanılan itemleri ayrı çek
+      const [invRes, equippedRes] = await Promise.all([
+        api.rpc<{ items: InventoryItem[] }>("get_inventory"),
+        api.rpc<{ items: InventoryItem[] }>("get_equipped_items"),
+      ]);
+      console.log("[InventoryStore] fetchInventory RPC response:", invRes);
+      console.log("[InventoryStore] fetchEquipped RPC response:", equippedRes);
 
-      if (res.success && res.data) {
+      if (invRes.success && invRes.data) {
         let items: InventoryItem[] = [];
-        const data = res.data as Record<string, unknown>;
+        const data = invRes.data as Record<string, unknown>;
+
+        console.log("[InventoryStore] response data:", data, "data.items:", data.items);
 
         if (Array.isArray(data)) {
           items = data as unknown as InventoryItem[];
+          console.log("[InventoryStore] data is array, items count:", items.length);
         } else if (data.items && Array.isArray(data.items)) {
-          items = data.items;
+          items = data.items as InventoryItem[];
+          console.log("[InventoryStore] data.items is array, items count:", items.length);
         } else if (data.data) {
           const inner = data.data as Record<string, unknown>;
           if (Array.isArray(inner)) {
             items = inner as unknown as InventoryItem[];
+            console.log("[InventoryStore] data.data is array, items count:", items.length);
           } else if (inner.items && Array.isArray(inner.items)) {
             items = inner.items as InventoryItem[];
+            console.log("[InventoryStore] data.data.items is array, items count:", items.length);
           }
         }
 
+        console.log("[InventoryStore] before ensureSlotPositions:", items.length, items);
         items = ensureSlotPositions(items);
+        console.log("[InventoryStore] after ensureSlotPositions:", items.length);
 
+        // Defensive: filter out any rows that the server marks as equipped
+        items = items.filter((it) => !it.is_equipped);
+        console.log("[InventoryStore] after filter is_equipped=false, count:", items.length);
+
+        // Kuşanılan itemleri işle (ayrı RPC'den)
         const equipped: Record<string, InventoryItem | null> = {};
-        items.forEach((item) => {
-          if (item.is_equipped && item.equipped_slot) {
-            equipped[item.equipped_slot] = item;
+        if (equippedRes.success && equippedRes.data) {
+          const equippedData = equippedRes.data as Record<string, unknown>;
+          let equippedItemsArr: InventoryItem[] = [];
+
+          if (equippedData.items && Array.isArray(equippedData.items)) {
+            equippedItemsArr = equippedData.items as InventoryItem[];
           }
-        });
+
+          // Remove any duplicates from inventory list by row_id
+          const equippedRowIds = new Set(equippedItemsArr.map((e) => e.row_id));
+          if (equippedRowIds.size > 0) {
+            items = items.filter((it) => !equippedRowIds.has(it.row_id));
+          }
+
+          equippedItemsArr.forEach((item) => {
+            // Support both RPC shapes: `equip_slot` (get_equipped_items) and `equipped_slot` (get_inventory)
+            const rawSlot = (item as any).equip_slot ?? (item as any).equipped_slot ?? null;
+            if (rawSlot) {
+              const key = String(rawSlot).toLowerCase();
+              equipped[key] = item as InventoryItem;
+            }
+          });
+          console.log("[InventoryStore] equipped items count:", equippedItemsArr.length, "mapped slots:", Object.keys(equipped));
+        }
 
         set({ items, equippedItems: equipped, isLoading: false });
+        console.log("[InventoryStore] state updated, items:", items.length, "equipped:", Object.keys(equipped).length);
       } else {
-        set({ isLoading: false, error: res.error || "Envanter yüklenemedi" });
+        console.warn("[InventoryStore] fetchInventory failed:", invRes.error, "success:", invRes.success);
+        set({ isLoading: false, error: invRes.error || "Envanter yüklenemedi" });
       }
     } catch (err) {
       set({
@@ -193,26 +234,23 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
 
   // ── Equip item ─────────────────────────────────────────────
   equipItem: async (rowId: string, slot: string) => {
-    // Optimistic update: update local state immediately
+    console.log("[InventoryStore] equipItem:", { rowId, slot });
+
+    // Optimistic update: remove item from items list and add to equippedItems map
+    let optimisticItem: InventoryItem | null = null;
     set((s) => {
-      const item = s.items.find((i) => i.row_id === rowId);
-      if (!item) return s;
-
-      const updatedItems = s.items.map((i) => {
+      const items = s.items.filter((i) => {
         if (i.row_id === rowId) {
-          return { ...i, is_equipped: true, equip_slot: slot };
+          optimisticItem = i;
+          return false; // remove from visible inventory
         }
-        // Unequip other items in this slot
-        if (i.equip_slot === slot && i.is_equipped) {
-          return { ...i, is_equipped: false, equip_slot: null };
-        }
-        return i;
+        return true;
       });
-
       const equipped = { ...s.equippedItems };
-      equipped[slot] = item || null;
-
-      return { items: updatedItems, equippedItems: equipped };
+      if (optimisticItem) {
+        equipped[String(slot).toLowerCase()] = { ...optimisticItem, is_equipped: true, equip_slot: slot } as InventoryItem;
+      }
+      return { items, equippedItems: equipped };
     });
 
     // Send to server
@@ -222,33 +260,134 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
     });
 
     if (!res.success) {
-      // Revert optimistic update on error
+      console.warn("[InventoryStore] equipItem failed:", res.error);
+      set({ error: res.error || "Kuşanma başarısız" });
+      // Revert by re-fetching authoritative state
       await get().fetchInventory();
-      set({ error: res.error || "Equip failed" });
       return false;
     }
+
+    // On success reconcile with server
+    console.log("[InventoryStore] equipItem success, refreshing inventory");
+    await get().fetchInventory();
     return true;
+  },
+
+  // ── Unequip item and place into specific inventory slot (optimistic) ───
+  unequipItemToSlot: async (rowId: string, slotName: string, targetSlot: number) => {
+    console.log("[InventoryStore] unequipItemToSlot (optimistic):", { rowId, slotName, targetSlot });
+
+    // Defensive targetSlot
+    if (targetSlot < 0 || targetSlot >= INVENTORY_CAPACITY) {
+      set({ error: `Geçersiz hedef slot: ${targetSlot}` });
+      return false;
+    }
+
+    const key = String(slotName).toLowerCase();
+    const state = get();
+    const equipped = state.equippedItems[key];
+
+    // Optimistic update: remove equipped and add to items with provided slot
+    if (equipped && equipped.row_id === rowId) {
+      set((s) => {
+        const newEquipped = { ...s.equippedItems };
+        delete newEquipped[key];
+        const restored = { ...equipped, is_equipped: false, equip_slot: null, slot_position: targetSlot } as any;
+        return { equippedItems: newEquipped, items: [...s.items, restored] };
+      });
+    } else {
+      // If not present in equipped map, still ensure item exists in items list
+      set((s) => {
+        const exists = s.items.find((i) => i.row_id === rowId);
+        if (!exists) {
+          const restored = { row_id: rowId, item_id: '', quantity: 1, slot_position: targetSlot, is_equipped: false } as any;
+          return { items: [...s.items, restored] };
+        }
+        return s;
+      });
+    }
+
+    // Server calls: unequip first to clear equip state, then update positions.
+    try {
+      const unequipRes = await api.rpc("unequip_item", { p_slot: slotName });
+      if (!unequipRes.success) {
+        console.warn("[InventoryStore] unequip_item failed:", unequipRes.error);
+        await get().fetchInventory();
+        set({ error: unequipRes.error || "Kuşanma çıkarma başarısız" });
+        return false;
+      }
+
+      const posRes = await api.rpc("update_item_positions", { p_updates: [{ row_id: rowId, slot_position: targetSlot }] });
+      if (!posRes.success) {
+        console.warn("[InventoryStore] update_item_positions failed:", posRes.error);
+        await get().fetchInventory();
+        set({ error: posRes.error || "Slot güncelleme başarısız" });
+        return false;
+      }
+
+      await get().fetchInventory();
+      return true;
+    } catch (err) {
+      console.warn("[InventoryStore] unequipItemToSlot errored:", err);
+      await get().fetchInventory();
+      set({ error: err instanceof Error ? err.message : String(err) });
+      return false;
+    }
   },
 
   // ── Unequip item ───────────────────────────────────────────
   unequipItem: async (slot: string) => {
-    const res = await api.rpc("unequip_item", { p_slot: slot });
+    console.log("[InventoryStore] unequipItem (optimistic):", { slot });
 
-    if (res.success) {
+    // Optimistic: find equipped item in current state and move it back into items
+    const key = String(slot).toLowerCase();
+    const state = get();
+    const equipped = state.equippedItems[key];
+
+    // If we have an equipped item locally, perform optimistic state update
+    if (equipped) {
+      // Remove from equipped map and add to items with tentative slot_position
+      const tentativeSlot = state.findFirstEmptySlot();
       set((s) => {
-        const updatedItems = s.items.map((i) => {
-          if (i.equipped_slot === slot && i.is_equipped) {
-            return { ...i, is_equipped: false, equipped_slot: "" };
-          }
-          return i;
-        });
-        const equipped = { ...s.equippedItems };
-        equipped[slot] = null;
-        return { items: updatedItems, equippedItems: equipped };
+        const newEquipped = { ...s.equippedItems };
+        delete newEquipped[key];
+
+        const restored: typeof equipped = {
+          ...equipped,
+          is_equipped: false,
+          equip_slot: null,
+          slot_position: tentativeSlot,
+        } as any;
+
+        return {
+          equippedItems: newEquipped,
+          items: [...s.items, restored],
+        };
       });
-      return true;
     }
-    return false;
+
+    // Call server RPC
+    try {
+      const res = await api.rpc("unequip_item", { p_slot: slot });
+
+      if (!res.success) {
+        console.warn("[InventoryStore] unequipItem RPC failed:", res.error);
+        set({ error: res.error || "Kuşanma çıkarma başarısız" });
+        // Re-fetch authoritative state to revert optimistic change
+        await get().fetchInventory();
+        return false;
+      }
+
+      // On success reconcile
+      console.log("[InventoryStore] unequipItem success, refreshing inventory");
+      await get().fetchInventory();
+      return true;
+    } catch (err) {
+      console.warn("[InventoryStore] unequipItem errored:", err);
+      set({ error: err instanceof Error ? err.message : String(err) });
+      await get().fetchInventory();
+      return false;
+    }
   },
 
   // ── Swap slots ─────────────────────────────────────────────

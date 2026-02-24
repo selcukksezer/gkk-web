@@ -26,6 +26,9 @@ interface EquipmentSlotProps {
   compact?: boolean;
 }
 
+import { useDraggable } from "@dnd-kit/core";
+import { ItemCard } from "./ItemCard";
+
 export function EquipmentSlot({
   label,
   slotName,
@@ -44,37 +47,53 @@ export function EquipmentSlot({
   const droppableId = `equip-${slotName}`;
   const { isOver, setNodeRef } = useDroppable({ id: droppableId });
 
+  // Make the equipped item draggable (hook must be called unconditionally)
+  const draggable = useDraggable({ id: item?.row_id ?? `equip-${slotName}`, disabled: !item });
+
+  const dragAttributes = draggable.attributes;
+  const dragListeners = draggable.listeners;
+  const setDragNodeRef = draggable.setNodeRef;
+  const transform = draggable.transform;
+  const transition = draggable.transition;
+
+  const style: any = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, transition }
+    : undefined;
+
   return (
-    <button
+    <div
       ref={setNodeRef as any}
-      onClick={onClick}
-      className={`
-        relative rounded-xl flex flex-col items-center justify-center transition-transform transform-gpu
-        ${compact ? "w-14 h-14" : "w-[76px] h-[76px]"}
-        backdrop-blur-sm bg-[var(--bg-card)]/55 border
-        hover:scale-105 active:scale-98
-      `}
-      style={{
-        borderColor: item ? borderColor : "var(--border)",
-        boxShadow: item ? `0 10px 30px ${borderColor}22, inset 0 0 12px ${borderColor}10` : undefined,
-      }}
+      className={`relative rounded-xl ${compact ? "w-14 h-14" : "w-[76px] h-[76px]"} flex items-center justify-center`}
     >
       {item ? (
-        <>
-          <span className={compact ? "text-lg" : "text-2xl"}>
-            {item.icon ?? "🛡️"}
-          </span>
-          {enhLvl > 0 && (
-            <span className="absolute top-0.5 right-1 text-[10px] text-[var(--gold)] font-bold">
-              +{enhLvl}
-            </span>
-          )}
-        </>
+        <div ref={setDragNodeRef as any} style={style} {...(dragAttributes ?? {})} {...(dragListeners ?? {})}>
+          <ItemCard
+            item={item}
+            isSelected={false}
+            isEquipped={true}
+            isDragging={false}
+            compact={compact}
+            onClick={onClick}
+          />
+        </div>
       ) : (
-        <span className={`text-center leading-tight text-[var(--text-secondary)] ${compact ? "text-[8px]" : "text-[10px]"}`}>
-          {displayLabel}
-        </span>
+        <button
+          onClick={onClick}
+          className={`
+            relative rounded-xl flex flex-col items-center justify-center transition-transform transform-gpu
+            ${compact ? "w-14 h-14" : "w-[76px] h-[76px]"}
+            backdrop-blur-sm bg-[var(--bg-card)]/55 border
+            hover:scale-105 active:scale-98
+          `}
+          style={{
+            borderColor: "var(--border)",
+          }}
+        >
+          <span className={`text-center leading-tight text-[var(--text-secondary)] ${compact ? "text-[8px]" : "text-[10px]"}`}>
+            {displayLabel}
+          </span>
+        </button>
       )}
-    </button>
+    </div>
   );
 }

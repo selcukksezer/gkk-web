@@ -14,6 +14,7 @@ import {
   useSortable,
   rectSortingStrategy,
 } from "@dnd-kit/sortable";
+import { useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { ItemCard, EmptySlot } from "@/components/game/ItemCard";
 import { INVENTORY_CAPACITY } from "@/types/inventory";
@@ -41,10 +42,16 @@ const SortableSlot = memo(function SortableSlot({
 }) {
   // If there's no item, render a fixed placeholder (non-sortable) so it doesn't shift
   if (!item) {
+    const droppableId = `empty-${index}`;
+    const { isOver, setNodeRef } = useDroppable({ id: droppableId });
+
     return (
       <div
+        ref={setNodeRef as any}
         key={`empty-${index}`}
-        className="flex justify-center items-center select-none inventory-slot w-18 h-18"
+        className={`flex justify-center items-center select-none inventory-slot w-18 h-18 transition ${
+          isOver ? "scale-105" : ""
+        }`}
         aria-hidden
       >
         <EmptySlot index={index} />

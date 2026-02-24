@@ -12,6 +12,7 @@ import { useSeason } from "@/hooks/useSeason";
 import { usePlayerStore } from "@/stores/playerStore";
 import { useUiStore } from "@/stores/uiStore";
 import { api } from "@/lib/api";
+import { APIEndpoints } from "@/lib/endpoints";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -28,16 +29,7 @@ interface ShopItem {
   rarity: string;
 }
 
-const SHOP_ITEMS: ShopItem[] = [
-  { id: "si1", name: "Sağlık İksiri", icon: "🧪", price: 100, currency: "gold", description: "50 HP yeniler", rarity: "common" },
-  { id: "si2", name: "Mana İksiri", icon: "💧", price: 150, currency: "gold", description: "30 MP yeniler", rarity: "common" },
-  { id: "si3", name: "Güç Scrollu", icon: "📜", price: 500, currency: "gold", description: "+10% saldırı (5dk)", rarity: "uncommon" },
-  { id: "si4", name: "Koruma Scrollu", icon: "🛡️", price: 500, currency: "gold", description: "+10% savunma (5dk)", rarity: "uncommon" },
-  { id: "si5", name: "Enerji İksiri", icon: "⚡", price: 50, currency: "gems", description: "20 enerji yeniler", rarity: "rare" },
-  { id: "si6", name: "Deneyim Kitabı", icon: "📖", price: 200, currency: "gems", description: "5,000 XP verir", rarity: "rare" },
-  { id: "si7", name: "Nadir Sandık", icon: "🎁", price: 300, currency: "gems", description: "Nadir+ eşya garantili", rarity: "epic" },
-  { id: "si8", name: "Efsanevi Sandık", icon: "✨", price: 800, currency: "gems", description: "Efsanevi eşya şansı!", rarity: "legendary" },
-];
+// NOTE: shop items are loaded from Supabase; do not use local static fallbacks.
 
 const RARITY_BG: Record<string, string> = {
   common: "border-gray-500/30", uncommon: "border-green-500/30", rare: "border-blue-500/30",
@@ -84,22 +76,46 @@ export default function ShopPage() {
   const [buyingId, setBuyingId] = useState<string | null>(null);
   const [buyingGoldId, setBuyingGoldId] = useState<string | null>(null);
 
+  // Items loaded from Supabase via server API (start empty — only Supabase items)
+  const [shopItems, setShopItems] = useState<ShopItem[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await api.get<ShopItem[]>(APIEndpoints.SHOP_LIST);
+        if (res.success && res.data && mounted) {
+          setShopItems(res.data);
+        } else if (mounted) {
+          setShopItems([]);
+        }
+      } catch (err) {
+        if (mounted) setShopItems([]);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
   // Godot: ShopScreen._on_gold_package_pressed — gem ile altın satın al
   const buyGoldPackage = async (pkg: { id: string; gold: number; gemCost: number }) => {
     if (gems < pkg.gemCost) { addToast("Yetersiz gem!", "error"); return; }
     setBuyingGoldId(pkg.id);
-    try {
-      const res = await api.post("/rest/v1/rpc/buy_gold_with_gems", {
-        p_gold_amount: pkg.gold,
-        p_gem_cost: pkg.gemCost,
-      });
-      if (res.success) {
-        addToast(`${pkg.gold.toLocaleString()} altın satın alındı!`, "success");
-        const { usePlayerStore: pStore } = await import("@/stores/playerStore");
-        pStore.getState().fetchProfile();
-      } else {
-        addToast(res.error || "Satın alma başarısız", "error");
-      }
+      try {
+        console.log("[ShopPage] buyGoldPackage called", { pkg, gems });
+        const res = await api.post(APIEndpoints.SHOP_BUY, {
+          package_id: pkg.id,
+          p_gold_amount: pkg.gold,
+          p_gem_cost: pkg.gemCost,
+        });
+        console.log("[ShopPage] buyGoldPackage response:", res);
+        if (res.success) {
+          addToast(`${pkg.gold.toLocaleString()} altın satın alındı!`, "success");
+          const { usePlayerStore: pStore } = await import("@/stores/playerStore");
+          pStore.getState().fetchProfile();
+        } else {
+          console.warn("[ShopPage] buyGoldPackage failed:", res.error);
+          addToast(res.error || "Satın alma başarısız", "error");
+        }
     } catch {
       addToast("Bağlantı hatası", "error");
     } finally {
@@ -111,22 +127,33 @@ export default function ShopPage() {
     if (item.currency === "gems" && gems < item.price) { addToast("Yetersiz gem!", "error"); return; }
     if (item.currency === "gold" && gold < item.price) { addToast("Yetersiz altın!", "error"); return; }
     setBuyingId(item.id);
-    try {
-      const res = await api.post("/rest/v1/rpc/buy_shop_item", {
-        p_item_id: item.id,
-        p_currency: item.currency,
-        p_price: item.price,
-      });
-      if (res.success) {
-        addToast(`${item.name} satın alındı!`, "success");
-        // Refresh player balance
-        const { usePlayerStore: pStore } = await import("@/stores/playerStore");
-        pStore.getState().fetchProfile();
-      } else {
-        addToast(res.error || `${item.name} satın alınamadı`, "error");
-      }
-    } catch {
-      addToast("Bağlantı hatası", "error");
+      try {
+        console.log("[ShopPage] buyItem called:", { id: item.id, currency: item.currency, price: item.price, gems, gold });
+        const res = await api.post(APIEndpoints.SHOP_BUY, {
+          p_item_id: item.id,
+          p_currency: item.currency,
+          p_price: item.price,
+        });
+        console.log("[ShopPage] buyItem response:", res);
+        if (res.success) {
+          addToast(`${item.name} satın alındı!`, "success");
+          // Refresh player balance AND inventory
+          const { usePlayerStore: pStore } = await import("@/stores/playerStore");
+          const { useInventoryStore: invStore } = await import("@/stores/inventoryStore");
+          await pStore.getState().fetchProfile();
+          await invStore.getState().fetchInventory();
+        } else {
+          console.warn("[ShopPage] buyItem failed:", res.error);
+          addToast(res.error || `${item.name} satın alınamadı`, "error");
+        }
+    } catch (err) {
+        console.error("[ShopPage] buyItem error:", err);
+        try {
+          const { useInventoryStore: invStore } = await import("@/stores/inventoryStore");
+          await invStore.getState().fetchInventory();
+        } catch (e2) {
+          console.warn("[ShopPage] failed to refresh inventory in catch:", e2);
+        }
     } finally {
       setBuyingId(null);
     }
@@ -219,36 +246,7 @@ export default function ShopPage() {
       {/* ─── Offers ─── */}
       {activeTab === "offers" && (
         <div className="space-y-3">
-          {isLoading ? (
-            <p className="text-center text-[var(--text-secondary)] py-8">Yükleniyor...</p>
-          ) : offers.length === 0 ? (
-            <p className="text-center text-[var(--text-secondary)] py-8">Aktif teklif yok</p>
-          ) : (
-            offers.map((offer) => (
-              <motion.div key={offer.id} whileTap={{ scale: 0.98 }}
-                className={`bg-[var(--card-bg)] border rounded-xl p-4 ${offer.is_featured ? "border-[var(--gold)]" : "border-[var(--border)]"}`}>
-                {offer.is_featured && (
-                  <span className="text-[10px] bg-[var(--gold)] text-black px-2 py-0.5 rounded font-bold">ÖNE ÇIKAN</span>
-                )}
-                <h3 className="font-bold mt-1">{offer.name}</h3>
-                <p className="text-xs text-[var(--text-secondary)] mt-0.5">{offer.description}</p>
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {offer.rewards.map((r, i) => (
-                    <span key={i} className="text-[10px] bg-[var(--surface)] px-2 py-0.5 rounded">{r.type}: {r.amount}</span>
-                  ))}
-                </div>
-                {offer.expires_at && (
-                  <p className="text-[10px] text-red-400 mt-2">Bitiş: {new Date(offer.expires_at).toLocaleDateString("tr-TR")}</p>
-                )}
-                <button
-                  className="w-full mt-3 py-2 rounded-lg bg-[var(--primary)] text-white text-sm font-medium disabled:opacity-50"
-                  onClick={() => purchaseWithGems(offer.id, offer.price)}
-                  disabled={isPurchasing || (offer.currency === "gems" && gems < offer.price)}>
-                  {offer.currency === "gems" ? `💎 ${offer.price} Gem` : offer.currency === "gold" ? `🪙 ${offer.price} Altın` : `$${offer.price}`}
-                </button>
-              </motion.div>
-            ))
-          )}
+          {/* Offers intentionally left blank per design — no items shown in Offers tab */}
         </div>
       )}
 
@@ -301,7 +299,7 @@ export default function ShopPage() {
       {/* ─── Items ─── */}
       {activeTab === "items" && (
         <div className="space-y-2">
-          {SHOP_ITEMS.map((item) => (
+          {shopItems.map((item) => (
             <Card key={item.id}>
               <div className={`flex items-center gap-3 p-3 border-l-4 ${RARITY_BG[item.rarity]}`}>
                 <span className="text-2xl">{item.icon}</span>

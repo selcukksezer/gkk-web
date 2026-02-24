@@ -44,11 +44,11 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'error', 'Item not found or not owned by player');
     END IF;
 
-    -- Unequip any item currently in this slot
+    -- Unequip any item currently in this slot (clear equip_slot and slot_position)
     UPDATE public.inventory
-    SET is_equipped = FALSE, equip_slot = NULL, updated_at = NOW()
+    SET is_equipped = FALSE, equip_slot = NULL, slot_position = NULL, updated_at = NOW()
     WHERE user_id = v_user_id 
-      AND equip_slot = p_slot 
+      AND lower(COALESCE(equip_slot, '')) = lower(COALESCE(p_slot, '')) 
       AND is_equipped = TRUE
       AND row_id != p_row_id;
 
@@ -81,9 +81,9 @@ BEGIN
     END IF;
 
     UPDATE public.inventory
-    SET is_equipped = FALSE, equip_slot = NULL, updated_at = NOW()
+    SET is_equipped = FALSE, equip_slot = NULL, slot_position = NULL, updated_at = NOW()
     WHERE user_id = v_user_id
-      AND equip_slot = p_slot
+      AND lower(COALESCE(equip_slot, '')) = lower(COALESCE(p_slot, ''))
       AND is_equipped = TRUE;
 
     GET DIAGNOSTICS v_updated_count = ROW_COUNT;
