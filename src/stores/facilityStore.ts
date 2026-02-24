@@ -476,6 +476,14 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
       return null;
     }
 
+    // CAPACITY CHECK: ensure inventory has enough space for incoming resources
+    const invStore = useInventoryStore.getState();
+    const capacityCheck = invStore.canAddItem("resource_placeholder", totalCount);
+    if (!capacityCheck.canAdd) {
+      set({ error: capacityCheck.reason || "Envanter dolu! Kapasite yetersiz." });
+      return null;
+    }
+
     // Snapshot inventory counts BEFORE collect so we can detect if server actually
     // added items. If server did not persist items, we will attempt to add them
     // client-side via `addItemToServer` as a fallback.

@@ -29,6 +29,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="tr" suppressHydrationWarning>
+      <head>
+        <script src="http://localhost:8097"></script>
+      </head>
       <body
         className="antialiased font-sans"
         suppressHydrationWarning

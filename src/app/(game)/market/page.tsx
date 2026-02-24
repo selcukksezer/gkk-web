@@ -105,6 +105,15 @@ export default function MarketPage() {
       addToast("Yeterli altın yok", "warning");
       return;
     }
+    
+    // CAPACITY CHECK: ensure inventory has space for purchase
+    const invStore = useInventoryStore.getState?.() || { canAddItem: () => ({ canAdd: false }) };
+    const capacityCheck = invStore.canAddItem?.(order.item_id, 1) || { canAdd: false };
+    if (!capacityCheck.canAdd) {
+      addToast(capacityCheck.reason || "Envanter dolu! Satın alma yapılamıyor.", "error");
+      return;
+    }
+    
     try {
       const res = await api.rpc("purchase_market_listing", { p_order_id: order.order_id, p_quantity: 1 });
       if (res.success) {

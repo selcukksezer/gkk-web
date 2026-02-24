@@ -203,6 +203,10 @@ export default function WarehousePage() {
       addToast("Hedef depo seçin", "warning");
       return;
     }
+    
+    // NOTE: Warehouse is separate storage, not inventory. No capacity check needed here.
+    // Transfer moves items between warehouses, not to/from inventory.
+    
     setIsTransferring(true);
     try {
       const res = await api.post("/rest/v1/rpc/transfer_warehouse", {

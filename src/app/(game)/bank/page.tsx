@@ -115,6 +115,15 @@ export default function BankPage() {
   // Withdraw selected bank items back to inventory
   const handleWithdraw = async () => {
     if (selectedItems.length === 0) { addToast("Eşya seçin", "warning"); return; }
+    
+    // CAPACITY CHECK: ensure inventory has space for withdrawals
+    const { canAddItem } = useInventoryStore.getState();
+    const capacityCheck = canAddItem("placeholder_item", selectedItems.length);
+    if (!capacityCheck.canAdd) {
+      addToast(capacityCheck.reason || "Envanter dolu! Eşya çekilemiyor.", "error");
+      return;
+    }
+    
     setIsTransferring(true);
     try {
       const res = await api.rpc("withdraw_from_bank", { p_item_ids: selectedItems });

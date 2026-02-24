@@ -15,6 +15,7 @@ import { GAME_CONFIG } from "@/data/GameConstants";
 
 export interface ShopOffer {
   id: string;
+  item_id: string;  // NEW: For inventory matching
   name: string;
   description: string;
   price: number;
@@ -88,6 +89,15 @@ export function useShop() {
         addToast("Yetersiz gem!", "error");
         return false;
       }
+      
+      // Check inventory capacity first
+      const { useInventoryStore: invStore } = await import("@/stores/inventoryStore");
+      const capacityCheck = invStore.getState().canAddItem(itemId, 1);
+      if (!capacityCheck.canAdd) {
+        addToast(capacityCheck.reason || "Envanter dolu!", "error");
+        return false;
+      }
+      
       setIsPurchasing(true);
       const res = await api.post(APIEndpoints.SHOP_BUY, {
         p_item_id: itemId,
@@ -101,9 +111,9 @@ export function useShop() {
         addToast("Satın alma başarılı!", "success");
         // Refresh player profile and inventory
         const { usePlayerStore: pStore } = await import("@/stores/playerStore");
-        const { useInventoryStore: invStore } = await import("@/stores/inventoryStore");
+        const { useInventoryStore: invStore2 } = await import("@/stores/inventoryStore");
         pStore.getState().fetchProfile();
-        invStore.getState().fetchInventory();
+        invStore2.getState().fetchInventory();
         // If server returned a simulated success (fallback), try client-side insert
         if ((res.data as any)?.simulated) {
           console.log("[useShop] server returned simulated success — attempting client-side inventory insert", { itemId, gemCost });
@@ -204,6 +214,15 @@ export function useShop() {
         addToast("Yetersiz altın!", "error");
         return false;
       }
+      
+      // Check inventory capacity first
+      const { useInventoryStore: invStore } = await import("@/stores/inventoryStore");
+      const capacityCheck = invStore.getState().canAddItem(itemId, 1);
+      if (!capacityCheck.canAdd) {
+        addToast(capacityCheck.reason || "Envanter dolu!", "error");
+        return false;
+      }
+      
       setIsPurchasing(true);
       const res = await api.post(APIEndpoints.SHOP_BUY, {
         p_item_id: itemId,
@@ -217,9 +236,9 @@ export function useShop() {
         addToast("Satın alma başarılı!", "success");
         // Refresh player profile and inventory
         const { usePlayerStore: pStore } = await import("@/stores/playerStore");
-        const { useInventoryStore: invStore } = await import("@/stores/inventoryStore");
+        const { useInventoryStore: invStore2 } = await import("@/stores/inventoryStore");
         pStore.getState().fetchProfile();
-        invStore.getState().fetchInventory();
+        invStore2.getState().fetchInventory();
         if ((res.data as any)?.simulated) {
           console.log("[useShop] server returned simulated success — attempting client-side inventory insert", { itemId, goldCost });
           try {

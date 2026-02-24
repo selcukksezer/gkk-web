@@ -99,6 +99,16 @@ export const useCraftingStore = create<CraftingState>()((set, get) => ({
       return false;
     }
 
+    // CAPACITY CHECK: ensure inventory has space for craft output
+    if (recipe && recipe.output_quantity) {
+      const invStore = useInventoryStore.getState();
+      const capacityCheck = invStore.canAddItem(recipe.output_item_id, recipe.output_quantity * batchCount);
+      if (!capacityCheck.canAdd) {
+        set({ error: capacityCheck.reason || "Envanter dolu! Üretim yapılamaz." });
+        return false;
+      }
+    }
+
     set({ isCrafting: true, error: null });
 
     try {

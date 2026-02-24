@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { useUiStore } from "@/stores/uiStore";
+import { useInventoryStore } from "@/stores/inventoryStore";
 import { api } from "@/lib/api";
 import Link from "next/link";
 
@@ -202,6 +203,14 @@ export default function ProductionPage() {
 
   // ── Actions ──────────────────────────────────────────────────
   const handleCollect = async (item: QueueItem) => {
+    // CAPACITY CHECK: ensure inventory has space for collection
+    const invStore = useInventoryStore.getState();
+    const capacityCheck = invStore.canAddItem("placeholder", item.quantity);
+    if (!capacityCheck.canAdd) {
+      addToast(capacityCheck.reason || "Envanter dolu! Ürün toplanamıyor.", "error");
+      return;
+    }
+    
     setCollectingId(item.id);
     try {
       const res = await api.rpc("collect_production", { queue_id: item.id });

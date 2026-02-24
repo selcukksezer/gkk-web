@@ -12,6 +12,7 @@ import { DndContext, DragEndEvent, DragStartEvent, DragCancelEvent, pointerWithi
 import { PointerSensor, useSensor, useSensors, KeyboardSensor } from "@dnd-kit/core";
 import { useInventoryStore } from "@/stores/inventoryStore";
 import { usePlayerStore } from "@/stores/playerStore";
+import { useUiStore } from "@/stores/uiStore";
 import type { InventoryItem } from "@/types/inventory";
 import { INVENTORY_CAPACITY } from "@/types/inventory";
 import { InventoryGrid } from "./InventoryGrid";
@@ -32,6 +33,7 @@ export function InventoryClient() {
     unequipItemToSlot,
     moveItemToSlot,
     swapSlots,
+    sellItemByRow,
     trashItem,
     removeItemByRowId,
     splitStack,
@@ -43,6 +45,7 @@ export function InventoryClient() {
   const xp = usePlayerStore((s) => s.xp);
   const gold = usePlayerStore((s) => s.gold);
   const gems = usePlayerStore((s) => s.gems);
+  const addToast = useUiStore((s) => s.addToast);
 
   // UI State
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
@@ -74,10 +77,19 @@ export function InventoryClient() {
 
   const handleSellItem = async (quantity: number) => {
     if (!selectedItem) return;
-    await moveItemToSlot(selectedItem.row_id, -1);
-    setActiveSellDialog(false);
-    setSelectedItem(null);
-    await fetchInventory();
+    try {
+      const result = await sellItemByRow(selectedItem.row_id, quantity);
+      if (result.success) {
+        addToast(`Satış başarılı (+${result.goldEarned ?? 0} 🪙)`, "success");
+        await usePlayerStore.getState().fetchProfile();
+      } else {
+        addToast(result.error || "Satış başarısız", "error");
+      }
+    } finally {
+      setActiveSellDialog(false);
+      setSelectedItem(null);
+      await fetchInventory(true);
+    }
   };
 
   const handleSplitStack = async (splitQuantity: number) => {
@@ -85,7 +97,7 @@ export function InventoryClient() {
     await splitStack(selectedItem.row_id, splitQuantity);
     setActiveSplitDialog(false);
     setSelectedItem(null);
-    await fetchInventory();
+    await fetchInventory(true);
   };
 
   const handleTrashItem = async (quantity: number) => {
@@ -101,7 +113,7 @@ export function InventoryClient() {
     } finally {
       setActiveDeleteDialog(false);
       setSelectedItem(null);
-      await fetchInventory();
+      await fetchInventory(true);
     }
   };
 
@@ -194,24 +206,31 @@ export function InventoryClient() {
         return;
       }
 
-      // Detect if dragged came from equipment (equip slot present)
-      const draggedEquipSlot = (dragged as any).equip_slot ?? (dragged as any).equipped_slot ?? null;
+      // Detect if dragged came from equipment (must be actually equipped)
+      const draggedEquipSlot = dragged.is_equipped
+        ? (dragged.equip_slot || dragged.equipped_slot || null)
+        : null;
 
       // Drop on inventory slot (empty or occupied)
         if (overIdStr.startsWith("empty-")) {
         const idx = parseInt(overIdStr.replace(/^empty-/, ""), 10);
         if (!Number.isNaN(idx)) {
           // If dragging an equipped item back into an inventory slot, use unequipItemToSlot
-            const draggedEquipSlot = (dragged as any).equip_slot ?? (dragged as any).equipped_slot ?? null;
-            if (draggedEquipSlot) {
-              await unequipItemToSlot(dragged.row_id, draggedEquipSlot, idx);
+            if (dragged.is_equipped && draggedEquipSlot) {
+              const success = await unequipItemToSlot(dragged.row_id, draggedEquipSlot, idx);
+              if (!success) {
+                const storeError = useInventoryStore.getState().error;
+                if (storeError) addToast(storeError, "error");
+                setActiveItem(null);
+                return;
+              }
               await new Promise((r) => setTimeout(r, 120));
           } else {
             await moveItemToSlot(dragged.row_id, idx);
             await new Promise((r) => setTimeout(r, 120));
           }
 
-          await fetchInventory();
+            await fetchInventory(true);
         }
         } else {
         console.log(`[dnd] over is not empty - checking swap/equip over=${overIdStr}`);
@@ -226,15 +245,22 @@ export function InventoryClient() {
               await equipItem(target.row_id, draggedEquipSlot);
             // Ensure the now-unequipped original item ends up in the target slot
             await new Promise((r) => setTimeout(r, 60));
-            await moveItemToSlot(dragged.row_id, target.slot_position);
+            const moveSuccess = await moveItemToSlot(dragged.row_id, target.slot_position);
+            if (!moveSuccess) {
+              const storeError = useInventoryStore.getState().error;
+              if (storeError) addToast(storeError, "error");
+              setActiveItem(null);
+              await fetchInventory(true);
+              return;
+            }
             await new Promise((r) => setTimeout(r, 120));
-            await fetchInventory();
+              await fetchInventory(true);
           } else {
             // Regular inventory <-> inventory swap
             console.log(`[dnd] Regular swap: dragged[${dragged.row_id}] slot=${dragged.slot_position} is_equipped=${dragged.is_equipped}, target[${target.row_id}] slot=${target.slot_position} is_equipped=${target.is_equipped}`);
             await swapSlots(dragged.slot_position, target.slot_position);
             await new Promise((r) => setTimeout(r, 120));
-            await fetchInventory();
+            await fetchInventory(true);
           }
         }
       }

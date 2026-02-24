@@ -7,7 +7,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import type { InventoryItem } from "@/types/inventory";
 import { cn } from "@/lib/utils/cn";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 // ============================================================
 // Sell Dialog
@@ -235,9 +235,16 @@ export function DeleteConfirmDialog({ item, onConfirm, onCancel }: DeleteConfirm
   const [deleteQuantity, setDeleteQuantity] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
 
+  useEffect(() => {
+    if (item?.row_id) {
+      setDeleteQuantity(1);
+    }
+  }, [item?.row_id]);
+
   if (!item) return null;
 
-  const maxDeleteQuantity = item.is_stackable ? item.quantity : 1;
+  const isMultiStackDelete = item.is_stackable && item.quantity > 1;
+  const maxDeleteQuantity = isMultiStackDelete ? item.quantity : 1;
 
   const handleConfirm = async () => {
     if (deleteQuantity <= 0 || deleteQuantity > item.quantity) {
@@ -247,7 +254,7 @@ export function DeleteConfirmDialog({ item, onConfirm, onCancel }: DeleteConfirm
 
     setIsLoading(true);
     try {
-      await onConfirm(deleteQuantity);
+      await onConfirm(isMultiStackDelete ? deleteQuantity : 1);
     } finally {
       setIsLoading(false);
     }
@@ -277,27 +284,30 @@ export function DeleteConfirmDialog({ item, onConfirm, onCancel }: DeleteConfirm
           </div>
 
           <p className="text-sm text-[var(--text-muted)] mb-4">
-            {item.name}'{item.quantity > 1 ? "ıarından" : "ından"} kaç adet silmek istiyorsunuz?
+            {isMultiStackDelete
+              ? `${item.name} iteminden kaç adet silmek istiyorsunuz?`
+              : `${item.name} silmek istediğinize emin misiniz?`}
           </p>
 
           <div className="space-y-4">
-            {/* Quantity Slider */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Miktar: {deleteQuantity}</label>
-              <input
-                type="range"
-                min="1"
-                max={maxDeleteQuantity}
-                value={deleteQuantity}
-                onChange={(e) => setDeleteQuantity(parseInt(e.target.value))}
-                className="w-full"
-              />
-            </div>
+            {isMultiStackDelete && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Miktar: {deleteQuantity}</label>
+                <input
+                  type="range"
+                  min="1"
+                  max={maxDeleteQuantity}
+                  value={deleteQuantity}
+                  onChange={(e) => setDeleteQuantity(parseInt(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+            )}
 
             {/* Warning */}
             <div className="bg-red-600/20 border border-red-500/50 p-3 rounded">
               <p className="text-sm text-red-300 font-medium">
-                ⚠️ {deleteQuantity}x {item.name} silinecek
+                ⚠️ {isMultiStackDelete ? `${deleteQuantity}x ${item.name}` : item.name} silinecek
               </p>
               <p className="text-xs text-red-400 mt-1">
                 Bu işlem geri alınamaz!

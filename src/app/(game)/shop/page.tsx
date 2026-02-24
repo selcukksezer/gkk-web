@@ -6,27 +6,34 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useShop } from "@/hooks/useShop";
 import { useSeason } from "@/hooks/useSeason";
 import { usePlayerStore } from "@/stores/playerStore";
 import { useUiStore } from "@/stores/uiStore";
+import { useInventoryStore } from "@/stores/inventoryStore";
 import { api } from "@/lib/api";
 import { APIEndpoints } from "@/lib/endpoints";
+import { ItemIcon } from "@/components/game/ItemIcon";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ProgressBar } from "@/components/ui/ProgressBar";
+import { INVENTORY_CAPACITY } from "@/types/inventory";
 
 type ShopTab = "gems" | "offers" | "battlepass" | "items";
 
 interface ShopItem {
   id: string;
+  item_id: string;  // NEW: Inventory ile eşleştirme için
   name: string;
   icon: string;
   price: number;
   currency: "gold" | "gems";
   description: string;
   rarity: string;
+  item_type?: string;
+  is_stackable?: boolean;
+  max_stack?: number;
 }
 
 // NOTE: shop items are loaded from Supabase; do not use local static fallbacks.
@@ -59,7 +66,12 @@ export default function ShopPage() {
   const gems = usePlayerStore((s) => s.gems);
   const gold = usePlayerStore((s) => s.gold);
   const addToast = useUiStore((s) => s.addToast);
+  const inventoryItems = useInventoryStore((s) => s.items);
   const [activeTab, setActiveTab] = useState<ShopTab>("gems");
+
+  // Quantity dialog for stackable items
+  const [quantityDialog, setQuantityDialog] = useState<{ item: ShopItem; maxQty: number } | null>(null);
+  const [quantityInput, setQuantityInput] = useState(1);
 
   useEffect(() => {
     fetchOffers();
@@ -78,6 +90,44 @@ export default function ShopPage() {
 
   // Items loaded from Supabase via server API (start empty — only Supabase items)
   const [shopItems, setShopItems] = useState<ShopItem[]>([]);
+
+  const isStackableItem = (item: ShopItem): boolean => {
+    if (item.is_stackable === true) return true;
+    if ((item.max_stack ?? 1) > 1) return true;
+    const itemType = String(item.item_type ?? "").toLowerCase();
+    return ["potion", "material", "scroll", "rune", "consumable"].includes(itemType);
+  };
+
+  const getMaxPurchasableByBalance = (item: ShopItem): number => {
+    const unitPrice = Number(item.price || 0);
+    if (unitPrice <= 0) return 99;
+    const wallet = item.currency === "gems" ? gems : gold;
+    return Math.max(0, Math.floor(wallet / unitPrice));
+  };
+
+  const getMaxPurchasableByInventory = (item: ShopItem): number => {
+    const rows = inventoryItems.filter((row) => !row.is_equipped && row.slot_position >= 0);
+    const sameItemRows = rows.filter((row) => row.item_id === item.item_id);
+    const occupiedSlots = new Set(rows.map((row) => row.slot_position));
+    const freeSlots = Math.max(0, INVENTORY_CAPACITY - occupiedSlots.size);
+
+    if (!isStackableItem(item)) {
+      return freeSlots;
+    }
+
+    const maxStack = Math.max(
+      1,
+      Number(item.max_stack ?? sameItemRows[0]?.max_stack ?? 1)
+    );
+
+    const existingStackSpace = sameItemRows.reduce((acc, row) => {
+      const quantity = Math.max(0, Number(row.quantity ?? 0));
+      return acc + Math.max(0, maxStack - quantity);
+    }, 0);
+
+    const newSlotSpace = freeSlots * maxStack;
+    return Math.max(0, existingStackSpace + newSlotSpace);
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -123,20 +173,41 @@ export default function ShopPage() {
     }
   };
 
-  const buyItem = async (item: ShopItem) => {
-    if (item.currency === "gems" && gems < item.price) { addToast("Yetersiz gem!", "error"); return; }
-    if (item.currency === "gold" && gold < item.price) { addToast("Yetersiz altın!", "error"); return; }
+  const buyItem = async (item: ShopItem, quantity = 1) => {
+    const safeQuantity = Math.max(1, Math.floor(quantity));
+    const totalPrice = item.price * safeQuantity;
+
+    if (item.currency === "gems" && gems < totalPrice) { addToast("Yetersiz gem!", "error"); return; }
+    if (item.currency === "gold" && gold < totalPrice) { addToast("Yetersiz altın!", "error"); return; }
+    
+    const maxByInventory = getMaxPurchasableByInventory(item);
+    if (safeQuantity > maxByInventory) {
+      addToast(`Envanter kapasitesi yetersiz. En fazla ${maxByInventory} adet alınabilir.`, "error");
+      return;
+    }
+    
     setBuyingId(item.id);
       try {
-        console.log("[ShopPage] buyItem called:", { id: item.id, currency: item.currency, price: item.price, gems, gold });
+        console.log("[ShopPage] buyItem called:", {
+          item_id: item.item_id,
+          id: item.id,
+          currency: item.currency,
+          unitPrice: item.price,
+          quantity: safeQuantity,
+          totalPrice,
+          gems,
+          gold,
+        });
         const res = await api.post(APIEndpoints.SHOP_BUY, {
-          p_item_id: item.id,
+          p_item_id: item.item_id,  // Use item_id not shop id
           p_currency: item.currency,
-          p_price: item.price,
+          p_unit_price: item.price,
+          p_price: totalPrice,
+          p_quantity: safeQuantity,
         });
         console.log("[ShopPage] buyItem response:", res);
         if (res.success) {
-          addToast(`${item.name} satın alındı!`, "success");
+          addToast(`${item.name} x${safeQuantity} satın alındı!`, "success");
           // Refresh player balance AND inventory
           const { usePlayerStore: pStore } = await import("@/stores/playerStore");
           const { useInventoryStore: invStore } = await import("@/stores/inventoryStore");
@@ -157,6 +228,35 @@ export default function ShopPage() {
     } finally {
       setBuyingId(null);
     }
+  };
+
+  const handleBuyClick = (item: ShopItem) => {
+    if (!isStackableItem(item)) {
+      if (getMaxPurchasableByInventory(item) < 1) {
+        addToast("Envanter dolu!", "error");
+        return;
+      }
+      void buyItem(item, 1);
+      return;
+    }
+
+    const byBalance = getMaxPurchasableByBalance(item);
+    const byInventory = getMaxPurchasableByInventory(item);
+    const maxQty = Math.max(0, Math.min(byBalance, byInventory));
+    if (maxQty < 1) {
+      addToast(byBalance < 1 ? "Yetersiz bakiye!" : "Envanter kapasitesi yetersiz!", "error");
+      return;
+    }
+    setQuantityInput(1);
+    setQuantityDialog({ item, maxQty });
+  };
+
+  const confirmQuantityPurchase = async () => {
+    if (!quantityDialog) return;
+    const qty = Math.max(1, Math.min(quantityInput, quantityDialog.maxQty));
+    await buyItem(quantityDialog.item, qty);
+    setQuantityDialog(null);
+    setQuantityInput(1);
   };
 
   return (
@@ -302,19 +402,88 @@ export default function ShopPage() {
           {shopItems.map((item) => (
             <Card key={item.id}>
               <div className={`flex items-center gap-3 p-3 border-l-4 ${RARITY_BG[item.rarity]}`}>
-                <span className="text-2xl">{item.icon}</span>
+                <div className="text-2xl">
+                  <ItemIcon icon={item.icon} itemType={item.item_type} itemId={item.id} className="text-2xl" />
+                </div>
                 <div className="flex-1">
                   <h3 className="text-sm font-medium text-[var(--text-primary)]">{item.name}</h3>
                   <p className="text-[10px] text-[var(--text-muted)]">{item.description}</p>
+                  {isStackableItem(item) && (
+                    <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">
+                      Stackable • Birim fiyat: {item.currency === "gems" ? `💎${item.price}` : `🪙${item.price}`}
+                    </p>
+                  )}
                 </div>
-                <Button variant="primary" size="sm" onClick={() => buyItem(item)} disabled={buyingId === item.id}>
-                  {buyingId === item.id ? "..." : item.currency === "gems" ? `💎${item.price}` : `🪙${item.price}`}
+                <Button variant="primary" size="sm" onClick={() => handleBuyClick(item)} disabled={buyingId === item.id}>
+                  {buyingId === item.id ? "..." : isStackableItem(item) ? "🔢" : item.currency === "gems" ? `💎${item.price}` : `🪙${item.price}`}
                 </Button>
               </div>
             </Card>
           ))}
         </div>
       )}
+
+      <AnimatePresence>
+        {quantityDialog && (
+          <motion.div
+            className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setQuantityDialog(null)}
+          >
+            <motion.div
+              className="w-full max-w-sm rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-4 space-y-4"
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div>
+                <h3 className="text-sm font-semibold text-[var(--text-primary)]">{quantityDialog.item.name}</h3>
+                <p className="text-xs text-[var(--text-secondary)]">Satın alma adedi seç</p>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-[var(--border)] p-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setQuantityInput((v) => Math.max(1, v - 1))}
+                >
+                  -
+                </Button>
+                <span className="text-base font-semibold text-[var(--text-primary)]">{quantityInput}</span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setQuantityInput((v) => Math.min(quantityDialog.maxQty, v + 1))}
+                >
+                  +
+                </Button>
+              </div>
+
+              <div className="text-xs text-[var(--text-secondary)] space-y-1">
+                <p>Birim: {quantityDialog.item.currency === "gems" ? `💎${quantityDialog.item.price}` : `🪙${quantityDialog.item.price}`}</p>
+                <p>Maksimum adet: {quantityDialog.maxQty}</p>
+                <p className="font-semibold text-[var(--text-primary)]">
+                  Toplam tutar: {quantityDialog.item.currency === "gems"
+                    ? `💎${quantityDialog.item.price * quantityInput}`
+                    : `🪙${quantityDialog.item.price * quantityInput}`}
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <Button variant="secondary" className="flex-1" onClick={() => setQuantityDialog(null)}>
+                  İptal
+                </Button>
+                <Button variant="primary" className="flex-1" onClick={confirmQuantityPurchase}>
+                  Satın Al
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

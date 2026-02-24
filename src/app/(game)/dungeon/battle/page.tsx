@@ -10,6 +10,7 @@ import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePlayerStore } from "@/stores/playerStore";
+import { useInventoryStore } from "@/stores/inventoryStore";
 import { useUiStore } from "@/stores/uiStore";
 import { api } from "@/lib/api";
 import { Card } from "@/components/ui/Card";
@@ -429,6 +430,17 @@ function DungeonBattleContent() {
   // Claim rewards — Godot: _on_claim_rewards → api.rpc("collect_dungeon_rewards")
   const handleClaim = useCallback(async () => {
     if (!result?.success || !result.rewards) return;
+    
+    // CAPACITY CHECK: if rewards have items, ensure inventory space
+    if (result.rewards.items && result.rewards.items.length > 0) {
+      const invStore = useInventoryStore.getState();
+      const capacityCheck = invStore.canAddItem("placeholder", result.rewards.items.length);
+      if (!capacityCheck.canAdd) {
+        addToast(capacityCheck.reason || "Envanter dolu! Ödüller alınamıyor.", "error");
+        return;
+      }
+    }
+    
     setIsClaiming(true);
     setPhase("claiming");
 

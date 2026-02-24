@@ -18,7 +18,9 @@ interface InventoryState {
   error: string | null;
 
   // Actions — server-backed
-  fetchInventory: () => Promise<void>;
+  fetchInventory: (silent?: boolean) => Promise<void>;
+  canAddItem: (itemId: string, quantity?: number) => { canAdd: boolean; reason?: string; available?: number };
+  getStackableSpace: (itemId: string) => number;
   addItemToServer: (itemData: Record<string, unknown>, slotPosition?: number | null) => Promise<boolean>;
   removeItem: (itemId: string, quantity?: number) => Promise<boolean>;
   removeItemByRowId: (rowId: string, quantity?: number) => Promise<boolean>;
@@ -31,6 +33,7 @@ interface InventoryState {
   updateItemEnhancement: (rowId: string, newLevel: number) => Promise<boolean>;
   useItem: (itemId: string) => Promise<boolean>;
   splitStack: (rowId: string, splitQuantity: number) => Promise<boolean>;
+  sellItemByRow: (rowId: string, quantity?: number) => Promise<{ success: boolean; goldEarned?: number; error?: string }>;
   trashItem: (rowId: string) => Promise<boolean>;
   toggleFavorite: (rowId: string) => Promise<boolean>;
 
@@ -57,8 +60,9 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
   error: null,
 
   // ── Fetch from server ──────────────────────────────────────
-  fetchInventory: async () => {
-    set({ isLoading: true, error: null });
+  fetchInventory: async (silent = false) => {
+    if (!silent) set({ isLoading: true, error: null });
+    else set({ error: null });
     try {
       // Envanter ve kuşanılan itemleri ayrı çek
       const [invRes, equippedRes] = await Promise.all([
@@ -126,17 +130,20 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
           console.log("[InventoryStore] equipped items count:", equippedItemsArr.length, "mapped slots:", Object.keys(equipped));
         }
 
-        set({ items, equippedItems: equipped, isLoading: false });
+        if (!silent) set({ items, equippedItems: equipped, isLoading: false });
+        else set({ items, equippedItems: equipped });
         console.log("[InventoryStore] state updated, items:", items.length, "equipped:", Object.keys(equipped).length);
       } else {
         console.warn("[InventoryStore] fetchInventory failed:", invRes.error, "success:", invRes.success);
-        set({ isLoading: false, error: invRes.error || "Envanter yüklenemedi" });
+        if (!silent) set({ isLoading: false, error: invRes.error || "Envanter yüklenemedi" });
+        else set({ error: invRes.error || "Envanter yüklenemedi" });
       }
     } catch (err) {
-      set({
-        isLoading: false,
-        error: err instanceof Error ? err.message : "Envanter yüklenemedi",
-      });
+      if (!silent) {
+        set({ isLoading: false, error: err instanceof Error ? err.message : "Envanter yüklenemedi" });
+      } else {
+        set({ error: err instanceof Error ? err.message : "Envanter yüklenemedi" });
+      }
     }
   },
 
@@ -263,13 +270,13 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
       console.warn("[InventoryStore] equipItem failed:", res.error);
       set({ error: res.error || "Kuşanma başarısız" });
       // Revert by re-fetching authoritative state
-      await get().fetchInventory();
+      await get().fetchInventory(true);
       return false;
     }
 
     // On success reconcile with server
     console.log("[InventoryStore] equipItem success, refreshing inventory");
-    await get().fetchInventory();
+    await get().fetchInventory(true);
     return true;
   },
 
@@ -286,6 +293,17 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
     const key = String(slotName).toLowerCase();
     const state = get();
     const equipped = state.equippedItems[key];
+
+    // CAPACITY CHECK: Envanter dolu ise sadece swap'a izin ver (hedef slot'ta başka item varsa)
+    const targetItem = state.items.find((i) => i.slot_position === targetSlot);
+    const occupiedSlots = new Set(state.items.map((i) => i.slot_position));
+    const isInventoryFull = occupiedSlots.size >= INVENTORY_CAPACITY;
+    
+    // Envanter dolu ve hedef slot'ta item yoksa (pure unequip), işlemi iptal et
+    if (isInventoryFull && !targetItem) {
+      set({ error: "Envanter dolu! Sadece item swapı yapılabilir (kuşanılı ↔ envanter)." });
+      return false;
+    }
 
     // Optimistic update: remove equipped and add to items with provided slot
     if (equipped && equipped.row_id === rowId) {
@@ -312,7 +330,7 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
       const unequipRes = await api.rpc("unequip_item", { p_slot: slotName });
       if (!unequipRes.success) {
         console.warn("[InventoryStore] unequip_item failed:", unequipRes.error);
-        await get().fetchInventory();
+        await get().fetchInventory(true);
         set({ error: unequipRes.error || "Kuşanma çıkarma başarısız" });
         return false;
       }
@@ -320,16 +338,16 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
       const posRes = await api.rpc("update_item_positions", { p_updates: [{ row_id: rowId, slot_position: targetSlot }] });
       if (!posRes.success) {
         console.warn("[InventoryStore] update_item_positions failed:", posRes.error);
-        await get().fetchInventory();
+        await get().fetchInventory(true);
         set({ error: posRes.error || "Slot güncelleme başarısız" });
         return false;
       }
 
-      await get().fetchInventory();
+      await get().fetchInventory(true);
       return true;
     } catch (err) {
       console.warn("[InventoryStore] unequipItemToSlot errored:", err);
-      await get().fetchInventory();
+      await get().fetchInventory(true);
       set({ error: err instanceof Error ? err.message : String(err) });
       return false;
     }
@@ -339,15 +357,30 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
   unequipItem: async (slot: string) => {
     console.log("[InventoryStore] unequipItem (optimistic):", { slot });
 
-    // Optimistic: find equipped item in current state and move it back into items
-    const key = String(slot).toLowerCase();
+    // CAPACITY CHECK: Envanter 20/20 dolu ise pure unequip engellensin
     const state = get();
+    const key = String(slot).toLowerCase();
     const equipped = state.equippedItems[key];
+    const occupiedSlots = new Set(state.items.map((i) => i.slot_position));
+    const isInventoryFull = occupiedSlots.size >= INVENTORY_CAPACITY;
+    
+    // Pure unequip yapmaya çalışırken envanter full olursa reddet
+    if (isInventoryFull && equipped) {
+      set({ error: "Envanter dolu! Sadece item swapı yapılabilir (kuşanılı ↔ envanter)." });
+      return false;
+    }
 
     // If we have an equipped item locally, perform optimistic state update
     if (equipped) {
       // Remove from equipped map and add to items with tentative slot_position
       const tentativeSlot = state.findFirstEmptySlot();
+      
+      // SAFETY: Eğer boş slot yoksa (-1) işlemi iptal et
+      if (tentativeSlot < 0) {
+        set({ error: "İç hata: Envanterde boş slot bulunamadı." });
+        return false;
+      }
+      
       set((s) => {
         const newEquipped = { ...s.equippedItems };
         delete newEquipped[key];
@@ -374,18 +407,18 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
         console.warn("[InventoryStore] unequipItem RPC failed:", res.error);
         set({ error: res.error || "Kuşanma çıkarma başarısız" });
         // Re-fetch authoritative state to revert optimistic change
-        await get().fetchInventory();
+        await get().fetchInventory(true);
         return false;
       }
 
       // On success reconcile
       console.log("[InventoryStore] unequipItem success, refreshing inventory");
-      await get().fetchInventory();
+      await get().fetchInventory(true);
       return true;
     } catch (err) {
       console.warn("[InventoryStore] unequipItem errored:", err);
       set({ error: err instanceof Error ? err.message : String(err) });
-      await get().fetchInventory();
+      await get().fetchInventory(true);
       return false;
     }
   },
@@ -501,7 +534,7 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
     // Generic consumable
     const res = await api.post("/api/v1/inventory/use", { item_id: itemId });
     if (res.success) {
-      await get().fetchInventory();
+      await get().fetchInventory(true);
       return true;
     }
     return false;
@@ -568,6 +601,49 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
     }
     set({ error: res.error || "Stack bölme başarısız" });
     return false;
+  },
+
+  // ── Sell item (gold only, server enforced) ─────────────────
+  sellItemByRow: async (rowId: string, quantity = 1) => {
+    const item = get().getItemByRowId(rowId);
+    if (!item) {
+      return { success: false, error: "Eşya bulunamadı" };
+    }
+
+    const safeQuantity = Math.max(1, Math.floor(quantity));
+    const res = await api.rpc<Record<string, unknown>>("sell_inventory_item_by_row", {
+      p_row_id: rowId,
+      p_quantity: safeQuantity,
+    });
+
+    if (!res.success || !res.data) {
+      return { success: false, error: res.error || "Satış başarısız" };
+    }
+
+    const payload = res.data as Record<string, unknown>;
+    if (payload.success === false) {
+      return { success: false, error: String(payload.error || "Satış başarısız") };
+    }
+
+    const soldQty = Math.max(1, Number(payload.sold_quantity ?? safeQuantity));
+    const goldEarned = Math.max(0, Number(payload.gold_earned ?? 0));
+
+    set((s) => {
+      const target = s.items.find((i) => i.row_id === rowId);
+      if (!target) return s;
+
+      if (soldQty >= target.quantity) {
+        return { items: s.items.filter((i) => i.row_id !== rowId) };
+      }
+
+      return {
+        items: s.items.map((i) =>
+          i.row_id === rowId ? { ...i, quantity: i.quantity - soldQty } : i
+        ),
+      };
+    });
+
+    return { success: true, goldEarned };
   },
 
   // ── Trash/Delete item ──────────────────────────────────────
@@ -659,6 +735,49 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
   },
 
   reset: () => set({ items: [], equippedItems: {}, isLoading: false, error: null }),
+
+  // ── Capacity validation ──────────────────────────────────────
+  canAddItem: (itemId: string, quantity = 1) => {
+    const state = get();
+    const item = state.items.find((i) => i.item_id === itemId);
+
+    // Item already exists in inventory
+    if (item) {
+      // If stackable, check if there's space in the existing stack
+      if (item.is_stackable && item.max_stack) {
+        const space = item.max_stack - (item.quantity || 1);
+        if (space >= quantity) {
+          return { canAdd: true, available: space };
+        }
+        return { canAdd: false, reason: `${item.name} yığını dolu (${item.quantity}/${item.max_stack})`, available: space };
+      }
+
+      // Item exists but not stackable - cannot add more
+      return { canAdd: false, reason: `${item.name} envanterde zaten var (stackable değil)` };
+    }
+
+    // Item doesn't exist in inventory - need a free slot
+    const occupiedSlots = new Set(
+      state.items
+        .map((i) => i.slot_position)
+        .filter((pos) => typeof pos === 'number' && pos >= 0)
+    );
+    const hasFreeSlot = occupiedSlots.size < INVENTORY_CAPACITY;
+
+    if (hasFreeSlot) {
+      return { canAdd: true };
+    }
+
+    // No free slot available
+    return { canAdd: false, reason: `Envanter dolu (${occupiedSlots.size}/${INVENTORY_CAPACITY})` };
+  },
+
+  getStackableSpace: (itemId: string) => {
+    const state = get();
+    const item = state.items.find((i) => i.item_id === itemId);
+    if (!item || !item.is_stackable || !item.max_stack) return 0;
+    return Math.max(0, item.max_stack - (item.quantity || 1));
+  },
 }));
 
 // Helper: ensure all items have valid slot positions

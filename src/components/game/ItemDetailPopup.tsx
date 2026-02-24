@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { InventoryItem } from "@/types/inventory";
 import type { Rarity } from "@/types/item";
 import { getDisplayName, getRarityColor, getRarityLabel } from "@/types/item";
+import { ItemIcon } from "./ItemIcon";
 
 interface ItemDetailPopupProps {
   item: InventoryItem | null;
@@ -54,7 +55,13 @@ export function ItemDetailPopup({
           >
             {/* Header */}
             <div className="flex items-center gap-3 mb-4">
-              <span className="text-3xl">{item.icon ?? "📦"}</span>
+              <ItemIcon
+                icon={item.icon}
+                itemType={item.item_type}
+                itemId={item.item_id}
+                className="w-10 h-10 object-contain"
+                alt={item.name}
+              />
               <div>
                 <h2 className="font-bold" style={{ color: rarityColor }}>
                   {getDisplayName(item)}

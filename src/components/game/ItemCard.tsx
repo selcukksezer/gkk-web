@@ -9,6 +9,7 @@ import { motion } from "framer-motion";
 import type { InventoryItem } from "@/types/inventory";
 import { getRarityColor, getRarityLabel } from "@/types/item";
 import { cn } from "@/lib/utils/cn";
+import { ItemIcon } from "./ItemIcon";
 
 interface ItemCardProps {
   item: InventoryItem;
@@ -19,19 +20,6 @@ interface ItemCardProps {
   onClick?: () => void;
   onDoubleClick?: () => void;
 }
-
-const typeEmoji: Record<string, string> = {
-  weapon: "⚔️",
-  armor: "🛡️",
-  accessory: "💍",
-  consumable: "🧪",
-  material: "🪨",
-  potion: "🧪",
-  scroll: "📜",
-  key_item: "🔑",
-  quest_item: "📋",
-  recipe: "📖",
-};
 
 export function ItemCard({
   item,
@@ -80,10 +68,13 @@ export function ItemCard({
         backgroundImage: isSelected ? `linear-gradient(135deg, ${rarityColor}15, transparent)` : undefined,
       }}
     >
-      {/* Type emoji */}
-      <span className={cn("leading-none", compact ? "text-lg" : "text-xl")}>
-        {typeEmoji[item.item_type] || "❓"}
-      </span>
+      <ItemIcon
+        icon={item.icon}
+        itemType={item.item_type}
+        itemId={item.item_id}
+        className={cn("leading-none object-contain", compact ? "w-7 h-7" : "w-8 h-8")}
+        alt={item.name}
+      />
 
       {/* Enhancement level */}
       {item.enhancement_level > 0 && (

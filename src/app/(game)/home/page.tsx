@@ -19,6 +19,7 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { formatGold, formatCompact } from "@/lib/utils/string";
 import { isInHospital, isInPrison } from "@/lib/utils/validation";
 import { api } from "@/lib/api";
+import { APIEndpoints } from "@/lib/endpoints";
 import Link from "next/link";
 import type { InventoryItem } from "@/types/inventory";
 import type { ItemData } from "@/types/item";
@@ -107,24 +108,25 @@ export default function HomePage() {
   const [showAllActions, setShowAllActions] = useState(false);
   const [usingPotionId, setUsingPotionId] = useState<string | null>(null);
 
+  const fallbackActiveQuests = [
+    { id: "q1", title: "Demir Madeni", progress: 3, goal: 10, icon: "⛏️" },
+    { id: "q2", title: "Karanlık Orman'ı Temizle", progress: 1, goal: 3, icon: "🏰" },
+    { id: "q3", title: "5 İksir Kullan", progress: 2, goal: 5, icon: "🧪" },
+  ];
+
   useEffect(() => {
-    api.rpc<{ id: string; title: string; progress: number; goal: number; icon?: string }[]>(
-      "get_active_quests", {}
-    )
-      .then((res) => {
-        if (res.success && res.data) {
-          const data = Array.isArray(res.data) ? res.data : [];
-          setActiveQuests(data.slice(0, 3));
+    void (async () => {
+      try {
+        const res = await api.get<Array<{ id: string; title: string; progress: number; goal: number; icon?: string }>>(APIEndpoints.QUEST_LIST);
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          setActiveQuests(res.data.slice(0, 3));
+          return;
         }
-      })
-      .catch(() => {
-        // Mock quests if API unavailable
-        setActiveQuests([
-          { id: "q1", title: "Demir Madeni", progress: 3, goal: 10, icon: "⛏️" },
-          { id: "q2", title: "Karanlık Orman'ı Temizle", progress: 1, goal: 3, icon: "🏰" },
-          { id: "q3", title: "5 İksir Kullan", progress: 2, goal: 5, icon: "🧪" },
-        ]);
-      });
+      } catch {
+      }
+
+      setActiveQuests(fallbackActiveQuests);
+    })();
   }, []);
 
   // Potion items from inventory

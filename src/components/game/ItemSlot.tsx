@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 import type { InventoryItem } from "@/types/inventory";
 import type { Rarity } from "@/types/item";
 import { getRarityColor, getDisplayName } from "@/types/item";
+import { ItemIcon } from "./ItemIcon";
 
 interface ItemSlotProps {
   item: InventoryItem | null;
@@ -39,7 +40,13 @@ export function ItemSlot({ item, onClick, size = "md", showQuantity = true }: It
       onClick={onClick}
       title={getDisplayName(item)}
     >
-      <span className="text-xl">{item.icon ?? "📦"}</span>
+      <ItemIcon
+        icon={item.icon}
+        itemType={item.item_type}
+        itemId={item.item_id}
+        className="w-7 h-7 object-contain"
+        alt={item.name}
+      />
       {showQuantity && (item.quantity ?? 1) > 1 && (
         <span className="absolute bottom-0 right-0 text-[10px] bg-black/70 text-white px-1 rounded-tl">
           {item.quantity}
