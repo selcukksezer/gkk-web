@@ -11,6 +11,7 @@ import { useUiStore } from "@/stores/uiStore";
 import { api } from "@/lib/api";
 import { APIEndpoints } from "@/lib/endpoints";
 import { GAME_CONFIG } from "@/data/GameConstants";
+import { supabase } from "@/lib/supabase";
 
 export interface ShopOffer {
   id: string;
@@ -23,6 +24,18 @@ export interface ShopOffer {
   is_featured: boolean;
 }
 
+// Godot: ItemCard.gd shop item data
+export interface ShopItemData {
+  id: string;
+  name: string;
+  icon: string;
+  price: number;
+  currency: "gold" | "gems";
+  description: string;
+  rarity: string;
+  max_stack: number;
+}
+
 export interface GemPackage {
   id: string;
   gems: number;
@@ -30,6 +43,18 @@ export interface GemPackage {
   bonus: number;
   label: string;
 }
+
+// Godot: ShopScreen._populate_item_shop — static fallback items
+const STATIC_SHOP_ITEMS: ShopItemData[] = [
+  { id: "si1", name: "Sağlık İksiri",   icon: "🧪", price: 100,  currency: "gold", description: "50 HP yeniler",             rarity: "common",    max_stack: 99 },
+  { id: "si2", name: "Mana İksiri",     icon: "💧", price: 150,  currency: "gold", description: "30 MP yeniler",             rarity: "common",    max_stack: 99 },
+  { id: "si3", name: "Güç Scrollu",     icon: "📜", price: 500,  currency: "gold", description: "+10% saldırı (5dk)",        rarity: "uncommon",  max_stack: 10 },
+  { id: "si4", name: "Koruma Scrollu",  icon: "🛡️", price: 500,  currency: "gold", description: "+10% savunma (5dk)",        rarity: "uncommon",  max_stack: 10 },
+  { id: "si5", name: "Enerji İksiri",   icon: "⚡",  price: 50,   currency: "gems", description: "20 enerji yeniler",         rarity: "rare",      max_stack: 99 },
+  { id: "si6", name: "Deneyim Kitabı",  icon: "📖", price: 200,  currency: "gems", description: "5,000 XP verir",            rarity: "rare",      max_stack: 10 },
+  { id: "si7", name: "Nadir Sandık",    icon: "🎁", price: 300,  currency: "gems", description: "Nadir+ eşya garantili",     rarity: "epic",      max_stack: 5  },
+  { id: "si8", name: "Efsanevi Sandık", icon: "✨", price: 800,  currency: "gems", description: "Efsanevi eşya şansı!",      rarity: "legendary", max_stack: 3  },
+];
 
 const GEM_PACKAGES: GemPackage[] = GAME_CONFIG.monetization.premiumCurrencyPacks.map(
   (p, i) => ({
@@ -54,6 +79,7 @@ const GEM_PACKAGES: GemPackage[] = GAME_CONFIG.monetization.premiumCurrencyPacks
 
 export function useShop() {
   const [offers, setOffers] = useState<ShopOffer[]>([]);
+  const [shopItems, setShopItems] = useState<ShopItemData[]>(STATIC_SHOP_ITEMS);
   const [isLoading, setIsLoading] = useState(false);
   const [isPurchasing, setIsPurchasing] = useState(false);
 
@@ -62,6 +88,22 @@ export function useShop() {
   const updateGems = usePlayerStore((s) => s.updateGems);
   const updateGold = usePlayerStore((s) => s.updateGold);
   const addToast = useUiStore((s) => s.addToast);
+
+  /** Godot: ItemDatabase.get_all_items() — load shopable items from Supabase */
+  const fetchShopItems = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.rpc("get_shop_items");
+      if (error) {
+        console.warn("[useShop] get_shop_items RPC error, using static fallback:", error.message);
+        return;
+      }
+      if (data && (data as ShopItemData[]).length > 0) {
+        setShopItems(data as ShopItemData[]);
+      }
+    } catch (err) {
+      console.warn("[useShop] get_shop_items network error, using static fallback:", err);
+    }
+  }, []);
 
   /** Load active offers from server */
   const fetchOffers = useCallback(async () => {
@@ -155,10 +197,12 @@ export function useShop() {
 
   return {
     offers,
+    shopItems,
     gemPackages: GEM_PACKAGES,
     isLoading,
     isPurchasing,
     fetchOffers,
+    fetchShopItems,
     purchaseWithGems,
     purchaseWithGold,
     purchaseGemPackage,

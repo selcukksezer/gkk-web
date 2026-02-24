@@ -1,6 +1,6 @@
 // ============================================================
-// Shop Page — Kaynak: ShopManager.gd (292 satır) + Godot ShopScreen 4 tab
-// Gem paketleri, teklifler, battle pass, eşya mağazası
+// Shop Page — Kaynak: ShopManager.gd (292 satır) + Godot ShopScreen 5 tab
+// Gem paketleri, altın, teklifler, battle pass, eşya mağazası
 // ============================================================
 
 "use client";
@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useShop } from "@/hooks/useShop";
+import type { ShopItemData } from "@/hooks/useShop";
 import { useSeason } from "@/hooks/useSeason";
 import { usePlayerStore } from "@/stores/playerStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -16,53 +17,49 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 
-type ShopTab = "gems" | "offers" | "battlepass" | "items";
+type ShopTab = "gems" | "gold" | "offers" | "battlepass" | "items";
 
-interface ShopItem {
-  id: string;
-  name: string;
-  icon: string;
-  price: number;
-  currency: "gold" | "gems";
-  description: string;
-  rarity: string;
-}
+const RARITY_BORDER: Record<string, string> = {
+  common: "border-l-gray-400",
+  uncommon: "border-l-green-500",
+  rare: "border-l-blue-500",
+  epic: "border-l-purple-500",
+  legendary: "border-l-yellow-500",
+  mythic: "border-l-red-500",
+};
 
-const SHOP_ITEMS: ShopItem[] = [
-  { id: "si1", name: "Sağlık İksiri", icon: "🧪", price: 100, currency: "gold", description: "50 HP yeniler", rarity: "common" },
-  { id: "si2", name: "Mana İksiri", icon: "💧", price: 150, currency: "gold", description: "30 MP yeniler", rarity: "common" },
-  { id: "si3", name: "Güç Scrollu", icon: "📜", price: 500, currency: "gold", description: "+10% saldırı (5dk)", rarity: "uncommon" },
-  { id: "si4", name: "Koruma Scrollu", icon: "🛡️", price: 500, currency: "gold", description: "+10% savunma (5dk)", rarity: "uncommon" },
-  { id: "si5", name: "Enerji İksiri", icon: "⚡", price: 50, currency: "gems", description: "20 enerji yeniler", rarity: "rare" },
-  { id: "si6", name: "Deneyim Kitabı", icon: "📖", price: 200, currency: "gems", description: "5,000 XP verir", rarity: "rare" },
-  { id: "si7", name: "Nadir Sandık", icon: "🎁", price: 300, currency: "gems", description: "Nadir+ eşya garantili", rarity: "epic" },
-  { id: "si8", name: "Efsanevi Sandık", icon: "✨", price: 800, currency: "gems", description: "Efsanevi eşya şansı!", rarity: "legendary" },
-];
+const DEFAULT_RARITY_BORDER = RARITY_BORDER.common;
 
-const RARITY_BG: Record<string, string> = {
-  common: "border-gray-500/30", uncommon: "border-green-500/30", rare: "border-blue-500/30",
-  epic: "border-purple-500/30", legendary: "border-yellow-500/30",
+const RARITY_LABEL: Record<string, string> = {
+  common: "Sıradan",
+  uncommon: "Yaygın Olmayan",
+  rare: "Nadir",
+  epic: "Destansı",
+  legendary: "Efsanevi",
+  mythic: "Mitik",
 };
 
 // Godot: ShopScreen._load_gold_packages — altın paketleri (gem ile satın alınır)
 const GOLD_PACKAGES: { id: string; gold: number; gemCost: number }[] = [
-  { id: "gp1", gold: 5000, gemCost: 10 },
-  { id: "gp2", gold: 15000, gemCost: 25 },
-  { id: "gp3", gold: 50000, gemCost: 75 },
+  { id: "gp1", gold: 5000,   gemCost: 10  },
+  { id: "gp2", gold: 15000,  gemCost: 25  },
+  { id: "gp3", gold: 50000,  gemCost: 75  },
   { id: "gp4", gold: 150000, gemCost: 200 },
 ];
 
 export default function ShopPage() {
   const {
     offers,
+    shopItems,
     gemPackages,
     isLoading,
     isPurchasing,
     fetchOffers,
+    fetchShopItems,
     purchaseWithGems,
     purchaseGemPackage,
   } = useShop();
-  const { battlePass, battlePassProgress, fetchBattlePass, claimReward, purchasePremiumPass } = useSeason();
+  const { battlePass, fetchBattlePass, claimReward, purchasePremiumPass } = useSeason();
 
   const gems = usePlayerStore((s) => s.gems);
   const gold = usePlayerStore((s) => s.gold);
@@ -71,14 +68,16 @@ export default function ShopPage() {
 
   useEffect(() => {
     fetchOffers();
+    fetchShopItems();
     fetchBattlePass();
-  }, [fetchOffers, fetchBattlePass]);
+  }, [fetchOffers, fetchShopItems, fetchBattlePass]);
 
   const tabDefs: { key: ShopTab; label: string }[] = [
-    { key: "gems", label: "💎 Gem" },
-    { key: "offers", label: "🎁 Teklif" },
-    { key: "battlepass", label: "🎫 Pass" },
-    { key: "items", label: "🛒 Eşya" },
+    { key: "gems",       label: "💎 Gem"    },
+    { key: "gold",       label: "💰 Altın"  },
+    { key: "offers",     label: "🎁 Teklif" },
+    { key: "battlepass", label: "🎫 Pass"   },
+    { key: "items",      label: "🛒 Eşya"   },
   ];
 
   const [buyingId, setBuyingId] = useState<string | null>(null);
@@ -107,19 +106,29 @@ export default function ShopPage() {
     }
   };
 
-  const buyItem = async (item: ShopItem) => {
-    if (item.currency === "gems" && gems < item.price) { addToast("Yetersiz gem!", "error"); return; }
-    if (item.currency === "gold" && gold < item.price) { addToast("Yetersiz altın!", "error"); return; }
+  // Godot: ShopScreen._on_item_buy_pressed — quantity destekli satın alma
+  // quantities: item id → adet (1..max_stack)
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
+
+  const getQty = (itemId: string) => quantities[itemId] ?? 1;
+  const setQty = (itemId: string, newQty: number, max: number) =>
+    setQuantities((prev) => ({ ...prev, [itemId]: Math.min(Math.max(1, newQty), max) }));
+
+  const buyItem = async (item: ShopItemData) => {
+    const qty = getQty(item.id);
+    const totalPrice = item.price * qty;
+    if (item.currency === "gems" && gems < totalPrice) { addToast("Yetersiz gem!", "error"); return; }
+    if (item.currency === "gold" && gold < totalPrice) { addToast("Yetersiz altın!", "error"); return; }
     setBuyingId(item.id);
     try {
       const res = await api.post("/rest/v1/rpc/buy_shop_item", {
         p_item_id: item.id,
         p_currency: item.currency,
-        p_price: item.price,
+        p_price: totalPrice,
+        p_quantity: qty,
       });
       if (res.success) {
-        addToast(`${item.name} satın alındı!`, "success");
-        // Refresh player balance
+        addToast(`${item.name} x${qty} satın alındı!`, "success");
         const { usePlayerStore: pStore } = await import("@/stores/playerStore");
         pStore.getState().fetchProfile();
       } else {
@@ -148,11 +157,11 @@ export default function ShopPage() {
         </div>
       </div>
 
-      {/* 4 Tabs */}
-      <div className="flex gap-1.5">
+      {/* 5 Tabs */}
+      <div className="flex gap-1 overflow-x-auto">
         {tabDefs.map((tab) => (
           <button key={tab.key}
-            className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors ${
+            className={`flex-1 min-w-[60px] py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
               activeTab === tab.key ? "bg-[var(--primary)] text-white" : "bg-[var(--card-bg)] text-[var(--text-secondary)]"
             }`}
             onClick={() => setActiveTab(tab.key)}>
@@ -161,57 +170,57 @@ export default function ShopPage() {
         ))}
       </div>
 
-      {/* ─── Gem Packages (Gold→Gem) + Gold Packages (Gem→Gold) ─── */}
+      {/* ─── Gem Packages (Real Money) ─── */}
       {activeTab === "gems" && (
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-xs font-semibold text-[var(--text-muted)] mb-2">💎 Gem Satın Al (Gerçek Para)</h3>
-            <div className="grid grid-cols-2 gap-3">
-              {gemPackages.map((pkg) => (
-                <motion.button key={pkg.id} whileTap={{ scale: 0.97 }}
-                  className="bg-[var(--card-bg)] border border-[var(--border)] rounded-xl p-4 text-center relative overflow-hidden"
-                  onClick={() => purchaseGemPackage(pkg.id)} disabled={isPurchasing}>
-                  {pkg.bonus > 0 && (
-                    <div className="absolute top-0 right-0 bg-green-600 text-[10px] text-white px-2 py-0.5 rounded-bl-lg font-medium">
-                      +{pkg.bonus} BONUS
-                    </div>
-                  )}
-                  <p className="text-2xl mb-1">💎</p>
-                  <p className="font-bold text-lg text-blue-400">{pkg.gems}</p>
-                  {pkg.bonus > 0 && <p className="text-xs text-green-400">+{pkg.bonus} bonus</p>}
-                  <p className="text-sm text-[var(--text-secondary)] mt-1">{pkg.label}</p>
-                  <div className="mt-2 bg-[var(--primary)] rounded-lg py-1.5 text-white text-sm font-medium">${pkg.price}</div>
-                </motion.button>
-              ))}
-            </div>
+        <div>
+          <h3 className="text-xs font-semibold text-[var(--text-muted)] mb-2">💎 Gem Satın Al (Gerçek Para)</h3>
+          <div className="grid grid-cols-2 gap-3">
+            {gemPackages.map((pkg) => (
+              <motion.button key={pkg.id} whileTap={{ scale: 0.97 }}
+                className="bg-[var(--card-bg)] border border-[var(--border)] rounded-xl p-4 text-center relative overflow-hidden"
+                onClick={() => purchaseGemPackage(pkg.id)} disabled={isPurchasing}>
+                {pkg.bonus > 0 && (
+                  <div className="absolute top-0 right-0 bg-green-600 text-[10px] text-white px-2 py-0.5 rounded-bl-lg font-medium">
+                    +{pkg.bonus} BONUS
+                  </div>
+                )}
+                <p className="text-2xl mb-1">💎</p>
+                <p className="font-bold text-lg text-blue-400">{pkg.gems}</p>
+                {pkg.bonus > 0 && <p className="text-xs text-green-400">+{pkg.bonus} bonus</p>}
+                <p className="text-sm text-[var(--text-secondary)] mt-1">{pkg.label}</p>
+                <div className="mt-2 bg-[var(--primary)] rounded-lg py-1.5 text-white text-sm font-medium">${pkg.price}</div>
+              </motion.button>
+            ))}
           </div>
+        </div>
+      )}
 
-          {/* Godot: ShopScreen._load_gold_packages — Gem→Gold packages */}
-          <div>
-            <h3 className="text-xs font-semibold text-[var(--text-muted)] mb-2">🪙 Altın Satın Al (Gem ile)</h3>
-            <div className="grid grid-cols-2 gap-3">
-              {GOLD_PACKAGES.map((pkg) => {
-                const canAfford = gems >= pkg.gemCost;
-                return (
-                  <motion.button
-                    key={pkg.id}
-                    whileTap={{ scale: canAfford ? 0.97 : 1 }}
-                    className={`bg-[var(--card-bg)] border rounded-xl p-4 text-center ${
-                      canAfford ? "border-yellow-600/40" : "border-[var(--border)] opacity-60"
-                    }`}
-                    onClick={() => buyGoldPackage(pkg)}
-                    disabled={isPurchasing || !canAfford || buyingGoldId === pkg.id}
-                  >
-                    <p className="text-2xl mb-1">🪙</p>
-                    <p className="font-bold text-lg text-[var(--gold)]">{pkg.gold.toLocaleString()}</p>
-                    <div className="mt-2 bg-blue-600 rounded-lg py-1.5 text-white text-sm font-medium">
-                      {buyingGoldId === pkg.id ? "İşleniyor..." : `💎 ${pkg.gemCost} Gem`}
-                    </div>
-                    {!canAfford && <p className="text-[10px] text-red-400 mt-1">Yetersiz gem</p>}
-                  </motion.button>
-                );
-              })}
-            </div>
+      {/* ─── Gold Packages (Gem→Gold) — Godot: ShopScreen._populate_gold_packages ─── */}
+      {activeTab === "gold" && (
+        <div>
+          <h3 className="text-xs font-semibold text-[var(--text-muted)] mb-2">🪙 Altın Satın Al (Gem ile)</h3>
+          <div className="grid grid-cols-2 gap-3">
+            {GOLD_PACKAGES.map((pkg) => {
+              const canAfford = gems >= pkg.gemCost;
+              return (
+                <motion.button
+                  key={pkg.id}
+                  whileTap={{ scale: canAfford ? 0.97 : 1 }}
+                  className={`bg-[var(--card-bg)] border rounded-xl p-4 text-center ${
+                    canAfford ? "border-yellow-600/40" : "border-[var(--border)] opacity-60"
+                  }`}
+                  onClick={() => buyGoldPackage(pkg)}
+                  disabled={isPurchasing || !canAfford || buyingGoldId === pkg.id}
+                >
+                  <p className="text-2xl mb-1">🪙</p>
+                  <p className="font-bold text-lg text-[var(--gold)]">{pkg.gold.toLocaleString()}</p>
+                  <div className="mt-2 bg-blue-600 rounded-lg py-1.5 text-white text-sm font-medium">
+                    {buyingGoldId === pkg.id ? "İşleniyor..." : `💎 ${pkg.gemCost} Gem`}
+                  </div>
+                  {!canAfford && <p className="text-[10px] text-red-400 mt-1">Yetersiz gem</p>}
+                </motion.button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -298,23 +307,69 @@ export default function ShopPage() {
         </div>
       )}
 
-      {/* ─── Items ─── */}
+      {/* ─── Items — Godot: ShopScreen._populate_item_shop ─── */}
       {activeTab === "items" && (
         <div className="space-y-2">
-          {SHOP_ITEMS.map((item) => (
-            <Card key={item.id}>
-              <div className={`flex items-center gap-3 p-3 border-l-4 ${RARITY_BG[item.rarity]}`}>
-                <span className="text-2xl">{item.icon}</span>
-                <div className="flex-1">
-                  <h3 className="text-sm font-medium text-[var(--text-primary)]">{item.name}</h3>
-                  <p className="text-[10px] text-[var(--text-muted)]">{item.description}</p>
+          {shopItems.map((item) => {
+            const qty = getQty(item.id);
+            const totalPrice = item.price * qty;
+            const canAfford = item.currency === "gems" ? gems >= totalPrice : gold >= totalPrice;
+            return (
+              <Card key={item.id}>
+                {/* Rarity border — Godot: ItemCard rarity colour */}
+                <div className={`flex items-center gap-3 p-3 border-l-4 ${RARITY_BORDER[item.rarity] ?? DEFAULT_RARITY_BORDER}`}>
+                  <span className="text-2xl">{item.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="text-sm font-medium text-[var(--text-primary)] truncate">{item.name}</h3>
+                      {/* Rarity label — Godot: ItemCard rarity display */}
+                      <span className="text-[9px] text-[var(--text-muted)] shrink-0">
+                        {RARITY_LABEL[item.rarity] ?? item.rarity}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-[var(--text-muted)]">{item.description}</p>
+                    {/* Price display — Godot: ItemCard price label */}
+                    <p className="text-[10px] font-medium mt-0.5">
+                      {item.currency === "gems"
+                        ? <span className="text-blue-400">💎 {item.price} / adet</span>
+                        : <span className="text-[var(--gold)]">🪙 {item.price} / adet</span>
+                      }
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    {/* Quantity selector — Godot: SpinBox (1..max_stack) */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        className="w-6 h-6 rounded bg-[var(--surface)] text-[var(--text-primary)] text-sm font-bold leading-none disabled:opacity-40"
+                        onClick={() => setQty(item.id, qty - 1, item.max_stack)}
+                        disabled={qty <= 1}>
+                        −
+                      </button>
+                      <span className="w-6 text-center text-xs font-medium text-[var(--text-primary)]">{qty}</span>
+                      <button
+                        className="w-6 h-6 rounded bg-[var(--surface)] text-[var(--text-primary)] text-sm font-bold leading-none disabled:opacity-40"
+                        onClick={() => setQty(item.id, qty + 1, item.max_stack)}
+                        disabled={qty >= item.max_stack}>
+                        +
+                      </button>
+                    </div>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => buyItem(item)}
+                      disabled={buyingId === item.id || !canAfford}>
+                      {buyingId === item.id
+                        ? "..."
+                        : item.currency === "gems"
+                          ? `💎 ${totalPrice}`
+                          : `🪙 ${totalPrice}`
+                      }
+                    </Button>
+                  </div>
                 </div>
-                <Button variant="primary" size="sm" onClick={() => buyItem(item)} disabled={buyingId === item.id}>
-                  {buyingId === item.id ? "..." : item.currency === "gems" ? `💎${item.price}` : `🪙${item.price}`}
-                </Button>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
