@@ -52,11 +52,7 @@ export function ItemSlot({ item, onClick, size = "md", showQuantity = true }: It
           {item.quantity}
         </span>
       )}
-      {(item.enhancement_level ?? 0) > 0 && (
-        <span className="absolute top-0 right-0 text-[10px] text-[var(--gold)] font-bold">
-          +{item.enhancement_level}
-        </span>
-      )}
+      {/* enhancement badge moved into ItemIcon to centralize rendering */}
     </motion.button>
   );
 }

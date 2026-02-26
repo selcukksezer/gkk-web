@@ -15,6 +15,7 @@ export async function GET() {
     const fallback: ShopOffer[] = [
       {
         id: "offer1",
+        item_id: "offer1",
         name: "Başlangıç Paketi",
         description: "Ücretsiz örnek teklif",
         price: 0,

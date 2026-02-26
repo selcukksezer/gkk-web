@@ -42,13 +42,12 @@ export function ItemCard({
 
   return (
     <motion.button
-      initial={{ opacity: 1, scale: 1 }}
+      initial={false}
       animate={{
-        opacity: isDragging ? 0.6 : 1,
-        scale: isDragging ? 1.06 : 1,
+        scale: isDragging ? 1.05 : 1,
       }}
-      transition={{ duration: 0.12 }}
-      whileHover={{ scale: isDragging ? 1.06 : 1.08 }}
+      transition={{ duration: 0.1 }}
+      whileHover={{ scale: isDragging ? 1.05 : 1.08 }}
       whileTap={{ scale: 0.95 }}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
@@ -58,13 +57,13 @@ export function ItemCard({
         isSelected
           ? "border-[var(--accent)] bg-[var(--accent)]/15"
           : "border-[var(--border-default)] bg-[var(--bg-card)]/50",
-        isEquipped && "ring-2 ring-[var(--color-success)]",
-        isDragging && "shadow-2xl",
-        rarityGlowClass
+        isEquipped && "ring-2 ring-[var(--color-success)]"
       )}
       style={{
         borderColor: isSelected ? "var(--accent)" : rarityColor,
-        boxShadow: isDragging ? `0 20px 50px ${rarityColor}40, inset 0 0 18px ${rarityColor}20` : `0 6px 18px rgba(0,0,0,0.35)`,
+        boxShadow: isDragging
+          ? `0 20px 50px ${rarityColor}40, inset 0 0 18px ${rarityColor}20`
+          : `0 6px 18px rgba(0,0,0,0.35)`,
         backgroundImage: isSelected ? `linear-gradient(135deg, ${rarityColor}15, transparent)` : undefined,
       }}
     >
@@ -76,12 +75,7 @@ export function ItemCard({
         alt={item.name}
       />
 
-      {/* Enhancement level */}
-      {item.enhancement_level > 0 && (
-        <span className="absolute top-0.5 right-0.5 text-[9px] font-bold text-[var(--accent-light)]">
-          +{item.enhancement_level}
-        </span>
-      )}
+      {/* Enhancement badge handled by ItemIcon */}
 
       {/* Stack quantity */}
       {item.quantity > 1 && (

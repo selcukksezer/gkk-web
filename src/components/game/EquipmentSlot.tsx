@@ -54,7 +54,8 @@ export function EquipmentSlot({
   const dragListeners = draggable.listeners;
   const setDragNodeRef = draggable.setNodeRef;
   const transform = draggable.transform;
-  const transition = draggable.transition;
+  // transition may not be present on the Draggable API typings in this dnd-kit version
+  const transition = (draggable as any).transition;
 
   const style: any = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, transition }

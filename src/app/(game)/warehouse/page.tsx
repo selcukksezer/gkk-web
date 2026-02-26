@@ -13,6 +13,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { ProgressBar } from "@/components/ui/ProgressBar";
+import { ItemIcon } from "@/components/game/ItemIcon";
 import { api } from "@/lib/api";
 import { useUiStore } from "@/stores/uiStore";
 
@@ -354,7 +355,7 @@ export default function WarehousePage() {
                           className="bg-[var(--bg-input)] rounded-lg p-2 flex items-center justify-between"
                         >
                           <div className="flex items-center gap-1.5">
-                            <span className="text-lg">{item.icon}</span>
+                            <ItemIcon icon={item.icon} itemId={String(item.item_id)} className="text-lg" />
                             <div>
                               <p className="text-[11px] font-medium text-[var(--text-primary)] leading-tight">
                                 {item.name}
@@ -422,8 +423,8 @@ export default function WarehousePage() {
         {transferState && (
           <div className="space-y-4">
             {/* Item info */}
-            <div className="flex items-center gap-3 p-3 bg-[var(--bg-input)] rounded-lg">
-              <span className="text-2xl">{transferState.item.icon}</span>
+              <div className="flex items-center gap-3 p-3 bg-[var(--bg-input)] rounded-lg">
+              <ItemIcon icon={transferState.item.icon} itemId={String(transferState.item.item_id)} className="text-2xl shrink-0" />
               <div>
                 <p className="text-sm font-semibold text-[var(--text-primary)]">
                   {transferState.item.name}

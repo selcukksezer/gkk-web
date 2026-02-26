@@ -12,6 +12,7 @@ import { usePlayerStore } from "@/stores/playerStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useEnhancement } from "@/hooks/useEnhancement";
 import type { InventoryItem } from "@/types/inventory";
+import { ItemIcon } from "@/components/game/ItemIcon";
 import type { EquipSlot, Rarity } from "@/types/item";
 import { getDisplayName, getRarityColor } from "@/types/item";
 
@@ -112,10 +113,23 @@ export default function EquipmentPage() {
         {EQUIP_SLOTS.map(({ slot, label, icon }) => {
           const equipped = equippedItems[slot] ?? null;
           return (
-            <motion.button
+            <motion.div
               key={slot}
               whileTap={{ scale: 0.97 }}
-              className="bg-[var(--card-bg)] border border-[var(--border)] rounded-xl p-3 text-left"
+              className="bg-[var(--card-bg)] border border-[var(--border)] rounded-xl p-3 text-left focus:outline-none"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  if (equipped) {
+                    setSelectedSlot(slot);
+                  } else {
+                    setSelectedSlot(slot);
+                    setShowItemPicker(true);
+                  }
+                }
+              }}
               onClick={() => {
                 if (equipped) {
                   setSelectedSlot(slot);
@@ -138,9 +152,7 @@ export default function EquipmentPage() {
                     {getDisplayName(equipped)}
                   </p>
                   <div className="flex justify-between mt-1">
-                    <span className="text-xs text-[var(--text-secondary)]">
-                      +{equipped.enhancement_level ?? 0}
-                    </span>
+                    {/* enhancement badge is shown by ItemIcon; remove duplicate text under item */}
                     <button
                       className="text-xs text-red-400 hover:text-red-300"
                       onClick={(e) => {
@@ -155,7 +167,7 @@ export default function EquipmentPage() {
               ) : (
                 <p className="text-xs text-[var(--text-secondary)] italic">Boş</p>
               )}
-            </motion.button>
+            </motion.div>
           );
         })}
       </div>
@@ -192,7 +204,7 @@ export default function EquipmentPage() {
                       className="w-full flex items-center gap-3 bg-[var(--card-bg)] rounded-lg p-3 hover:bg-[var(--border)]"
                       onClick={() => handleEquip(item)}
                     >
-                      <span className="text-2xl">{item.icon ?? "📦"}</span>
+                      <ItemIcon icon={item.icon} itemType={item.item_type} itemId={item.item_id ?? item.row_id} className="text-2xl" />
                       <div className="flex-1 text-left">
                         <p
                           className="font-medium"

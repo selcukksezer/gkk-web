@@ -6,8 +6,16 @@
 
 "use client";
 
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  DndContext,
+  pointerWithin,
+  useDroppable,
+  useDraggable,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import { useInventoryStore } from "@/stores/inventoryStore";
 import { usePlayerStore } from "@/stores/playerStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -15,22 +23,37 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { api } from "@/lib/api";
+import { useEnhancement } from "@/hooks/useEnhancement";
 import { formatGold } from "@/lib/utils/string";
 import type { InventoryItem } from "@/types/inventory";
+import { ItemIcon } from "@/components/game/ItemIcon";
 
-// BlacksmithScreen.gd — BASE_SUCCESS_RATES per enhancement level
-const BASE_SUCCESS_RATES: Record<number, { min: number; max: number }> = {
-  0:  { min: 95,  max: 100 },
-  1:  { min: 90,  max: 95  },
-  2:  { min: 85,  max: 90  },
-  3:  { min: 75,  max: 85  },
-  4:  { min: 60,  max: 75  },
-  5:  { min: 45,  max: 60  },
-  6:  { min: 30,  max: 45  },
-  7:  { min: 20,  max: 30  },
-  8:  { min: 10,  max: 20  },
-  9:  { min: 5,   max: 10  },
-  10: { min: 1,   max: 5   },
+const UPGRADE_CHANCES: Record<number, number> = {
+  0: 100,
+  1: 100,
+  2: 100,
+  3: 100,
+  4: 70,
+  5: 60,
+  6: 50,
+  7: 35,
+  8: 20,
+  9: 10,
+  10: 3,
+};
+
+const UPGRADE_COSTS: Record<number, number> = {
+  0: 1000,
+  1: 2000,
+  2: 3000,
+  3: 5000,
+  4: 15000,
+  5: 35000,
+  6: 75000,
+  7: 150000,
+  8: 500000,
+  9: 2000000,
+  10: 10000000,
 };
 
 // Rarity → required scroll_id (BlacksmithScreen.gd)
@@ -57,14 +80,27 @@ const RARITY_COLORS: Record<string, string> = {
   mythic:   "#f43f5e",
 };
 
-// Enhancement level → gold cost (1000 * (level + 1))
 function getEnhanceCost(level: number): number {
-  return 1000 * (level + 1);
+  return UPGRADE_COSTS[level] ?? 0;
+}
+
+function getRiskLabel(level: number): string {
+  if (level >= 8) return "YOK OLMA RİSKİ";
+  if (level >= 7) return "Seviye düşebilir";
+  if (level >= 4) return "Seviye düşmez";
+  return "Risksiz";
+}
+
+function isEnhanceableItem(item: InventoryItem): boolean {
+  const byType = EQUIPMENT_TYPES.has(item.item_type);
+  const byEquipSlot = !!item.equip_slot && item.equip_slot !== "none";
+  return (byType || byEquipSlot) && (item.enhancement_level ?? 0) < 10;
 }
 
 // Item emoji by type
 function getItemEmoji(item: InventoryItem): string {
-  if (item.icon) return item.icon;
+  // If icon is a small emoji-like string (no path), use it. Otherwise prefer type-based emoji.
+  if (item.icon && !item.icon.includes("/") && item.icon.length <= 3) return item.icon;
   const map: Record<string, string> = {
     weapon: "⚔️", armor: "🛡️", helmet: "⛑️", gloves: "🧤",
     boots: "👢", accessory: "💍", scroll: "📜", potion: "🧪",
@@ -74,11 +110,124 @@ function getItemEmoji(item: InventoryItem): string {
 }
 
 type AnimResult = { type: "success"; newLevel: number } | { type: "failure" } | { type: "destroyed" };
-type InventoryFilter = "all" | "equipment" | "scroll";
 
 const EQUIPMENT_TYPES = new Set(["weapon", "armor", "helmet", "gloves", "boots", "accessory"]);
 const SLOT_COUNT = 20;
 const COLS = 5;
+const SCROLL_SLOT_COUNT = 9;
+const SLOT_SIZE_PX = 88;
+
+function DraggableInventoryItem({
+  item,
+  disabled,
+  children,
+}: {
+  item: InventoryItem;
+  disabled?: boolean;
+  children: ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `inv-${item.row_id}`,
+    disabled,
+  });
+
+  const style = {
+    transform: transform ? CSS.Translate.toString(transform) : undefined,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {children}
+    </div>
+  );
+}
+
+function ItemDropSlot({
+  selectedItem,
+  currentLevel,
+  onClick,
+}: {
+  selectedItem: InventoryItem | null;
+  currentLevel: number;
+  onClick: () => void;
+}) {
+  const { isOver, setNodeRef } = useDroppable({ id: "enh-item-slot" });
+
+  return (
+    <button
+      ref={setNodeRef as never}
+      onClick={onClick}
+      className={`w-[88px] h-[88px] mx-auto rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-all ${
+        selectedItem
+          ? "border-[var(--accent)] bg-[var(--accent)]/10"
+          : isOver
+          ? "border-[var(--accent)] bg-[var(--accent)]/10"
+          : "border-[var(--border-default)] bg-[var(--bg-input)] hover:border-[var(--accent)]/50"
+      }`}
+    >
+      {selectedItem ? (
+        <>
+          <ItemIcon icon={selectedItem.icon} itemType={selectedItem.item_type} itemId={selectedItem.row_id} className="text-2xl" enhancementLevel={selectedItem.enhancement_level} />
+          <span className="text-[9px] text-[var(--text-primary)] font-medium text-center leading-tight px-1 truncate w-full text-center">
+            {selectedItem.name}
+          </span>
+          {/* enhancement badge displayed by ItemIcon; remove duplicate text */}
+        </>
+      ) : (
+        <>
+          <span className="text-2xl opacity-30">⚔️</span>
+          <span className="text-[9px] text-[var(--text-muted)]">Eşya Seç</span>
+        </>
+      )}
+    </button>
+  );
+}
+
+function ScrollDropSlot({
+  index,
+  scroll,
+  isCompatible,
+  onRemove,
+}: {
+  index: number;
+  scroll: InventoryItem | null;
+  isCompatible: boolean;
+  onRemove: () => void;
+}) {
+  const { isOver, setNodeRef } = useDroppable({ id: `enh-scroll-slot-${index}` });
+
+  return (
+    <button
+      ref={setNodeRef as never}
+      onClick={scroll ? onRemove : undefined}
+      className={`w-[88px] h-[88px] mx-auto rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-all ${
+        scroll && isCompatible
+          ? "border-amber-400 bg-amber-400/10"
+          : scroll && !isCompatible
+          ? "border-red-400 bg-red-400/10"
+          : isOver
+          ? "border-amber-400/70 bg-amber-900/20"
+          : "border-[var(--border-default)] bg-[var(--bg-input)]"
+      }`}
+    >
+      {scroll ? (
+        <>
+          <ItemIcon icon={scroll.icon} itemType={scroll.item_type} itemId={scroll.row_id} className="text-lg" enhancementLevel={scroll.enhancement_level} />
+          <span className="text-[9px] text-[var(--text-primary)] font-medium text-center leading-tight px-1 truncate w-full text-center">
+            {scroll.name}
+          </span>
+          {!isCompatible && <span className="text-[8px] text-red-400">Uyumsuz!</span>}
+        </>
+      ) : (
+        <>
+          <span className="text-base opacity-40">📜</span>
+          <span className="text-[9px] text-[var(--text-muted)]">Slot {index + 1}</span>
+        </>
+      )}
+    </button>
+  );
+}
 
 export default function EnhancementPage() {
   const items = useInventoryStore((s) => s.items);
@@ -88,10 +237,11 @@ export default function EnhancementPage() {
   const addToast = useUiStore((s) => s.addToast);
 
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
-  const [selectedScroll, setSelectedScroll] = useState<InventoryItem | null>(null);
+  const [selectedScrollSlots, setSelectedScrollSlots] = useState<(InventoryItem | null)[]>(
+    Array.from({ length: SCROLL_SLOT_COUNT }, () => null)
+  );
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [animResult, setAnimResult] = useState<AnimResult | null>(null);
-  const [inventoryFilter, setInventoryFilter] = useState<InventoryFilter>("all");
   const animTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load inventory on mount if empty
@@ -108,7 +258,7 @@ export default function EnhancementPage() {
 
   // ── Derived data ──────────────────────────────────────────
   const enhanceableItems = useMemo(
-    () => items.filter((i) => EQUIPMENT_TYPES.has(i.item_type) && (i.enhancement_level ?? 0) < 10),
+    () => items.filter(isEnhanceableItem),
     [items]
   );
 
@@ -118,98 +268,125 @@ export default function EnhancementPage() {
   );
 
   const currentLevel = selectedItem?.enhancement_level ?? 0;
-  const successRange = BASE_SUCCESS_RATES[currentLevel] ?? { min: 1, max: 5 };
+  const successChance = UPGRADE_CHANCES[currentLevel] ?? 3;
   const cost = getEnhanceCost(currentLevel);
   const hasEnoughGold = gold >= cost;
 
   const requiredScrollId = selectedItem ? getScrollId(selectedItem.rarity) : null;
   const requiredScrollLabel = selectedItem ? getScrollLabel(selectedItem.rarity) : null;
 
-  // Auto-select compatible scroll when item is selected
-  useEffect(() => {
-    if (!selectedItem) { setSelectedScroll(null); return; }
-    const scrollId = getScrollId(selectedItem.rarity);
-    const compatible = scrollItems.find((s) => s.item_id === scrollId);
-    setSelectedScroll(compatible ?? null);
-  }, [selectedItem, scrollItems]);
+  const compatibleScroll = useMemo(() => {
+    if (!requiredScrollId) return null;
+    return selectedScrollSlots.find((s) => s?.item_id === requiredScrollId) ?? null;
+  }, [selectedScrollSlots, requiredScrollId]);
 
-  const isScrollCompatible = selectedScroll && requiredScrollId && selectedScroll.item_id === requiredScrollId;
-  const canEnhance = !!selectedItem && !!isScrollCompatible && hasEnoughGold && !isEnhancing;
+  const canEnhance = !!selectedItem && !!compatibleScroll && hasEnoughGold && !isEnhancing;
 
   // Output preview item (dimmed, +1 level)
   const previewLevel = currentLevel + 1;
 
-  // Filtered inventory for grid
-  const filteredItems = useMemo(() => {
-    if (inventoryFilter === "equipment") return enhanceableItems;
-    if (inventoryFilter === "scroll") return scrollItems;
-    return items;
-  }, [inventoryFilter, items, enhanceableItems, scrollItems]);
-
   // ── Handlers ──────────────────────────────────────────────
   const handleSelectFromGrid = useCallback((item: InventoryItem) => {
-    if (EQUIPMENT_TYPES.has(item.item_type)) {
+    if (isEnhanceableItem(item)) {
       setSelectedItem(item);
       setAnimResult(null);
     } else if (item.item_type === "scroll" || item.item_id?.includes("scroll")) {
-      setSelectedScroll(item);
+      setSelectedScrollSlots((prev) => {
+        if (prev.some((s) => s?.row_id === item.row_id)) return prev;
+        const firstEmpty = prev.findIndex((s) => s === null);
+        if (firstEmpty < 0) return prev;
+        const next = [...prev];
+        next[firstEmpty] = item;
+        return next;
+      });
     }
   }, []);
 
   const handleCancel = useCallback(() => {
     setSelectedItem(null);
-    setSelectedScroll(null);
+    setSelectedScrollSlots(Array.from({ length: SCROLL_SLOT_COUNT }, () => null));
     setAnimResult(null);
   }, []);
 
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const activeId = String(event.active.id);
+    const overId = event.over ? String(event.over.id) : null;
+    if (!overId || !activeId.startsWith("inv-")) return;
+
+    const rowId = activeId.replace(/^inv-/, "");
+    const dragged = items.find((it) => it.row_id === rowId);
+    if (!dragged) return;
+
+    if (overId === "enh-item-slot") {
+      if (isEnhanceableItem(dragged)) {
+        setSelectedItem(dragged);
+        setAnimResult(null);
+      }
+      return;
+    }
+
+    if (overId.startsWith("enh-scroll-slot-")) {
+      if (!(dragged.item_type === "scroll" || dragged.item_id?.includes("scroll"))) return;
+      const slotIndex = Number.parseInt(overId.replace(/^enh-scroll-slot-/, ""), 10);
+      if (Number.isNaN(slotIndex) || slotIndex < 0 || slotIndex >= SCROLL_SLOT_COUNT) return;
+
+      setSelectedScrollSlots((prev) => {
+        const sourceIndex = prev.findIndex((s) => s?.row_id === dragged.row_id);
+        const next = [...prev];
+
+        if (sourceIndex === slotIndex) return prev;
+
+        if (sourceIndex >= 0) {
+          const target = next[slotIndex];
+          next[slotIndex] = next[sourceIndex];
+          next[sourceIndex] = target;
+          return next;
+        }
+
+        next[slotIndex] = dragged;
+        return next;
+      });
+    }
+  }, [items]);
+
+  const { enhanceItem } = useEnhancement();
+
   const handleEnhance = useCallback(async () => {
-    if (!selectedItem || !selectedScroll || !canEnhance) return;
+    if (!selectedItem || !canEnhance) return;
 
     setIsEnhancing(true);
     try {
-      const res = await api.rpc<{
-        success: boolean;
-        destroyed?: boolean;
-        new_level?: number;
-        gold_spent?: number;
-      }>("enhance_item", {
-        item_row_id: selectedItem.row_id,
-        scroll_row_id: selectedScroll.row_id,
-      });
+      // Delegate to centralized enhancement logic (uses inventory RPCs and store)
+      const result = await enhanceItem(selectedItem as InventoryItem);
 
-      const data = res.data;
-      if (res.success && data) {
-        // Deduct gold locally (server-authoritative result)
-        updateGold(-cost, true);
-
-        if (data.success) {
-          setAnimResult({ type: "success", newLevel: data.new_level ?? currentLevel + 1 });
-          addToast(`Güçlendirme başarılı! +${data.new_level ?? previewLevel}`, "success");
-        } else if (data.destroyed) {
+      if (result) {
+        if (result.destroyed) {
           setAnimResult({ type: "destroyed" });
-          addToast("Eşya güçlendirme sırasında yok oldu!", "error");
+        } else if (result.success) {
+          setAnimResult({ type: "success", newLevel: result.newLevel });
         } else {
           setAnimResult({ type: "failure" });
-          addToast("Güçlendirme başarısız!", "warning");
         }
 
         // Refresh inventory from server after enhance
         await fetchInventory();
+
         // Clear slots after animation
         animTimerRef.current = setTimeout(() => {
           setAnimResult(null);
           setSelectedItem(null);
-          setSelectedScroll(null);
+          setSelectedScrollSlots(Array.from({ length: SCROLL_SLOT_COUNT }, () => null));
         }, 3000);
       } else {
-        addToast(res.error ?? "Güçlendirme hatası", "error");
+        addToast("Güçlendirme hatası", "error");
       }
-    } catch {
+    } catch (err) {
+      console.error(err);
       addToast("Güçlendirme başarısız — sunucu hatası", "error");
     } finally {
       setIsEnhancing(false);
     }
-  }, [selectedItem, selectedScroll, canEnhance, cost, currentLevel, previewLevel, updateGold, fetchInventory, addToast]);
+  }, [selectedItem, canEnhance, enhanceItem, fetchInventory, addToast]);
 
   // ── Result Animation Overlay ───────────────────────────────
   const ResultOverlay = () => {
@@ -271,6 +448,7 @@ export default function EnhancementPage() {
     <>
       <AnimatePresence>{animResult && <ResultOverlay />}</AnimatePresence>
 
+      <DndContext collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 space-y-4 pb-28">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -290,31 +468,11 @@ export default function EnhancementPage() {
               {/* Input Slot — item to enhance */}
               <div className="flex-1">
                 <p className="text-[10px] text-[var(--text-muted)] mb-1.5 text-center">Eşya</p>
-                <button
-                  onClick={() => setInventoryFilter("equipment")}
-                  className={`w-full aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-all ${
-                    selectedItem
-                      ? "border-[var(--accent)] bg-[var(--accent)]/10"
-                      : "border-[var(--border-default)] bg-[var(--bg-input)] hover:border-[var(--accent)]/50"
-                  }`}
-                >
-                  {selectedItem ? (
-                    <>
-                      <span className="text-2xl">{getItemEmoji(selectedItem)}</span>
-                      <span className="text-[9px] text-[var(--text-primary)] font-medium text-center leading-tight px-1 truncate w-full text-center">
-                        {selectedItem.name}
-                      </span>
-                      <span className="text-[10px] font-bold text-[var(--accent)]">
-                        +{currentLevel}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-2xl opacity-30">⚔️</span>
-                      <span className="text-[9px] text-[var(--text-muted)]">Eşya Seç</span>
-                    </>
-                  )}
-                </button>
+                <ItemDropSlot
+                  selectedItem={selectedItem}
+                  currentLevel={currentLevel}
+                  onClick={() => {}}
+                />
               </div>
 
               {/* Arrow */}
@@ -322,36 +480,26 @@ export default function EnhancementPage() {
                 <span className="text-[var(--text-muted)] text-lg">+</span>
               </div>
 
-              {/* Scroll Slot */}
-              <div className="flex-1">
-                <p className="text-[10px] text-[var(--text-muted)] mb-1.5 text-center">Parşömen</p>
-                <button
-                  onClick={() => setInventoryFilter("scroll")}
-                  className={`w-full aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-all ${
-                    selectedScroll && isScrollCompatible
-                      ? "border-amber-400 bg-amber-400/10"
-                      : selectedScroll && !isScrollCompatible
-                      ? "border-red-400 bg-red-400/10"
-                      : "border-[var(--border-default)] bg-[var(--bg-input)] hover:border-amber-400/50"
-                  }`}
-                >
-                  {selectedScroll ? (
-                    <>
-                      <span className="text-2xl">📜</span>
-                      <span className="text-[9px] text-[var(--text-primary)] font-medium text-center leading-tight px-1 truncate w-full text-center">
-                        {selectedScroll.name}
-                      </span>
-                      {!isScrollCompatible && (
-                        <span className="text-[8px] text-red-400">Uyumsuz!</span>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-2xl opacity-30">📜</span>
-                      <span className="text-[9px] text-[var(--text-muted)]">Parşömen</span>
-                    </>
-                  )}
-                </button>
+              {/* Scroll Slots */}
+              <div className="flex-[2]">
+                <p className="text-[10px] text-[var(--text-muted)] mb-1.5 text-center">Parşömen Slotları (9)</p>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {selectedScrollSlots.map((scroll, idx) => (
+                    <ScrollDropSlot
+                      key={idx}
+                      index={idx}
+                      scroll={scroll}
+                      isCompatible={!!(scroll && requiredScrollId && scroll.item_id === requiredScrollId)}
+                      onRemove={() => {
+                        setSelectedScrollSlots((prev) => {
+                          const next = [...prev];
+                          next[idx] = null;
+                          return next;
+                        });
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
 
               {/* Arrow */}
@@ -362,20 +510,18 @@ export default function EnhancementPage() {
               {/* Output Preview Slot */}
               <div className="flex-1">
                 <p className="text-[10px] text-[var(--text-muted)] mb-1.5 text-center">Önizleme</p>
-                <div className={`w-full aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-all ${
+                <div className={`w-[88px] h-[88px] mx-auto rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-all ${
                   selectedItem
                     ? "border-green-500/40 bg-green-500/5 opacity-60"
                     : "border-[var(--border-default)] bg-[var(--bg-input)] opacity-40"
                 }`}>
                   {selectedItem ? (
                     <>
-                      <span className="text-2xl">{getItemEmoji(selectedItem)}</span>
-                      <span className="text-[9px] text-[var(--text-primary)] text-center leading-tight px-1 truncate w-full text-center">
-                        {selectedItem.name}
-                      </span>
-                      <span className="text-[10px] font-bold text-green-400">
-                        +{previewLevel}
-                      </span>
+                        <ItemIcon icon={selectedItem.icon} itemType={selectedItem.item_type} itemId={selectedItem.row_id} className="text-2xl" enhancementLevel={previewLevel} />
+                        <span className="text-[9px] text-[var(--text-primary)] text-center leading-tight px-1 truncate w-full text-center">
+                          {selectedItem.name}
+                        </span>
+                        {/* enhancement preview shown on ItemIcon badge; duplicate text removed */}
                     </>
                   ) : (
                     <>
@@ -408,22 +554,22 @@ export default function EnhancementPage() {
             <div className="flex items-center justify-between text-xs">
               <span className="text-[var(--text-secondary)]">Başarı Şansı</span>
               <span className={`font-bold ${
-                successRange.min >= 75 ? "text-green-400"
-                : successRange.min >= 45 ? "text-yellow-400"
-                : successRange.min >= 20 ? "text-orange-400"
+                successChance >= 70 ? "text-green-400"
+                : successChance >= 35 ? "text-yellow-400"
+                : successChance >= 20 ? "text-orange-400"
                 : "text-red-400"
               }`}>
-                %{successRange.min} – %{successRange.max}
+                %{successChance}
               </span>
             </div>
 
             {/* Progress bar for success rate */}
             {selectedItem && (
               <ProgressBar
-                value={successRange.min}
+                value={successChance}
                 max={100}
                 size="sm"
-                color={successRange.min >= 75 ? "success" : successRange.min >= 45 ? "warning" : "health"}
+                color={successChance >= 70 ? "success" : successChance >= 35 ? "warning" : "health"}
               />
             )}
 
@@ -445,26 +591,19 @@ export default function EnhancementPage() {
             </div>
 
             {/* Level warnings */}
-            {selectedItem && currentLevel >= 7 && (
-              <div className="mt-1 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30">
-                <p className="text-[10px] text-red-400 font-medium">
-                  ⚠️ Seviye {currentLevel} üzerinde başarısızlık eşyayı yok edebilir!
-                </p>
-              </div>
-            )}
-            {selectedItem && currentLevel >= 5 && currentLevel < 7 && (
-              <div className="mt-1 px-3 py-2 rounded-lg bg-orange-500/10 border border-orange-500/30">
-                <p className="text-[10px] text-orange-400">
-                  ⚠️ Başarısızlık durumunda seviye düşebilir.
+            {selectedItem && (
+              <div className="mt-1 px-3 py-2 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-default)]">
+                <p className="text-[10px] text-[var(--text-secondary)]">
+                  ⚠️ Risk: <strong>{getRiskLabel(currentLevel)}</strong>
                 </p>
               </div>
             )}
 
             {/* Scroll compatibility warning */}
-            {selectedScroll && selectedItem && !isScrollCompatible && (
+            {!compatibleScroll && selectedItem && selectedScrollSlots.some(Boolean) && (
               <div className="mt-1 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30">
                 <p className="text-[10px] text-red-400">
-                  ❌ Bu parşömen seçili eşyayla uyumlu değil.
+                  ❌ Slotlardaki parşömenler seçili eşyayla uyumlu değil.
                   Gereken: <strong>{requiredScrollLabel}</strong>
                 </p>
               </div>
@@ -495,78 +634,57 @@ export default function EnhancementPage() {
           </Button>
         </div>
 
-        {/* ── Inventory Filter Tabs ─────────────────────────── */}
+        {/* ── Inventory ─────────────────────────────────────── */}
         <div>
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold text-[var(--text-secondary)]">Envanter</h3>
-            <div className="flex gap-1.5">
-              {(["all", "equipment", "scroll"] as InventoryFilter[]).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setInventoryFilter(f)}
-                  className={`px-2.5 py-1 text-[10px] rounded-lg font-medium transition-colors ${
-                    inventoryFilter === f
-                      ? "bg-[var(--accent)] text-white"
-                      : "bg-[var(--bg-elevated)] text-[var(--text-muted)]"
-                  }`}
-                >
-                  {f === "all" ? "Tümü" : f === "equipment" ? "⚔️ Ekipman" : "📜 Parşömen"}
-                </button>
-              ))}
-            </div>
+            <span className="text-[10px] text-[var(--text-muted)]">Sürükle-bırak aktif</span>
           </div>
 
           {/* 20-slot grid, 5 columns */}
-          <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${COLS}, 1fr)` }}>
+          <div className="grid gap-1.5 justify-start" style={{ gridTemplateColumns: `repeat(${COLS}, ${SLOT_SIZE_PX}px)` }}>
             {Array.from({ length: SLOT_COUNT }).map((_, slotIdx) => {
-              const item = filteredItems.find((i) => i.slot_position === slotIdx);
+              const item = items.find((i) => i.slot_position === slotIdx);
               const isSelectedItem = item && selectedItem?.row_id === item.row_id;
-              const isSelectedScroll = item && selectedScroll?.row_id === item.row_id;
+              const isSelectedScroll = item && selectedScrollSlots.some((s) => s?.row_id === item.row_id);
               const isEquip = item && EQUIPMENT_TYPES.has(item.item_type);
               const isScroll = item && (item.item_type === "scroll" || item.item_id?.includes("scroll"));
               const rarityColor = item ? RARITY_COLORS[item.rarity] ?? "var(--text-muted)" : undefined;
 
               return (
-                <button
-                  key={slotIdx}
-                  onClick={() => item && handleSelectFromGrid(item)}
-                  className={`aspect-square rounded-lg border flex flex-col items-center justify-center gap-0.5 transition-all relative overflow-hidden ${
-                    !item
-                      ? "border-[var(--border-default)] bg-[var(--bg-input)] cursor-default opacity-40"
-                      : isSelectedItem || isSelectedScroll
-                      ? "border-[var(--accent)] bg-[var(--accent)]/20 scale-105 shadow-lg shadow-[var(--accent)]/20"
-                      : isEquip
-                      ? "border-[var(--border-default)] bg-[var(--bg-elevated)] hover:border-[var(--accent)]/50 cursor-pointer"
-                      : isScroll
-                      ? "border-amber-400/40 bg-amber-900/20 hover:border-amber-400 cursor-pointer"
-                      : "border-[var(--border-default)] bg-[var(--bg-elevated)] cursor-pointer"
-                  }`}
-                  style={item ? { borderColor: isSelectedItem || isSelectedScroll ? undefined : `${rarityColor}40` } : {}}
-                  title={item ? `${item.name} (+${item.enhancement_level ?? 0})` : "Boş"}
-                >
+                <div key={slotIdx}>
                   {item ? (
-                    <>
-                      <span className="text-base leading-none">{getItemEmoji(item)}</span>
-                      {/* Enhancement level badge */}
-                      {(item.enhancement_level ?? 0) > 0 && (
-                        <span className="text-[8px] font-bold text-[var(--accent)] leading-none">
-                          +{item.enhancement_level}
-                        </span>
-                      )}
-                      {/* Quantity badge */}
-                      {item.quantity > 1 && (
-                        <span className="absolute bottom-0.5 right-0.5 text-[7px] bg-[var(--bg-card)] rounded px-0.5 text-[var(--text-muted)] leading-none">
-                          {item.quantity}
-                        </span>
-                      )}
-                      {/* Rarity dot */}
-                      <span
-                        className="absolute top-0.5 left-0.5 w-1.5 h-1.5 rounded-full"
-                        style={{ backgroundColor: rarityColor }}
-                      />
-                    </>
-                  ) : null}
-                </button>
+                    <DraggableInventoryItem item={item}>
+                      <button
+                        onClick={() => handleSelectFromGrid(item)}
+                        className={`w-[88px] h-[88px] rounded-lg border flex items-center justify-center transition-all relative overflow-hidden ${
+                          isSelectedItem || isSelectedScroll
+                            ? "border-[var(--accent)] bg-[var(--accent)]/20 scale-105 shadow-lg shadow-[var(--accent)]/20"
+                            : isEquip
+                            ? "border-[var(--border-default)] bg-[var(--bg-elevated)] hover:border-[var(--accent)]/50 cursor-pointer"
+                            : isScroll
+                            ? "border-amber-400/40 bg-amber-900/20 hover:border-amber-400 cursor-pointer"
+                            : "border-[var(--border-default)] bg-[var(--bg-elevated)] cursor-pointer"
+                        }`}
+                        style={{ borderColor: isSelectedItem || isSelectedScroll ? undefined : `${rarityColor}40` }}
+                        title={item.enhancement_level > 0 ? `${item.name} (+${item.enhancement_level})` : item.name}
+                      >
+                        <ItemIcon icon={item.icon} itemType={item.item_type} itemId={item.row_id} className="text-2xl leading-none" enhancementLevel={item.enhancement_level} />
+                        {item.quantity > 1 && (
+                          <span className="absolute bottom-0.5 right-0.5 text-[7px] bg-[var(--bg-card)] rounded px-0.5 text-[var(--text-muted)] leading-none">
+                            {item.quantity}
+                          </span>
+                        )}
+                        <span
+                          className="absolute top-0.5 left-0.5 w-1.5 h-1.5 rounded-full"
+                          style={{ backgroundColor: rarityColor }}
+                        />
+                      </button>
+                    </DraggableInventoryItem>
+                  ) : (
+                    <div className="w-[88px] h-[88px] rounded-lg border transition-all relative overflow-hidden border-[var(--border-default)] bg-[var(--bg-input)] cursor-default opacity-40" />
+                  )}
+                </div>
               );
             })}
           </div>
@@ -586,40 +704,21 @@ export default function EnhancementPage() {
         <Card>
           <div className="p-4">
             <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3">
-              Başarı Oranı Tablosu
+              Güçlendirme Tablosu
             </h3>
-            <div className="space-y-1">
-              {Object.entries(BASE_SUCCESS_RATES).map(([lvl, rate]) => {
-                const lvlNum = parseInt(lvl);
-                const isCurrentLevel = lvlNum === currentLevel && selectedItem;
+            <div className="grid grid-cols-4 gap-1 text-[10px] text-[var(--text-muted)]">
+              <span className="font-semibold text-[var(--text-secondary)]">Sev</span>
+              <span className="font-semibold text-[var(--text-secondary)]">Şans</span>
+              <span className="font-semibold text-[var(--text-secondary)]">Maliyet</span>
+              <span className="font-semibold text-[var(--text-secondary)]">Risk</span>
+              {Array.from({ length: 11 }, (_, i) => {
+                const isCurrent = selectedItem && currentLevel === i;
                 return (
-                  <div
-                    key={lvl}
-                    className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors ${
-                      isCurrentLevel ? "bg-[var(--accent)]/15 border border-[var(--accent)]/30" : ""
-                    }`}
-                  >
-                    <span className={`w-6 text-right font-bold shrink-0 ${isCurrentLevel ? "text-[var(--accent)]" : "text-[var(--text-muted)]"}`}>
-                      +{lvl}
-                    </span>
-                    <div className="flex-1 bg-[var(--bg-input)] rounded-full h-2 overflow-hidden">
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${rate.max}%`,
-                          background: rate.min >= 75 ? "#4ade80"
-                            : rate.min >= 45 ? "#facc15"
-                            : rate.min >= 20 ? "#fb923c"
-                            : "#ef4444",
-                        }}
-                      />
-                    </div>
-                    <span className={`text-right shrink-0 w-20 ${isCurrentLevel ? "text-[var(--accent)] font-semibold" : "text-[var(--text-secondary)]"}`}>
-                      %{rate.min}–%{rate.max}
-                    </span>
-                    <span className="text-right shrink-0 text-[var(--text-muted)] w-16 text-[10px]">
-                      🪙{formatGold(getEnhanceCost(lvlNum))}
-                    </span>
+                  <div key={`tbl-${i}`} className="contents">
+                    <span className={isCurrent ? "text-[var(--accent)] font-bold" : ""}>+{i}</span>
+                    <span className={isCurrent ? "text-[var(--accent)] font-bold" : ""}>%{UPGRADE_CHANCES[i]}</span>
+                    <span>{formatGold(UPGRADE_COSTS[i])}</span>
+                    <span>{getRiskLabel(i)}</span>
                   </div>
                 );
               })}
@@ -627,6 +726,7 @@ export default function EnhancementPage() {
           </div>
         </Card>
       </motion.div>
+      </DndContext>
     </>
   );
 }

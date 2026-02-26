@@ -9,6 +9,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card } from "@/components/ui/Card";
+import { ItemIcon } from "@/components/game/ItemIcon";
 import { Button } from "@/components/ui/Button";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { useUiStore } from "@/stores/uiStore";
@@ -215,7 +216,7 @@ export default function ProductionPage() {
     try {
       const res = await api.rpc("collect_production", { queue_id: item.id });
       if (res.success) {
-        addToast(`${item.icon} ${item.item_name} ×${item.quantity} envanterinize eklendi!`, "success");
+        addToast(`${item.item_name} ×${item.quantity} envanterinize eklendi!`, "success");
         setQueue((prev) => prev.filter((q) => q.id !== item.id));
       } else {
         addToast(res.error ?? "Toplama başarısız", "error");
@@ -356,7 +357,7 @@ export default function ProductionPage() {
                         {/* Top row */}
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center gap-2">
-                            <span className="text-2xl">{item.icon}</span>
+                            <ItemIcon icon={item.icon} itemId={String(item.id)} className="text-2xl" />
                             <div>
                               <p className="font-bold text-sm text-[var(--text-primary)]">
                                 {item.item_name}
@@ -436,7 +437,7 @@ export default function ProductionPage() {
                       <div className="p-4">
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center gap-2">
-                            <span className="text-2xl">{item.icon}</span>
+                            <ItemIcon icon={item.icon} itemId={String(item.id)} className="text-2xl" />
                             <div>
                               <p className="font-bold text-sm text-[var(--text-primary)]">
                                 {item.item_name}

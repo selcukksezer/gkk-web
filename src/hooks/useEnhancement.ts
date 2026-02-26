@@ -86,9 +86,10 @@ export function useEnhancement() {
   /** Get required scroll ID by item rarity */
   const getRequiredScroll = useCallback(
     (rarity: string): string => {
-      if (["common", "uncommon"].includes(rarity)) return "low_enhance_scroll";
-      if (["rare", "epic"].includes(rarity)) return "middle_enhance_scroll";
-      return "high_enhance_scroll";
+      // Use same IDs as ItemDatabase (scroll_upgrade_low / scroll_upgrade_middle / scroll_upgrade_high)
+      if (["common", "uncommon"].includes(rarity)) return "scroll_upgrade_low";
+      if (["rare", "epic"].includes(rarity)) return "scroll_upgrade_middle";
+      return "scroll_upgrade_high";
     },
     []
   );

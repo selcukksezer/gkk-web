@@ -80,10 +80,12 @@ export function InventoryDetailPanel({
               <span className="text-[var(--text-muted)]">Tip:</span>
               <span className="text-white capitalize">{item.item_type}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-[var(--text-muted)]">Miktar:</span>
-              <span className="text-white">{item.quantity}</span>
-            </div>
+            {item.quantity > 1 && (
+              <div className="flex justify-between">
+                <span className="text-[var(--text-muted)]">Miktar:</span>
+                <span className="text-white">{item.quantity}</span>
+              </div>
+            )}
           </div>
 
           {/* Description */}

@@ -203,6 +203,7 @@ export function InventoryClient() {
 
         await equipItem(dragged.row_id, slotName);
         setActiveItem(null);
+        await fetchInventory(true);
         return;
       }
 
@@ -212,27 +213,24 @@ export function InventoryClient() {
         : null;
 
       // Drop on inventory slot (empty or occupied)
-        if (overIdStr.startsWith("empty-")) {
+      if (overIdStr.startsWith("empty-")) {
         const idx = parseInt(overIdStr.replace(/^empty-/, ""), 10);
         if (!Number.isNaN(idx)) {
           // If dragging an equipped item back into an inventory slot, use unequipItemToSlot
-            if (dragged.is_equipped && draggedEquipSlot) {
-              const success = await unequipItemToSlot(dragged.row_id, draggedEquipSlot, idx);
-              if (!success) {
-                const storeError = useInventoryStore.getState().error;
-                if (storeError) addToast(storeError, "error");
-                setActiveItem(null);
-                return;
-              }
-              await new Promise((r) => setTimeout(r, 120));
+          if (dragged.is_equipped && draggedEquipSlot) {
+            const success = await unequipItemToSlot(dragged.row_id, draggedEquipSlot, idx);
+            if (!success) {
+              const storeError = useInventoryStore.getState().error;
+              if (storeError) addToast(storeError, "error");
+              setActiveItem(null);
+              return;
+            }
           } else {
             await moveItemToSlot(dragged.row_id, idx);
-            await new Promise((r) => setTimeout(r, 120));
           }
-
-            await fetchInventory(true);
+          await fetchInventory(true);
         }
-        } else {
+      } else {
         console.log(`[dnd] over is not empty - checking swap/equip over=${overIdStr}`);
         // over is another item id -> swap OR equip-swap when dragging from equipment
         const target = items.find((it) => it.row_id === overIdStr);
@@ -240,11 +238,9 @@ export function InventoryClient() {
           // If dragging an equipped item onto an occupied inventory slot,
           // equip the inventory target into the dragged equip slot, and move the previously equipped
           // item into the target slot.
-            if (draggedEquipSlot && dragged.is_equipped) {
+          if (draggedEquipSlot && dragged.is_equipped) {
             // Equip the target into the equipment slot (optimistic in equipItem)
-              await equipItem(target.row_id, draggedEquipSlot);
-            // Ensure the now-unequipped original item ends up in the target slot
-            await new Promise((r) => setTimeout(r, 60));
+            await equipItem(target.row_id, draggedEquipSlot);
             const moveSuccess = await moveItemToSlot(dragged.row_id, target.slot_position);
             if (!moveSuccess) {
               const storeError = useInventoryStore.getState().error;
@@ -253,15 +249,12 @@ export function InventoryClient() {
               await fetchInventory(true);
               return;
             }
-            await new Promise((r) => setTimeout(r, 120));
-              await fetchInventory(true);
           } else {
             // Regular inventory <-> inventory swap
             console.log(`[dnd] Regular swap: dragged[${dragged.row_id}] slot=${dragged.slot_position} is_equipped=${dragged.is_equipped}, target[${target.row_id}] slot=${target.slot_position} is_equipped=${target.is_equipped}`);
             await swapSlots(dragged.slot_position, target.slot_position);
-            await new Promise((r) => setTimeout(r, 120));
-            await fetchInventory(true);
           }
+          await fetchInventory(true);
         }
       }
     } catch (err) {

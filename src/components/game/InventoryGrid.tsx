@@ -7,8 +7,8 @@
 
 "use client";
 
-import { memo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { memo, useMemo } from "react";
+import { motion } from "framer-motion";
 import {
   SortableContext,
   useSortable,
@@ -32,13 +32,11 @@ const SortableSlot = memo(function SortableSlot({
   index,
   onItemClick,
   isSelected,
-  isActive,
 }: {
   item: InventoryItem | null;
   index: number;
   onItemClick: (item: InventoryItem) => void;
   isSelected: boolean;
-  isActive: boolean;
 }) {
   // If there's no item, render a fixed placeholder (non-sortable) so it doesn't shift
   if (!item) {
@@ -65,21 +63,17 @@ const SortableSlot = memo(function SortableSlot({
   });
 
   const style = {
-    transform: CSS.Translate.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
+    transform: isDragging ? CSS.Translate.toString(transform) : undefined,
+    transition: isDragging ? transition : undefined,
   };
 
   return (
-    <motion.div
+    <div
       ref={setNodeRef}
-      style={style as any}
-      layout
-      layoutId={id}
-      initial={false}
-      animate={{ opacity: isDragging ? 0.5 : 1 }}
-      transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className="flex justify-center items-center select-none -webkit-user-drag-none inventory-slot"
+      style={style}
+      className={`flex justify-center items-center select-none -webkit-user-drag-none inventory-slot ${
+        isDragging ? "opacity-50" : "opacity-100"
+      }`}
       {...attributes}
       {...listeners}
     >
@@ -87,14 +81,16 @@ const SortableSlot = memo(function SortableSlot({
         item={item}
         onClick={() => onItemClick(item)}
         isSelected={isSelected}
-        isDragging={isActive || isDragging}
+        isDragging={isDragging}
         compact={false}
       />
-    </motion.div>
+    </div>
   );
 });
 
 SortableSlot.displayName = "SortableSlot";
+
+const MemoizedSortableSlot = memo(SortableSlot);
 
 export function InventoryGrid({
   items,
@@ -102,14 +98,27 @@ export function InventoryGrid({
   selectedItemId,
   activeItemId,
 }: InventoryGridProps) {
-  const slots: (InventoryItem | null)[] = Array(INVENTORY_CAPACITY).fill(null);
-  // Place only non-equipped items into the grid slots; equipped items are shown in EquipmentGrid
-  items.forEach((it) => {
-    if (it.is_equipped) return;
-    if (it.slot_position >= 0 && it.slot_position < INVENTORY_CAPACITY) slots[it.slot_position] = it;
-  });
+  const slotIds = useMemo(() => {
+    const slots: (InventoryItem | null)[] = Array(INVENTORY_CAPACITY).fill(null);
+    items.forEach((it) => {
+      if (it.is_equipped) return;
+      if (it.slot_position >= 0 && it.slot_position < INVENTORY_CAPACITY) {
+        slots[it.slot_position] = it;
+      }
+    });
+    return slots.map((it, idx) => it?.row_id || `empty-${idx}`);
+  }, [items]);
 
-  const slotIds = slots.map((it, idx) => it?.row_id || `empty-${idx}`);
+  const slots = useMemo(() => {
+    const s: (InventoryItem | null)[] = Array(INVENTORY_CAPACITY).fill(null);
+    items.forEach((it) => {
+      if (it.is_equipped) return;
+      if (it.slot_position >= 0 && it.slot_position < INVENTORY_CAPACITY) {
+        s[it.slot_position] = it;
+      }
+    });
+    return s;
+  }, [items]);
 
   return (
     <SortableContext items={slotIds} strategy={rectSortingStrategy}>
@@ -124,18 +133,15 @@ export function InventoryGrid({
         </div>
 
         <div className="grid grid-cols-5 gap-3 p-2">
-          <AnimatePresence mode="sync">
-            {slots.map((it, idx) => (
-              <SortableSlot
-                key={it?.row_id || `empty-${idx}`}
-                item={it}
-                index={idx}
-                onItemClick={onItemClick}
-                isSelected={selectedItemId === it?.row_id}
-                isActive={activeItemId === it?.row_id}
-              />
-            ))}
-          </AnimatePresence>
+          {slots.map((it, idx) => (
+            <MemoizedSortableSlot
+              key={it?.row_id || `empty-${idx}`}
+              item={it}
+              index={idx}
+              onItemClick={onItemClick}
+              isSelected={selectedItemId === it?.row_id}
+            />
+          ))}
         </div>
       </motion.div>
     </SortableContext>

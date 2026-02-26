@@ -14,6 +14,7 @@ import { useInventoryStore } from "@/stores/inventoryStore";
 import { usePotion } from "@/hooks/usePotion";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { ItemIcon } from "@/components/game/ItemIcon";
 import { Modal } from "@/components/ui/Modal";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { formatGold, formatCompact } from "@/lib/utils/string";
@@ -237,7 +238,7 @@ export default function HomePage() {
                   disabled={usingPotionId !== null}
                   className="w-full flex items-center gap-3 p-3 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-default)] hover:border-[var(--accent)]/50 transition-colors text-left disabled:opacity-50"
                 >
-                  <span className="text-2xl shrink-0">{item.icon || "🧪"}</span>
+                  <ItemIcon icon={item.icon} itemType={item.item_type} itemId={item.row_id} className="text-2xl shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-[var(--text-primary)] truncate">{item.name}</p>
                     <div className="flex items-center gap-3 mt-0.5">

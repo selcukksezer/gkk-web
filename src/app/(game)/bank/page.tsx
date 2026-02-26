@@ -16,6 +16,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { ProgressBar } from "@/components/ui/ProgressBar";
+import { ItemIcon } from "@/components/game/ItemIcon";
 
 type BankTab = "all" | "weapon" | "armor" | "potion";
 
@@ -227,7 +228,7 @@ export default function BankPage() {
           ) : (
             <div className="space-y-1 max-h-60 overflow-y-auto">
               {depositableItems.map((item) => (
-                <button key={item.row_id}
+                  <button key={item.row_id}
                   className={`w-full flex items-center gap-3 p-2 rounded-lg border text-left transition-colors ${
                     selectedItems.includes(item.row_id)
                       ? "border-[var(--accent)] bg-[var(--accent)]/10"
@@ -236,7 +237,7 @@ export default function BankPage() {
                   onClick={() => setSelectedItems((prev) =>
                     prev.includes(item.row_id) ? prev.filter((id) => id !== item.row_id) : [...prev, item.row_id]
                   )}>
-                  <span className="text-lg">{item.icon ?? "📦"}</span>
+                  <ItemIcon icon={item.icon} itemType={item.item_type} itemId={item.item_id ?? item.row_id} className="text-lg" />
                   <div className="flex-1">
                     <p className="text-xs font-medium text-[var(--text-primary)]">{item.name}</p>
                     <p className="text-[10px] text-[var(--text-muted)]">{item.item_type}</p>
