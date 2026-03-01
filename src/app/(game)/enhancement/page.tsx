@@ -85,9 +85,9 @@ function getEnhanceCost(level: number): number {
 }
 
 function getRiskLabel(level: number): string {
-  if (level >= 8) return "YOK OLMA RİSKİ";
-  if (level >= 7) return "Seviye düşebilir";
-  if (level >= 4) return "Seviye düşmez";
+  // Politikaya göre: +6 ve üzeri -> yok olma riski; +4/+5 -> seviye düşer; diğerleri risksiz
+  if (level >= 6) return "YOK OLMA RİSKİ";
+  if (level >= 4) return "Seviye düşer";
   return "Risksiz";
 }
 

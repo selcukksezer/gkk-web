@@ -18,6 +18,13 @@ const TYPE_EMOJI: Record<string, string> = {
   cosmetic: "✨",
 };
 
+/**
+ * Global cache of URLs that already returned 404.
+ * Shared across ALL ItemIcon instances so we never re-attempt a broken URL.
+ * This prevents: network request + onError + setState + re-render per item.
+ */
+const _failedUrls = new Set<string>();
+
 function inferItemType(itemType?: string | null, itemId?: string | null): string {
   if (itemType && itemType.trim().length > 0) return itemType.toLowerCase();
   if (!itemId) return "";
@@ -25,20 +32,15 @@ function inferItemType(itemType?: string | null, itemId?: string | null): string
   return prefix?.toLowerCase() ?? "";
 }
 
+/** Resolve icon path: keep .png as-is so real PNGs are shown when they exist */
 function resolveIconSrc(icon?: string | null): string | null {
   if (!icon) return null;
   const value = icon.trim();
   if (!value) return null;
+  // pure emoji / single word without path → not an image src
   if (!value.includes("/") && !value.includes(".")) return null;
   if (value.startsWith("res://")) {
-    const normalized = value.replace(/^res:\/\//, "/");
-    if (normalized.startsWith("/assets/sprites/items/") && normalized.endsWith(".png")) {
-      return normalized.replace(/\.png$/, ".svg");
-    }
-    return normalized;
-  }
-  if (value.startsWith("/assets/sprites/items/") && value.endsWith(".png")) {
-    return value.replace(/\.png$/, ".svg");
+    return value.replace(/^res:\/\//, "/");
   }
   return value;
 }
@@ -53,19 +55,19 @@ interface ItemIconProps {
 }
 
 export function ItemIcon({ icon, itemType, itemId, className = "text-xl", alt = "item icon", enhancementLevel = null }: ItemIconProps) {
-  const [failed, setFailed] = useState(false);
-  const [currentSrc, setCurrentSrc] = useState<string | null>(() => resolveIconSrc(icon));
-
   const inferredType = useMemo(() => inferItemType(itemType, itemId), [itemType, itemId]);
   const fallbackEmoji = TYPE_EMOJI[inferredType] ?? "📦";
   const src = useMemo(() => resolveIconSrc(icon), [icon]);
 
+  // If src is already known to fail, skip img entirely — no network request, no re-render
+  const alreadyFailed = src ? _failedUrls.has(src) : false;
+  const [failed, setFailed] = useState(alreadyFailed);
+
   useEffect(() => {
-    setFailed(false);
-    setCurrentSrc(src);
+    setFailed(src ? _failedUrls.has(src) : false);
   }, [src]);
 
-  // Resolve enhancement level: prefer explicit prop, otherwise try inventory store by row_id or item_id
+  // Resolve enhancement level: prefer explicit prop, otherwise try inventory store
   const resolvedEnhancement = useMemo(() => {
     if (typeof enhancementLevel === "number") return enhancementLevel;
     if (!itemId) return null;
@@ -82,27 +84,23 @@ export function ItemIcon({ icon, itemType, itemId, className = "text-xl", alt = 
   }, [itemId, enhancementLevel]);
 
   const content = (() => {
-    if (currentSrc && !failed) {
+    // Only render <img> if src exists AND hasn't failed before
+    if (src && !failed) {
       return (
         <img
-          src={currentSrc}
+          src={src}
           alt={alt}
           className={className}
           draggable={false}
           onError={() => {
-            if (currentSrc.includes("/assets/icons/")) {
-              const altSrc = currentSrc.replace("/assets/icons/", "/assets/sprites/items/").replace(/\.png$/i, ".svg");
-              if (altSrc !== currentSrc) {
-                setCurrentSrc(altSrc);
-                return;
-              }
-            }
+            _failedUrls.add(src);
             setFailed(true);
           }}
         />
       );
     }
 
+    // If icon prop is a raw emoji / text (not a file path), show it directly
     if (icon && !src) {
       return <span className={className}>{icon}</span>;
     }
@@ -111,14 +109,13 @@ export function ItemIcon({ icon, itemType, itemId, className = "text-xl", alt = 
   })();
 
   return (
-   <div className="relative inline-block">
-  {content}
-  {/* Bu yapı (Ternary), koşul sağlanmazsa React'e "null render et" (yani hiçbir şey yapma) der. */}
-  {Number(resolvedEnhancement) > 0 ? (
-    <span className="absolute top-1 right-1 text-[9px] text-[var(--gold)] font-bold bg-black/50 rounded px-0.5 py-0.5 z-10">
-      +{resolvedEnhancement}
-    </span>
-  ) : null}
-</div>
+    <div className="relative inline-block">
+      {content}
+      {Number(resolvedEnhancement) > 0 ? (
+        <span className="absolute top-1 right-1 text-[9px] text-[var(--gold)] font-bold bg-black/50 rounded px-0.5 py-0.5 z-10">
+          +{resolvedEnhancement}
+        </span>
+      ) : null}
+    </div>
   );
 }

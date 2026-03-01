@@ -113,7 +113,7 @@ export const APIEndpoints = {
   CRAFT_RECIPES: "/rest/v1/rpc/get_craft_recipes",
   CRAFT_ITEM: "/rest/v1/rpc/craft_item_async",
   CRAFT_QUEUE: "/rest/v1/rpc/get_craft_queue",
-  CRAFT_CLAIM: "/rest/v1/rpc/claim_craft_item",
+  CRAFT_CLAIM: "/rest/v1/rpc/claim_crafted_item",
   ENHANCE_ITEM: `${API_VERSION}/enhance`,
   ENHANCE_CALCULATE: `${API_VERSION}/enhance/calculate`,
 

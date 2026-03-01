@@ -11,20 +11,31 @@ import { usePlayerStore } from "./playerStore";
 import { useInventoryStore } from "./inventoryStore";
 
 interface CraftingState {
-  // State
+  // Server State
   recipes: CraftRecipe[];
   queue: CraftQueueItem[];
   isLoading: boolean;
   isCrafting: boolean;
   error: string | null;
 
-  // Actions
+  // UI State
+  selectedRecipeId: string | null;
+  selectedBatchCount: number;
+  selectedTab: string;
+
+  // Server Actions
   loadRecipes: () => Promise<void>;
   craftItem: (recipeId: string, batchCount: number) => Promise<boolean>;
   loadQueue: () => Promise<void>;
   claimItem: (queueItemId: string) => Promise<boolean>;
   hasMaterials: (recipe: CraftRecipe, batchCount?: number) => boolean;
   isQueueFull: () => boolean;
+
+  // UI Actions
+  setSelectedRecipe: (recipeId: string | null) => void;
+  setBatchCount: (count: number) => void;
+  setSelectedTab: (tab: string) => void;
+
   reset: () => void;
 }
 
@@ -37,6 +48,9 @@ export const useCraftingStore = create<CraftingState>()((set, get) => ({
   isLoading: false,
   isCrafting: false,
   error: null,
+  selectedRecipeId: null,
+  selectedBatchCount: 1,
+  selectedTab: "tumu",
 
   loadRecipes: async () => {
     set({ isLoading: true, error: null });
@@ -123,7 +137,7 @@ export const useCraftingStore = create<CraftingState>()((set, get) => ({
         // Update gems locally
         usePlayerStore.getState().updateGems(-gemCost, true);
 
-        // Refresh queue & inventory
+        // Refresh queue & inve, selectedRecipeId: null, selectedBatchCount: 1ntory
         await get().loadQueue();
         useInventoryStore.getState().fetchInventory();
         set({ isCrafting: false });
@@ -193,5 +207,20 @@ export const useCraftingStore = create<CraftingState>()((set, get) => ({
 
   isQueueFull: () => get().queue.length >= QUEUE_LIMIT,
 
-  reset: () => set({ recipes: [], queue: [], isLoading: false, isCrafting: false, error: null }),
+  // UI Actions
+  setSelectedRecipe: (recipeId: string | null) => set({ selectedRecipeId: recipeId }),
+  setBatchCount: (count: number) => set({ selectedBatchCount: Math.max(1, Math.min(count, BATCH_LIMIT)) }),
+  setSelectedTab: (tab: string) => set({ selectedTab: tab, selectedRecipeId: null, selectedBatchCount: 1 }),
+
+  reset: () =>
+    set({
+      recipes: [],
+      queue: [],
+      isLoading: false,
+      isCrafting: false,
+      error: null,
+      selectedRecipeId: null,
+      selectedBatchCount: 1,
+      selectedTab: "tumu",
+    }),
 }));

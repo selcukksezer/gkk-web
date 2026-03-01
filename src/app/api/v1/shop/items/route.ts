@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import type { ShopOffer } from "@/hooks/useShop";
 import { supabase } from "@/lib/supabase";
-import { getAllItems } from "@/data/ItemDatabase";
 
 export async function GET() {
   // Read shop items from Supabase `items` table.
@@ -106,35 +105,10 @@ export async function GET() {
       return NextResponse.json(offers);
     }
   } catch (err) {
-    console.warn("Error querying Supabase items (timed out or failed):", err);
+    console.warn("Error querying Supabase items:", err);
   }
 
-  // If Supabase returned nothing or errored, fallback to local ItemDatabase (same source Godot uses)
-  console.log("📦 [SHOP API] Supabase queries failed/empty, using local ItemDatabase fallback...");
-  try {
-    const items = getAllItems();
-    const offersFromItems: ShopOffer[] = items.map((it) => ({
-      id: it.item_id,
-      item_id: it.item_id,  // NEW: explicit item_id
-      name: it.name,
-      description: it.description || "",
-      price: Number(it.base_price ?? it.vendor_sell_price ?? 0),
-      currency: "gold",
-      icon: it.icon,
-      rarity: it.rarity,
-      item_type: it.item_type,
-      is_stackable: it.is_stackable,
-      max_stack: it.max_stack,
-      rewards: [],
-      expires_at: null,
-      is_featured: false,
-    })) as ShopOffer[];
-    return NextResponse.json(offersFromItems);
-  } catch (err) {
-    console.warn("Error building shop items from local ItemDatabase:", err);
-  }
-
-  // Final minimal fallback mock
+  // Final minimal fallback mock if Supabase completely fails
   const offers: ShopOffer[] = [
     {
       id: "offer1",

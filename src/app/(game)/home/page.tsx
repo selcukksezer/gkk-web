@@ -1,14 +1,14 @@
 // ============================================================
-// Home Page — Kaynak: HomeScreen.gd
-// Dashboard: oyuncu bilgisi, enerji/tolerans, görevler,
-// bildirimler, iksir modal, hızlı işlemler, son aktivite
+// Home Page — Mobil Oyun Dashboard (Login Sonrası)
+// Modern tasarım: Character hero, stats, quick actions, quests
+// Technologies: Framer Motion, Tailwind CSS, glassmorphism
 // ============================================================
 
 "use client";
 
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { usePlayerStore } from "@/stores/playerStore";
 import { useInventoryStore } from "@/stores/inventoryStore";
 import { usePotion } from "@/hooks/usePotion";
@@ -24,91 +24,134 @@ import { APIEndpoints } from "@/lib/endpoints";
 import Link from "next/link";
 import type { InventoryItem } from "@/types/inventory";
 import type { ItemData } from "@/types/item";
+import { Zap, Crown, TrendingUp, Sword } from "lucide-react";
 
-const stagger = {
+// ============================================================
+// Animation Variants
+// ============================================================
+
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.07 } },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+      delayChildren: 0.2,
+    },
+  },
 };
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 14 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: "easeOut" },
+  },
 };
 
-// HomeScreen.gd quick actions — reduced to 8 primary actions
+const floatingVariants: Variants = {
+  animate: {
+    y: [0, -8, 0],
+    transition: {
+      duration: 4,
+      repeat: Infinity,
+      ease: "easeInOut",
+    },
+  },
+};
+
+const pulseVariants: Variants = {
+  animate: {
+    scale: [1, 1.05, 1],
+    opacity: [0.7, 1, 0.7],
+    transition: {
+      duration: 3,
+      repeat: Infinity,
+      ease: "easeInOut",
+    },
+  },
+};
+
+// ============================================================
+// Quick Actions Configuration
+// ============================================================
+
 const PRIMARY_ACTIONS = [
-  { path: "/dungeon",    label: "Zindan",  icon: "🏰" },
-  { path: "/trade",     label: "Pazar",   icon: "🛒" },
-  { path: "/production",label: "Üretim",  icon: "⚙️" },
-  { path: "/guild",     label: "Lonca",   icon: "⚔️" },
-  { path: "/pvp",       label: "PvP",     icon: "🥊" },
-  { path: "/map",       label: "Harita",  icon: "🗺️" },
-  { path: "/shop",      label: "Mağaza",  icon: "💰" },
-  { path: "/facilities",label: "Tesis",   icon: "🏭" },
+  { path: "/dungeon", label: "Koparma", icon: "⚔️", color: "from-red-600 to-red-700" },
+  { path: "/quest", label: "Görevler", icon: "📜", color: "from-blue-600 to-blue-700" },
+  { path: "/market", label: "Market", icon: "💰", color: "from-purple-600 to-purple-700" },
+  { path: "/enhancement", label: "Geliştirme", icon: "🔥", color: "from-orange-600 to-orange-700" },
 ];
 
-// Secondary actions — all other features
 const SECONDARY_ACTIONS = [
-  { path: "/quests",      label: "Görevler",    icon: "📜" },
-  { path: "/crafting",    label: "Zanaat",      icon: "🔨" },
-  { path: "/enhancement", label: "Güçlendirme", icon: "🔥" },
-  { path: "/equipment",   label: "Teçhizat",    icon: "🛡️" },
-  { path: "/inventory",   label: "Envanter",    icon: "🎒" },
-  { path: "/character",   label: "Karakter",    icon: "🧙" },
-  { path: "/bank",        label: "Banka",       icon: "🏦" },
-  { path: "/leaderboard", label: "Sıralama",    icon: "🏆" },
-  { path: "/season",      label: "Sezon",       icon: "🌟" },
-  { path: "/achievements",label: "Başarımlar",  icon: "🏅" },
-  { path: "/events",      label: "Etkinlikler", icon: "🎉" },
-  { path: "/warehouse",   label: "Depo",        icon: "📦" },
+  { path: "/crafting", label: "Zanaat", icon: "🔨", color: "from-amber-600 to-amber-700" },
+  { path: "/equipment", label: "Teçhizat", icon: "🛡️", color: "from-slate-600 to-slate-700" },
+  { path: "/shop", label: "Mağaza", icon: "🛒", color: "from-cyan-600 to-cyan-700" },
+  { path: "/bank", label: "Banka", icon: "🏦", color: "from-gray-600 to-gray-700" },
+  { path: "/leaderboard", label: "Sıralama", icon: "🏆", color: "from-yellow-600 to-yellow-700" },
+  { path: "/pvp", label: "PvP", icon: "🥊", color: "from-pink-600 to-pink-700" },
+  { path: "/facilities", label: "Tesis", icon: "🏭", color: "from-green-600 to-green-700" },
+  { path: "/season", label: "Sezon", icon: "✨", color: "from-indigo-600 to-indigo-700" },
 ];
 
-// Mock recent activity entries
-const MOCK_ACTIVITY = [
-  { id: "a1", icon: "⚔️", text: "Karanlık Orman Zindanı tamamlandı", time: "5dk önce",  color: "text-green-400"  },
-  { id: "a2", icon: "🛒", text: "Demir Kılıç satın alındı — 2.500 🪙", time: "18dk önce", color: "text-blue-400"   },
-  { id: "a3", icon: "⬆️", text: "Seviye 24'e yükseldildi!", time: "1s önce",  color: "text-yellow-400" },
-  { id: "a4", icon: "🧪", text: "Can İksiri kullanıldı — +50 enerji", time: "2s önce",  color: "text-purple-400" },
-  { id: "a5", icon: "📜", text: "Görev tamamlandı: Demir Madeni", time: "3s önce",  color: "text-amber-400"  },
-];
+// ============================================================
+// Styles & Utilities
+// ============================================================
 
-// Suspicion level → label + color
 function getSuspicionInfo(level: number): { label: string; color: string; bg: string } {
-  if (level >= 80) return { label: "Kritik", color: "text-red-400",    bg: "bg-red-400/10"    };
+  if (level >= 80) return { label: "Kritik", color: "text-red-400", bg: "bg-red-400/10" };
   if (level >= 60) return { label: "Yüksek", color: "text-orange-400", bg: "bg-orange-400/10" };
-  if (level >= 40) return { label: "Orta",   color: "text-yellow-400", bg: "bg-yellow-400/10" };
-  if (level >= 20) return { label: "Düşük",  color: "text-green-400",  bg: "bg-green-400/10"  };
+  if (level >= 40) return { label: "Orta", color: "text-yellow-400", bg: "bg-yellow-400/10" };
+  if (level >= 20) return { label: "Düşük", color: "text-green-400", bg: "bg-green-400/10" };
   return { label: "Temiz", color: "text-blue-400", bg: "bg-blue-400/10" };
 }
+
+// ============================================================
+// Main Component
+// ============================================================
 
 export default function HomePage() {
   const router = useRouter();
   const player = usePlayerStore((s) => s.player);
-  const energy = usePlayerStore((s) => s.energy);
-  const maxEnergy = usePlayerStore((s) => s.maxEnergy);
-  const gold = usePlayerStore((s) => s.gold);
-  const gems = usePlayerStore((s) => s.gems);
-  const level = usePlayerStore((s) => s.level);
-  const xp = usePlayerStore((s) => s.xp);
-  const nextLevelXp = usePlayerStore((s) => s.nextLevelXp);
-  const tolerance = usePlayerStore((s) => s.tolerance);
-  const hospitalUntil = usePlayerStore((s) => s.hospitalUntil);
-  const prisonUntil = usePlayerStore((s) => s.prisonUntil);
-  const globalSuspicionLevel = usePlayerStore((s) => s.globalSuspicionLevel);
-  const inHospital = isInHospital(hospitalUntil);
-  const inPrison = isInPrison(prisonUntil);
-
   const inventoryItems = useInventoryStore((s) => s.items);
   const { consumePotion, tolerance: potionTolerance } = usePotion();
 
-  // Active quests
+  const [showPotionModal, setShowPotionModal] = useState(false);
+  const [showAllActions, setShowAllActions] = useState(false);
+  const [usingPotionId, setUsingPotionId] = useState<string | null>(null);
   const [activeQuests, setActiveQuests] = useState<
     { id: string; title: string; progress: number; goal: number; icon?: string }[]
   >([]);
-  const [potionModalOpen, setPotionModalOpen] = useState(false);
-  const [showAllActions, setShowAllActions] = useState(false);
-  const [usingPotionId, setUsingPotionId] = useState<string | null>(null);
 
+  // Extract player stats
+  const displayName = player?.display_name || player?.username || "Oyuncu";
+  const guildName = player?.guild_name;
+  const gold = player?.gold || 0;
+  const gems = player?.gems || 0;
+  const level = player?.level || 1;
+  const xp = player?.xp || 0;
+  const nextLevelXp = 1000; // Placeholder — backend'den gelecek
+  const energy = player?.energy || 0;
+  const maxEnergy = player?.max_energy || 100;
+  const tolerance = player?.addiction_level || 0;
+  const hospitalUntil = player?.hospital_until;
+  const prisonUntil = player?.prison_until;
+  const globalSuspicionLevel = player?.global_suspicion_level || 0;
+
+  const inHospital = hospitalUntil ? isInHospital(hospitalUntil) : false;
+  const inPrison = prisonUntil ? isInPrison(prisonUntil) : false;
+  const xpPercent = nextLevelXp > 0 ? Math.min(100, (xp / nextLevelXp) * 100) : 0;
+  const energyPercent = maxEnergy > 0 ? (energy / maxEnergy) * 100 : 0;
+  const tolerancePercent = Math.min(100, tolerance);
+
+  // Potion items
+  const potionItems = useMemo(
+    () => inventoryItems.filter((i) => i.item_type === "potion" && i.quantity > 0),
+    [inventoryItems]
+  );
+
+  // Fetch active quests
   const fallbackActiveQuests = [
     { id: "q1", title: "Demir Madeni", progress: 3, goal: 10, icon: "⛏️" },
     { id: "q2", title: "Karanlık Orman'ı Temizle", progress: 1, goal: 3, icon: "🏰" },
@@ -118,406 +161,481 @@ export default function HomePage() {
   useEffect(() => {
     void (async () => {
       try {
-        const res = await api.get<Array<{ id: string; title: string; progress: number; goal: number; icon?: string }>>(APIEndpoints.QUEST_LIST);
+        const res = await api.get<
+          Array<{ id: string; title: string; progress: number; goal: number; icon?: string }>
+        >(APIEndpoints.QUEST_LIST);
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
           setActiveQuests(res.data.slice(0, 3));
           return;
         }
       } catch {
+        // Fallback
       }
-
       setActiveQuests(fallbackActiveQuests);
     })();
   }, []);
 
-  // Potion items from inventory
-  const potionItems = useMemo(
-    () => inventoryItems.filter((i) => i.item_type === "potion" && i.quantity > 0),
-    [inventoryItems]
+  // Handle potion use
+  const handleUsePotion = useCallback(
+    async (item: InventoryItem) => {
+      setUsingPotionId(item.item_id);
+      try {
+        const itemData = {
+          item_id: item.item_id,
+          energy_restore: item.energy_restore || 0,
+          tolerance_increase: item.tolerance_increase || 0,
+          overdose_risk: 0.05,
+        } as unknown as ItemData;
+        const result = await consumePotion(itemData);
+        if (result.success) {
+          setShowPotionModal(false);
+        }
+      } finally {
+        setUsingPotionId(null);
+      }
+    },
+    [consumePotion]
   );
-
-  // Notifications — HomeScreen.gd notification feed
-  const notifications = useMemo(() => {
-    const notes: {
-      id: string; icon: string; title: string; message: string;
-      color: string; bg: string; path?: string; urgent?: boolean;
-    }[] = [];
-
-    if (inHospital) {
-      notes.push({
-        id: "hospital", icon: "🏥", title: "Hastanedesin",
-        message: "Tedavi süresi devam ediyor — zindan ve PvP kısıtlandı",
-        color: "text-red-400", bg: "bg-red-400/10", path: "/hospital", urgent: true,
-      });
-    }
-    if (inPrison) {
-      notes.push({
-        id: "prison", icon: "👮", title: "Cezaevindesin",
-        message: "Ceza süresi devam ediyor — tüm aktiviteler kısıtlandı",
-        color: "text-orange-400", bg: "bg-orange-400/10", path: "/prison", urgent: true,
-      });
-    }
-    if (energy < 20) {
-      notes.push({
-        id: "energy", icon: "⚡", title: "Enerji Kritik!",
-        message: `${energy}/${maxEnergy} enerji — iksir kullanmayı düşün`,
-        color: "text-yellow-400", bg: "bg-yellow-400/10", urgent: true,
-      });
-    }
-    if (tolerance > 60) {
-      notes.push({
-        id: "tolerance", icon: "⚠️", title: "Yüksek Tolerans",
-        message: `Bağımlılık riski: %${tolerance} — iksir etkisi azalıyor`,
-        color: tolerance >= 80 ? "text-red-400" : "text-orange-400",
-        bg: tolerance >= 80 ? "bg-red-400/10" : "bg-orange-400/10",
-        urgent: tolerance >= 80,
-      });
-    }
-    if (globalSuspicionLevel >= 60) {
-      notes.push({
-        id: "suspicion", icon: "🔍", title: "Yüksek Şüphe Seviyesi",
-        message: `Global şüphe: ${globalSuspicionLevel}/100 — dikkatli ol`,
-        color: "text-purple-400", bg: "bg-purple-400/10",
-      });
-    }
-    return notes;
-  }, [energy, maxEnergy, tolerance, hospitalUntil, prisonUntil, inHospital, inPrison, globalSuspicionLevel]);
 
   const suspicionInfo = getSuspicionInfo(globalSuspicionLevel);
 
-  // Handle potion use
-  const handleUsePotion = useCallback(async (item: InventoryItem) => {
-    setUsingPotionId(item.item_id);
-    try {
-      const itemData = {
-        item_id: item.item_id,
-        energy_restore: item.energy_restore,
-        tolerance_increase: item.tolerance_increase,
-        overdose_risk: 0.05,
-      } as unknown as ItemData;
-      const result = await consumePotion(itemData);
-      if (result.success) {
-        setPotionModalOpen(false);
-      }
-    } finally {
-      setUsingPotionId(null);
-    }
-  }, [consumePotion]);
-
-  const displayName = player?.display_name || player?.username || "Oyuncu";
-  const guildName = player?.guild_name;
-  const xpPercent = nextLevelXp > 0 ? Math.min(100, (xp / nextLevelXp) * 100) : 0;
+  if (!player) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <motion.div className="text-center space-y-4" animate={{ opacity: 1 }} initial={{ opacity: 0 }}>
+          <motion.div
+            className="h-8 w-8 border-4 border-gold border-t-transparent rounded-full mx-auto"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity }}
+          />
+          <p className="text-sm text-gray-400">Yükleniyor...</p>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
-    <>
-      {/* ── Potion Picker Modal ─────────────────────────────── */}
-      <Modal
-        isOpen={potionModalOpen}
-        onClose={() => setPotionModalOpen(false)}
-        title="🧪 İksir Kullan"
-        size="md"
+    <div className="min-h-screen bg-black pb-24 overflow-x-hidden">
+      {/* ========== Premium Dark Background with Grid ========== */}
+      <div className="fixed inset-0 -z-20">
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-900/50 via-black to-black" />
+        <div
+          className="absolute inset-0 opacity-[0.02]"
+          style={{
+            backgroundImage: "radial-gradient(circle at 20% 50%, white 1px, transparent 1px)",
+            backgroundSize: "50px 50px",
+          }}
+        />
+      </div>
+
+      {/* ========== Animated Background Orbs ========== */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+        <motion.div
+          variants={floatingVariants}
+          animate="animate"
+          className="absolute top-0 -left-1/4 w-[600px] h-[600px] bg-gradient-to-br from-purple-600/20 to-blue-600/10 rounded-full blur-3xl"
+        />
+        <motion.div
+          variants={floatingVariants}
+          animate="animate"
+          transition={{ delay: 1 }}
+          className="absolute -bottom-32 -right-1/4 w-[600px] h-[600px] bg-gradient-to-tl from-cyan-600/15 to-emerald-600/8 rounded-full blur-3xl"
+        />
+        <motion.div
+          variants={pulseVariants}
+          animate="animate"
+          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-gradient-to-r from-pink-600/10 to-red-600/5 rounded-full blur-3xl"
+        />
+      </div>
+
+      {/* ========== Content ========== */}
+      <motion.div
+        className="relative px-4 pt-4 space-y-4"
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
       >
-        <div className="space-y-3">
-          {potionItems.length === 0 ? (
-            <div className="text-center py-6 space-y-2">
-              <p className="text-3xl">🫙</p>
-              <p className="text-sm text-[var(--text-muted)]">Envanterde iksir bulunmuyor.</p>
-              <Link href="/shop" onClick={() => setPotionModalOpen(false)}>
-                <Button variant="primary" size="sm">Mağazaya Git</Button>
-              </Link>
-            </div>
-          ) : (
-            <>
-              <p className="text-xs text-[var(--text-muted)]">
-                Tolerans: %{Math.round(potionTolerance)} • Mevcut enerji: {energy}/{maxEnergy}
-              </p>
-              {potionItems.map((item) => (
-                <button
-                  key={item.row_id}
-                  onClick={() => handleUsePotion(item)}
-                  disabled={usingPotionId !== null}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-default)] hover:border-[var(--accent)]/50 transition-colors text-left disabled:opacity-50"
-                >
-                  <ItemIcon icon={item.icon} itemType={item.item_type} itemId={item.row_id} className="text-2xl shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-[var(--text-primary)] truncate">{item.name}</p>
-                    <div className="flex items-center gap-3 mt-0.5">
-                      {item.energy_restore > 0 && (
-                        <span className="text-[10px] text-yellow-400">+{item.energy_restore} enerji</span>
-                      )}
-                      {item.tolerance_increase > 0 && (
-                        <span className="text-[10px] text-orange-400">+{item.tolerance_increase} tolerans</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end shrink-0">
-                    <span className="text-xs text-[var(--text-muted)]">×{item.quantity}</span>
-                    {usingPotionId === item.item_id && (
-                      <span className="text-[10px] text-[var(--accent)] animate-pulse">Kullanılıyor...</span>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </>
-          )}
-        </div>
-      </Modal>
-
-      {/* ── Main Page ─────────────────────────────────────────── */}
-      <motion.div variants={stagger} initial="hidden" animate="show" className="p-4 space-y-4 pb-24">
-
-        {/* ── Low Energy Warning Banner ──────────────────────── */}
+        {/* ===== System Warnings ===== */}
         <AnimatePresence>
-          {energy < 20 && (
+          {(inHospital || inPrison) && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden"
+              variants={itemVariants}
+              initial="hidden"
+              animate="show"
+              exit="hidden"
+              className={`p-4 rounded-xl border backdrop-blur-lg flex items-start gap-3 ${
+                inHospital
+                  ? "bg-red-500/10 border-red-500/30"
+                  : "bg-orange-500/10 border-orange-500/30"
+              }`}
             >
-              <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
-                <span className="text-xl animate-pulse">⚡</span>
-                <p className="text-xs text-yellow-400 flex-1">
-                  <strong>Enerji kritik!</strong> {energy}/{maxEnergy} enerji kaldı.
+              <span className="text-2xl animate-pulse">
+                {inHospital ? "🏥" : "👮"}
+              </span>
+              <div className="flex-1">
+                <p className={`font-bold text-sm ${inHospital ? "text-red-400" : "text-orange-400"}`}>
+                  {inHospital ? "Hastanede Tedavi" : "Cezaevinde"}
                 </p>
-                <button
-                  onClick={() => setPotionModalOpen(true)}
-                  className="text-[10px] text-yellow-400 font-bold underline shrink-0"
-                >
-                  İksir Kullan
-                </button>
+                <p className="text-xs text-gray-400 mt-1">
+                  {inHospital
+                    ? "Tedavi süresi devam ediyor — Zindan ve PvP kısıtlandı"
+                    : "Ceza süresi devam ediyor — Tüm aktiviteler kısıtlandı"}
+                </p>
               </div>
             </motion.div>
           )}
-        </AnimatePresence>
 
-        {/* ── Tolerance Warning Banner ───────────────────────── */}
-        <AnimatePresence>
+          {energy < 20 && (
+            <motion.div
+              variants={itemVariants}
+              initial="hidden"
+              animate="show"
+              exit="hidden"
+              className="p-4 rounded-xl border bg-yellow-500/10 border-yellow-500/30 backdrop-blur-lg flex items-start gap-3"
+            >
+              <span className="text-2xl animate-pulse">⚡</span>
+              <div className="flex-1">
+                <p className="font-bold text-sm text-yellow-400">Enerji Kritik</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  {energy}/{maxEnergy} enerji kaldı — İksir kullanmayı düşün
+                </p>
+              </div>
+            </motion.div>
+          )}
+
           {tolerance > 60 && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden"
-            >
-              <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border ${
+              variants={itemVariants}
+              initial="hidden"
+              animate="show"
+              exit="hidden"
+              className={`p-4 rounded-xl border backdrop-blur-lg flex items-start gap-3 ${
                 tolerance >= 80
                   ? "bg-red-500/10 border-red-500/30"
                   : "bg-orange-500/10 border-orange-500/30"
-              }`}>
-                <span className="text-xl">⚠️</span>
-                <p className={`text-xs flex-1 ${tolerance >= 80 ? "text-red-400" : "text-orange-400"}`}>
-                  <strong>Yüksek tolerans!</strong> %{tolerance} — iksir etkisi azalmakta.
+              }`}
+            >
+              <span className="text-2xl">⚠️</span>
+              <div className="flex-1">
+                <p className={`font-bold text-sm ${tolerance >= 80 ? "text-red-400" : "text-orange-400"}`}>
+                  Yüksek Tolerans
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  %{tolerance} — İksir etkisi azalmakta
                 </p>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* ── Notifications ─────────────────────────────────── */}
-        {notifications.length > 0 && (
-          <motion.div variants={fadeUp} className="space-y-2">
-            {notifications.map((n) => (
-              <button
-                key={n.id}
-                className={`w-full flex items-start gap-3 px-4 py-3 rounded-xl border text-left transition-colors ${n.bg} border-transparent hover:border-[var(--border-default)]`}
-                onClick={() => n.path && router.push(n.path)}
+        {/* ===== Character Hero Section (Premium) ===== */}
+        <motion.div
+          variants={itemVariants}
+          className="relative rounded-3xl border border-white/10 bg-gradient-to-br from-white/8 to-white/[0.02] backdrop-blur-2xl p-8 overflow-hidden"
+        >
+          {/* Background Glow */}
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/0 via-purple-600/5 to-blue-600/0 pointer-events-none" />
+
+          <div className="relative z-10 flex items-end gap-6">
+            {/* Character Avatar Placeholder */}
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              className="relative shrink-0"
+            >
+              {/* Glowing Circle */}
+              <div className="absolute -inset-4 bg-gradient-to-r from-purple-600/50 to-blue-600/50 rounded-full blur-xl" />
+              
+              {/* Avatar Container */}
+              <div className="relative w-24 h-24 rounded-full border-2 border-white/30 bg-gradient-to-br from-purple-500/30 to-blue-500/20 backdrop-blur-lg flex items-center justify-center overflow-hidden">
+                <span className="text-5xl">🧙</span>
+                {/* Inner Ring */}
+                <div className="absolute inset-0 rounded-full border border-white/10" />
+              </div>
+
+              {/* Level Badge */}
+              <motion.div
+                className="absolute -bottom-2 -right-2 w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 to-orange-600 border-2 border-black/50 flex items-center justify-center font-black text-sm text-white shadow-lg"
+                whileHover={{ scale: 1.15 }}
               >
-                <span className={`text-xl ${n.urgent ? "animate-pulse" : ""}`}>{n.icon}</span>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-semibold ${n.color}`}>{n.title}</p>
-                  <p className="text-[11px] text-[var(--text-muted)] mt-0.5 leading-snug">{n.message}</p>
-                </div>
-                {n.path && <span className="text-[var(--text-muted)] text-xs shrink-0">›</span>}
-              </button>
-            ))}
-          </motion.div>
-        )}
+                {level}
+              </motion.div>
+            </motion.div>
 
-        {/* ── Player Info Card ──────────────────────────────── */}
-        <motion.div variants={fadeUp}>
-          <Card variant="elevated">
-            <div className="p-4">
-              {/* Name + guild + suspicion */}
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <h2 className="text-lg font-bold text-[var(--text-primary)]">{displayName}</h2>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs text-[var(--text-muted)]">Seviye {level}</span>
-                    {guildName && (
-                      <>
-                        <span className="text-[var(--text-muted)]">•</span>
-                        <span className="text-xs text-[var(--accent)]">⚔️ {guildName}</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                  <div className="text-right text-sm">
-                    <p className="text-[var(--color-gold)] font-medium">🪙 {formatGold(gold)}</p>
-                    <p className="text-[var(--color-gem)] text-xs">💎 {formatCompact(gems)}</p>
-                  </div>
-                  {/* Global suspicion indicator */}
-                  <div className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${suspicionInfo.bg} ${suspicionInfo.color}`}>
-                    🔍 {suspicionInfo.label}
-                  </div>
-                </div>
-              </div>
+            {/* Character Info */}
+            <div className="flex-1">
+              <motion.h1
+                className="text-4xl font-black bg-gradient-to-r from-white via-blue-200 to-purple-200 bg-clip-text text-transparent mb-2 tracking-tight"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                {displayName}
+              </motion.h1>
 
-              {/* XP bar */}
-              <div className="space-y-1">
-                <div className="flex justify-between text-[10px] text-[var(--text-muted)]">
-                  <span>XP</span>
-                  <span>{formatCompact(xp)} / {formatCompact(nextLevelXp)}</span>
-                </div>
-                <ProgressBar value={xpPercent} max={100} color="accent" size="sm" />
-              </div>
-            </div>
-          </Card>
-        </motion.div>
-
-        {/* ── Energy + Tolerance bars ───────────────────────── */}
-        <motion.div variants={fadeUp} className="grid grid-cols-2 gap-3">
-          <Card>
-            <div className="p-3">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-medium text-[var(--text-primary)]">⚡ Enerji</span>
-                <span className={`text-[10px] font-bold ${energy < 20 ? "text-red-400 animate-pulse" : "text-[var(--text-muted)]"}`}>
-                  {energy}/{maxEnergy}
-                </span>
-              </div>
-              <ProgressBar
-                value={energy}
-                max={maxEnergy}
-                color={energy < 20 ? "health" : energy < 50 ? "warning" : "energy"}
-                size="sm"
-              />
-              {energy < 20 && (
-                <button
-                  onClick={() => setPotionModalOpen(true)}
-                  className="text-[9px] text-yellow-400 underline mt-1"
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                {guildName && (
+                  <motion.span
+                    whileHover={{ scale: 1.05 }}
+                    className="px-4 py-1.5 rounded-full bg-gradient-to-r from-purple-600/40 to-pink-600/40 border border-purple-500/50 text-purple-200 text-sm font-bold backdrop-blur-lg"
+                  >
+                    ⚔️ {guildName}
+                  </motion.span>
+                )}
+                <motion.span
+                  className="px-4 py-1.5 rounded-full bg-gradient-to-r from-blue-600/40 to-cyan-600/40 border border-blue-500/50 text-blue-200 text-sm font-bold backdrop-blur-lg"
                 >
-                  İksir kullan →
-                </button>
-              )}
-            </div>
-          </Card>
-
-          <Card>
-            <div className="p-3">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-medium text-[var(--text-primary)]">🧪 Tolerans</span>
-                <span className={`text-[10px] font-bold ${
-                  tolerance >= 80 ? "text-red-400" : tolerance >= 60 ? "text-orange-400" : "text-[var(--text-muted)]"
-                }`}>
-                  %{tolerance}
-                </span>
+                  🌟 {globalSuspicionLevel > 60 ? `Şüphe: ${globalSuspicionLevel}%` : "Güvenli"}
+                </motion.span>
               </div>
-              <ProgressBar
-                value={tolerance}
-                max={100}
-                color={tolerance >= 80 ? "health" : tolerance >= 50 ? "warning" : "success"}
-                size="sm"
-              />
-              {tolerance >= 80 && (
-                <p className="text-[9px] text-red-400 mt-1">Doz aşımı riski yüksek!</p>
-              )}
+
+              {/* XP Progress */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-bold text-gray-300 uppercase tracking-wider">Experience</span>
+                  <span className="text-xs font-bold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
+                    {formatCompact(xp)} / {formatCompact(nextLevelXp)}
+                  </span>
+                </div>
+                <div className="relative h-3 rounded-full bg-white/5 border border-white/10 overflow-hidden group">
+                  <motion.div
+                    className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-400"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${xpPercent}%` }}
+                    transition={{ duration: 1, ease: "easeOut" }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/0 to-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </div>
             </div>
-          </Card>
+          </div>
         </motion.div>
 
-        {/* ── Active Quests ─────────────────────────────────── */}
-        {activeQuests.length > 0 && (
-          <motion.div variants={fadeUp}>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-[var(--text-secondary)]">📜 Aktif Görevler</h3>
-              <Link href="/quests" className="text-[10px] text-[var(--accent)] underline">Tümünü Gör</Link>
-            </div>
-            <div className="space-y-2">
-              {activeQuests.map((q) => {
-                const pct = q.goal > 0 ? (q.progress / q.goal) * 100 : 0;
-                return (
-                  <Card key={q.id}>
-                    <div className="p-3">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-2">
-                          {q.icon && <span className="text-base">{q.icon}</span>}
-                          <p className="text-xs font-medium text-[var(--text-primary)] truncate">{q.title}</p>
-                        </div>
-                        <span className="text-[10px] text-[var(--text-muted)] shrink-0 ml-2">
-                          {q.progress}/{q.goal}
-                        </span>
-                      </div>
-                      <ProgressBar value={pct} max={100} color="accent" size="sm" />
+        {/* ===== Premium Stats Grid (2x2 with shine effects) ===== */}
+        <motion.div variants={itemVariants} className="grid grid-cols-2 gap-4">
+          {[
+            {
+              label: "Gold",
+              icon: "💰",
+              value: formatGold(gold),
+              gradient: "from-yellow-600 to-orange-600",
+              border: "border-yellow-500/30",
+              glow: "from-yellow-600/50 to-orange-600/50",
+            },
+            {
+              label: "Gems",
+              icon: "💎",
+              value: formatCompact(gems),
+              gradient: "from-purple-600 to-pink-600",
+              border: "border-purple-500/30",
+              glow: "from-purple-600/50 to-pink-600/50",
+            },
+            {
+              label: "Energy",
+              icon: "⚡",
+              value: `${energy}/${maxEnergy}`,
+              percent: energyPercent,
+              gradient: "from-cyan-600 to-blue-600",
+              border: "border-cyan-500/30",
+              glow: "from-cyan-600/50 to-blue-600/50",
+            },
+            {
+              label: "Tolerance",
+              icon: "🧪",
+              value: `${tolerance}%`,
+              percent: tolerancePercent,
+              gradient: "from-red-600 to-orange-600",
+              border: "border-red-500/30",
+              glow: "from-red-600/50 to-orange-600/50",
+            },
+          ].map((stat, idx) => (
+            <motion.div key={stat.label} whileHover={{ scale: 1.05 }} className="relative group">
+              {/* Glow Background */}
+              <div
+                className={`absolute -inset-1 bg-gradient-to-br ${stat.glow} rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity`}
+              />
+
+              <div
+                className={`relative rounded-2xl border ${stat.border} bg-gradient-to-br ${stat.gradient}/10 backdrop-blur-xl p-5 overflow-hidden`}
+              >
+                {/* Shine Effect */}
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity">
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/50 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-500" />
+                </div>
+
+                <div className="relative z-10 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-3xl">{stat.icon}</span>
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                      {stat.label}
+                    </span>
+                  </div>
+
+                  <p className="text-2xl font-black bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                    {stat.value}
+                  </p>
+
+                  {stat.percent !== undefined && (
+                    <div className="relative h-2 rounded-full bg-white/5 border border-white/10 overflow-hidden">
+                      <motion.div
+                        className={`absolute inset-y-0 left-0 bg-gradient-to-r ${stat.gradient}`}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${stat.percent}%` }}
+                        transition={{ duration: 0.8 }}
+                      />
                     </div>
-                  </Card>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </motion.div>
+
+        {/* ===== Premium Quick Actions (4 Primary) ===== */}
+        <motion.div variants={itemVariants} className="grid grid-cols-4 gap-3">
+          {PRIMARY_ACTIONS.map((action, idx) => (
+            <motion.button
+              key={action.path}
+              whileHover={{ scale: 1.12, y: -4 }}
+              whileTap={{ scale: 0.88 }}
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 + idx * 0.08 }}
+              onClick={() => router.push(action.path)}
+              disabled={inHospital && ["/dungeon", "/pvp"].includes(action.path)}
+              className="relative group disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {/* Glow Background */}
+              <div className="absolute -inset-1 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-all duration-300" />
+
+              {/* Button */}
+              <div className="relative rounded-2xl border border-white/20 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl p-4 flex flex-col items-center gap-2.5 transition-all">
+                {/* Gradient Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent opacity-0 group-hover:opacity-100 rounded-2xl transition-opacity" />
+
+                {/* Icon */}
+                <motion.span className="text-4xl relative z-10 group-hover:scale-125 transition-transform duration-300">
+                  {action.icon}
+                </motion.span>
+
+                {/* Label */}
+                <span className="text-xs font-bold text-gray-100 text-center leading-tight relative z-10 uppercase tracking-wider">
+                  {action.label}
+                </span>
+              </div>
+            </motion.button>
+          ))}
+        </motion.div>
+
+        {/* ===== Active Quests (Premium) ===== */}
+        {activeQuests.length > 0 && (
+          <motion.div variants={itemVariants} className="space-y-4">
+            <div className="flex items-center justify-between px-2">
+              <h2 className="text-lg font-black bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent flex items-center gap-2">
+                🎯 Aktif Görevler
+              </h2>
+              <Link href="/quest" className="text-xs text-blue-400 hover:text-blue-300 transition-colors font-bold uppercase tracking-wider">
+                Tümünü Gör →
+              </Link>
+            </div>
+
+            <div className="space-y-3">
+              {activeQuests.map((quest, idx) => {
+                const pct = quest.goal > 0 ? (quest.progress / quest.goal) * 100 : 0;
+                return (
+                  <motion.div
+                    key={quest.id}
+                    initial={{ opacity: 0, x: -30 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5 + idx * 0.08 }}
+                    whileHover={{ x: 4 }}
+                    className="relative group"
+                  >
+                    {/* Glow on Hover */}
+                    <div className="absolute -inset-2 bg-gradient-to-r from-blue-600/20 to-cyan-600/20 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                    <div className="relative rounded-2xl border border-blue-500/40 bg-gradient-to-r from-blue-600/15 to-cyan-600/10 backdrop-blur-lg p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {quest.icon && <span className="text-2xl">{quest.icon}</span>}
+                          <span className="font-bold text-white">{quest.title}</span>
+                        </div>
+                        <motion.span
+                          className="text-xs font-black bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent"
+                          key={pct}
+                        >
+                          {Math.round(pct)}%
+                        </motion.span>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="relative h-3 rounded-full bg-white/5 border border-white/10 overflow-hidden">
+                          <motion.div
+                            className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-400"
+                            initial={{ width: 0 }}
+                            animate={{ width: `${pct}%` }}
+                            transition={{ duration: 0.8 }}
+                          />
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-400">
+                          <span>{quest.progress}/{quest.goal} completed</span>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
                 );
               })}
             </div>
           </motion.div>
         )}
 
-        {/* ── Use Potion quick action ───────────────────────── */}
-        <motion.div variants={fadeUp}>
-          <button
-            className="w-full flex items-center gap-3 p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] hover:border-[var(--accent)]/50 transition-colors text-left"
-            onClick={() => setPotionModalOpen(true)}
-          >
-            <span className="text-2xl">🧪</span>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-[var(--text-primary)]">İksir Kullan</p>
-              <p className="text-[10px] text-[var(--text-muted)]">
-                Enerji yenile • {potionItems.length} iksir mevcut
+        {/* ===== Premium Potion Quick Action ===== */}
+        <motion.button
+          variants={itemVariants}
+          whileHover={{ scale: 1.02, y: -2 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => setShowPotionModal(true)}
+          className="relative w-full group overflow-hidden"
+        >
+          {/* Glow */}
+          <div className="absolute -inset-1 bg-gradient-to-r from-emerald-600/40 via-green-600/30 to-emerald-600/40 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-all duration-300" />
+
+          <div className="relative rounded-2xl border border-emerald-500/40 bg-gradient-to-r from-emerald-600/20 to-green-600/10 backdrop-blur-xl px-6 py-4 flex items-center gap-4">
+            <span className="text-3xl">🧪</span>
+            <div className="flex-1 text-left">
+              <p className="text-sm font-bold text-white">İksir Kullan</p>
+              <p className="text-xs text-gray-300">
+                {potionItems.length} mevcut • Enerji yenile
               </p>
             </div>
-            <span className="text-[var(--text-muted)]">›</span>
-          </button>
-        </motion.div>
-
-        {/* ── Primary Quick Actions Grid (8 items) ─────────── */}
-        <motion.div variants={fadeUp}>
-          <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-2">Hızlı İşlemler</h3>
-          <div className="grid grid-cols-4 gap-2">
-            {PRIMARY_ACTIONS.map((action) => (
-              <motion.button
-                key={action.path}
-                whileTap={{ scale: 0.92 }}
-                onClick={() => router.push(action.path)}
-                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-colors ${
-                  inHospital && ["/dungeon", "/pvp"].includes(action.path)
-                    ? "border-red-500/30 bg-red-500/5 opacity-50 cursor-not-allowed"
-                    : "bg-[var(--card-bg)] border-[var(--border-default)] hover:border-[var(--accent)] hover:bg-[var(--accent)]/5"
-                }`}
-              >
-                <span className="text-2xl">{action.icon}</span>
-                <span className="text-[10px] font-medium text-[var(--text-secondary)] text-center leading-tight">
-                  {action.label}
-                </span>
-              </motion.button>
-            ))}
+            <span className="text-white/60 group-hover:text-white transition-colors">›</span>
           </div>
-        </motion.div>
+        </motion.button>
 
-        {/* ── Secondary Actions (expandable) ───────────────── */}
-        <motion.div variants={fadeUp}>
+        {/* ===== Secondary Quick Actions (expandable) ===== */}
+        <motion.div variants={itemVariants} className="space-y-2">
           <AnimatePresence>
             {showAllActions && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden mb-2"
+                className="overflow-hidden"
               >
-                <div className="grid grid-cols-4 gap-2">
-                  {SECONDARY_ACTIONS.map((action) => (
+                <div className="grid grid-cols-4 gap-2 pb-3">
+                  {SECONDARY_ACTIONS.map((action, idx) => (
                     <motion.button
                       key={action.path}
+                      whileHover={{ scale: 1.08 }}
                       whileTap={{ scale: 0.92 }}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: idx * 0.03 }}
                       onClick={() => router.push(action.path)}
-                      className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-[var(--border-default)] bg-[var(--card-bg)] hover:border-[var(--accent)] hover:bg-[var(--accent)]/5 transition-colors"
+                      className="flex flex-col items-center gap-2 px-2 py-3 rounded-xl border border-white/10 hover:border-white/20 bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-lg text-white transition-all group overflow-hidden"
                     >
-                      <span className="text-2xl">{action.icon}</span>
-                      <span className="text-[10px] font-medium text-[var(--text-secondary)] text-center leading-tight">
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/0 to-white/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <span className="text-2xl relative z-10">{action.icon}</span>
+                      <span className="text-[10px] font-bold text-center leading-tight relative z-10 text-gray-200">
                         {action.label}
                       </span>
                     </motion.button>
@@ -526,72 +644,100 @@ export default function HomePage() {
               </motion.div>
             )}
           </AnimatePresence>
+
           <button
-            onClick={() => setShowAllActions((v) => !v)}
-            className="w-full py-2 text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors text-center"
+            onClick={() => setShowAllActions(!showAllActions)}
+            className="w-full py-2 text-xs font-semibold text-gray-400 hover:text-gray-300 transition-colors"
           >
-            {showAllActions ? "▲ Daha az göster" : "▼ Tüm özellikler"}
+            {showAllActions ? "▲ Daha Az Göster" : "▼ Tüm Özellikler"}
           </button>
         </motion.div>
 
-        {/* ── Recent Activity ───────────────────────────────── */}
-        <motion.div variants={fadeUp}>
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold text-[var(--text-secondary)]">⏱️ Son Aktivite</h3>
+        {/* ===== Recent Activity (Premium) ===== */}
+        <motion.div variants={itemVariants} className="space-y-4">
+          <h2 className="text-lg font-black bg-gradient-to-r from-white to-orange-200 bg-clip-text text-transparent px-2">
+            ⏱️ Son Aktivite
+          </h2>
+          <div className="space-y-2">
+            {[
+              { icon: "⚔️", text: "Karanlık Orman Zindanı tamamlandı", time: "5 dk", color: "from-green-600 to-emerald-600" },
+              { icon: "🛒", text: "Demir Kılıç satın alındı — 2.500 🪙", time: "18 dk", color: "from-blue-600 to-cyan-600" },
+              { icon: "🔥", text: "Levha +7 Başarılı Geliştirme", time: "1 s", color: "from-red-600 to-orange-600" },
+            ].map((activity, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.65 + idx * 0.05 }}
+                whileHover={{ x: 4 }}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl border border-white/10 bg-gradient-to-r from-white/5 to-white/[0.02] backdrop-blur-lg hover:border-white/20 transition-all group"
+              >
+                <span className="text-lg">{activity.icon}</span>
+                <span className="flex-1 text-sm text-gray-200 group-hover:text-white transition-colors">
+                  {activity.text}
+                </span>
+                <span className="text-xs text-gray-500">{activity.time}</span>
+              </motion.div>
+            ))}
           </div>
-          <Card>
-            <div className="divide-y divide-[var(--border-default)]">
-              {MOCK_ACTIVITY.map((a) => (
-                <div key={a.id} className="flex items-center gap-3 px-4 py-2.5">
-                  <span className="text-lg shrink-0">{a.icon}</span>
-                  <p className={`text-xs flex-1 ${a.color}`}>{a.text}</p>
-                  <span className="text-[9px] text-[var(--text-muted)] shrink-0">{a.time}</span>
-                </div>
+        </motion.div>
+      </motion.div>
+
+      {/* ========== Potion Modal ========== */}
+      <Modal isOpen={showPotionModal} onClose={() => setShowPotionModal(false)} title="🧪 İksir Kullan">
+        <div className="space-y-3">
+          <div className="text-xs text-gray-400 bg-slate-800/50 px-3 py-2 rounded-lg">
+            <p>
+              <strong>Tolerans:</strong> %{Math.round(potionTolerance)} • <strong>Enerji:</strong> {energy}/{maxEnergy}
+            </p>
+          </div>
+
+          {potionItems.length === 0 ? (
+            <div className="text-center py-6 space-y-3">
+              <p className="text-4xl">🫙</p>
+              <p className="text-sm text-gray-400">Envanterde iksir bulunamadı</p>
+              <Link href="/shop" onClick={() => setShowPotionModal(false)}>
+                <Button className="w-full text-sm">Mağazaya Git</Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {potionItems.map((item) => (
+                <motion.button
+                  key={item.row_id}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleUsePotion(item)}
+                  disabled={usingPotionId !== null}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-emerald-500/30 bg-gradient-to-r from-emerald-600/10 to-green-600/5 backdrop-blur-lg text-white hover:border-emerald-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ItemIcon
+                    itemId={item.item_id}
+                    className="text-2xl shrink-0"
+                  />
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="font-semibold text-sm text-white truncate">{item.name}</p>
+                    <div className="flex gap-2 mt-0.5">
+                      {item.energy_restore && item.energy_restore > 0 && (
+                        <span className="text-xs text-cyan-300">+{item.energy_restore} ⚡</span>
+                      )}
+                      {item.tolerance_increase && item.tolerance_increase > 0 && (
+                        <span className="text-xs text-orange-300">+{item.tolerance_increase} 🧪</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs text-gray-400">×{item.quantity}</p>
+                    {usingPotionId === item.item_id && (
+                      <p className="text-xs text-blue-400 animate-pulse mt-0.5">Kullanılıyor...</p>
+                    )}
+                  </div>
+                </motion.button>
               ))}
             </div>
-          </Card>
-        </motion.div>
-
-        {/* ── System status ─────────────────────────────────── */}
-        {(inHospital || inPrison) && (
-          <motion.div variants={fadeUp} className="space-y-2">
-            {inHospital && (
-              <Card>
-                <button
-                  className="w-full flex items-center gap-3 p-3 text-left"
-                  onClick={() => router.push("/hospital")}
-                >
-                  <span className="text-2xl">🏥</span>
-                  <div className="flex-1">
-                    <p className="text-sm font-bold text-red-400">Hastanede Tedavi Görüyorsun</p>
-                    <p className="text-xs text-[var(--text-muted)]">
-                      Hastane ekranına giderek durumunu kontrol et
-                    </p>
-                  </div>
-                  <span className="text-[var(--text-muted)]">›</span>
-                </button>
-              </Card>
-            )}
-            {inPrison && (
-              <Card>
-                <button
-                  className="w-full flex items-center gap-3 p-3 text-left"
-                  onClick={() => router.push("/prison")}
-                >
-                  <span className="text-2xl">👮</span>
-                  <div className="flex-1">
-                    <p className="text-sm font-bold text-orange-400">Cezaevinde Tutuklusun</p>
-                    <p className="text-xs text-[var(--text-muted)]">
-                      Kefalet ödeyerek erken çıkabilirsin
-                    </p>
-                  </div>
-                  <span className="text-[var(--text-muted)]">›</span>
-                </button>
-              </Card>
-            )}
-          </motion.div>
-        )}
-      </motion.div>
-    </>
+          )}
+        </div>
+      </Modal>
+    </div>
   );
 }

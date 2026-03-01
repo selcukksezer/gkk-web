@@ -130,9 +130,12 @@ export const GAME_CONFIG = {
   },
 
   enhancement: {
-    successRates: [1.0, 1.0, 1.0, 1.0, 0.8, 0.8, 0.6, 0.6, 0.4, 0.2, 0.1],
-    destructionRates: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.05, 0.1, 0.15],
+    // Levels +0 .. +10
+    successRates: [1.0, 1.0, 1.0, 1.0, 0.7, 0.6, 0.5, 0.35, 0.2, 0.1, 0.03],
+    // DestructionRates: set to 0 for safe levels, and 1.0 for >= +6 to reflect "destroy on fail" policy
+    destructionRates: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0],
     statBonusPerLevel: 0.1,
+    // scrollCostMultiplier kept for legacy; primary gold costs live in client ENHANCEMENT_GOLD_COSTS
     scrollCostMultiplier: [1, 1, 1, 1, 2, 2, 3, 3, 5, 8, 10],
   },
 

@@ -32,7 +32,7 @@ const RUNES: Record<RuneType, RuneInfo> = {
   protection: { type: "protection", successBonus: 0, destructionReduction: 1.0, cost: 25000 },
 };
 
-const ENHANCEMENT_GOLD_COSTS = [100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600, 51200];
+const ENHANCEMENT_GOLD_COSTS = [1000, 2000, 3000, 5000, 15000, 35000, 75000, 150000, 500000, 2000000, 10000000];
 
 export function useEnhancement() {
   const [isEnhancing, setIsEnhancing] = useState(false);
@@ -155,12 +155,17 @@ export function useEnhancement() {
       if (success) {
         newLevel = currentLevel + 1;
       } else {
-        // Check destruction
-        if (Math.random() < destroyRate) {
+        // From +6 and above: failed attempt destroys the item completely
+        if (currentLevel >= 6) {
           destroyed = true;
         } else {
-          // Level drops by 1 (minimum 0)
-          newLevel = Math.max(0, currentLevel - 1);
+          // Check destruction by configured rate for lower levels
+          if (Math.random() < destroyRate) {
+            destroyed = true;
+          } else {
+            // Level drops by 1 (minimum 0)
+            newLevel = Math.max(0, currentLevel - 1);
+          }
         }
       }
 
