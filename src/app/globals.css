@@ -119,6 +119,20 @@ body {
   background: var(--border-light);
 }
 
+/* Hide scrollbar while keeping scrollability */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
+/* Smooth touch scrolling on mobile */
+.no-scrollbar {
+  -webkit-overflow-scrolling: touch;
+}
+
 /* ============================================================
  * Rarity Glow Shadows
  * ============================================================ */

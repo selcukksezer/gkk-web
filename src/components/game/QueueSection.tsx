@@ -5,14 +5,17 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { ItemIcon } from "@/components/game/ItemIcon";
 import type { CraftQueueItem } from "@/types/crafting";
 
 interface QueueSectionProps {
   queue: CraftQueueItem[];
   onClaim: (queueItemId: string) => void;
+  onCancel: (queueItemId: string) => void;
   isClaiming?: boolean;
+  isCancelling?: boolean;
 }
 
 function getRemainingTime(completesAt: string): { time: string; isComplete: boolean } {
@@ -31,8 +34,10 @@ function getRemainingTime(completesAt: string): { time: string; isComplete: bool
   return { time: `${seconds}sn`, isComplete: false };
 }
 
-export function QueueSection({ queue, onClaim, isClaiming = false }: QueueSectionProps) {
+export function QueueSection({ queue, onClaim, onCancel, isClaiming = false, isCancelling = false }: QueueSectionProps) {
   const [timeUpdates, setTimeUpdates] = useState<Record<string, { time: string; isComplete: boolean }>>({});
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState<string | null>(null);
 
   // Update remaining times every second
   useEffect(() => {
@@ -56,61 +61,148 @@ export function QueueSection({ queue, onClaim, isClaiming = false }: QueueSectio
   }
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/8 to-white/[0.02] backdrop-blur-2xl p-4 space-y-2">
-      <h3 className="font-bold text-white mb-3">📦 Üretim Kuyruğu ({queue.length})</h3>
+    <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/8 to-white/[0.02] backdrop-blur-2xl overflow-hidden">
+      {/* Collapsible Header */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-colors"
+      >
+        <h3 className="font-bold text-white">📦 Üretim Kuyruğu ({queue.length})</h3>
+        <motion.div
+          animate={{ rotate: isExpanded ? 180 : 0 }}
+          transition={{ duration: 0.2 }}
+          className="text-white/60"
+        >
+          ▼
+        </motion.div>
+      </button>
 
-      <AnimatePresence mode="popLayout">
-        {queue.map((item) => {
-          const timeInfo = timeUpdates[item.id] || getRemainingTime(item.completes_at);
+      {/* Content - Collapsible */}
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="border-t border-white/10 px-4 py-3 space-y-2 max-h-96 overflow-y-auto"
+          >
+            <AnimatePresence mode="popLayout">
+              {queue.map((item) => {
+                const timeInfo = timeUpdates[item.id] || getRemainingTime(item.completes_at);
+                const isComplete = item.is_completed || timeInfo.isComplete;
+                // progress percent based on started_at -> completes_at
+                const started = new Date(item.started_at).getTime();
+                const completes = new Date(item.completes_at).getTime();
+                const now = Date.now();
+                let progressPercent = 0;
+                if (completes <= started) progressPercent = 100;
+                else progressPercent = Math.min(100, Math.max(0, Math.round(((now - started) / (completes - started)) * 100)));
 
-          return (
-            <motion.div
-              key={item.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className={`rounded-lg p-3 border ${
-                item.is_completed ? "border-green-500/50 bg-green-500/10" : "border-white/20 bg-white/5"
-              }`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <p className="font-bold text-sm text-white">{item.recipe_name}</p>
-                  <p className="text-xs text-white/60">x{item.batch_count} adet</p>
-                </div>
-                <div className="text-right">
-                  <p className={`text-xs font-bold ${timeInfo.isComplete ? "text-green-300" : "text-yellow-300"}`}>
-                    {timeInfo.time}
-                  </p>
-                </div>
-              </div>
+                return (
+                  <motion.div
+                    key={item.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    className={`rounded-lg p-3 border ${
+                      isComplete ? "border-green-500/50 bg-green-500/10" : "border-white/20 bg-white/5"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <ItemIcon icon={item.recipe_icon} itemId={item.recipe_id} className="w-10 h-10" />
+                        <div>
+                          <p className="font-bold text-sm text-white">{item.recipe_name}</p>
+                          <p className="text-xs text-white/60">x{item.batch_count} adet</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className={`text-xs font-bold ${timeInfo.isComplete ? "text-green-300" : "text-yellow-300"}`}>
+                          {timeInfo.time}
+                        </p>
+                      </div>
+                    </div>
 
-              {/* Progress Bar */}
-              <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden mb-2">
-                <motion.div
-                  initial={{ width: "0%" }}
-                  animate={{ width: item.is_completed ? "100%" : "50%" }}
-                  className="h-full bg-gradient-to-r from-blue-600 to-purple-600"
-                />
-              </div>
+                    {/* Progress Bar */}
+                    <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden mb-2">
+                      <motion.div
+                        initial={{ width: "0%" }}
+                        animate={{ width: `${isComplete ? 100 : progressPercent}%` }}
+                        transition={{ ease: "linear", duration: 0.5 }}
+                        className="h-full bg-gradient-to-r from-blue-600 to-purple-600"
+                      />
+                    </div>
 
-              {/* Action Button */}
-              {item.is_completed && !item.claimed ? (
-                <button
-                  onClick={() => onClaim(item.id)}
-                  disabled={isClaiming}
-                  className="w-full py-2 rounded-lg bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white text-xs font-bold transition-all disabled:opacity-50"
-                >
-                  {isClaiming ? "Talep Ediliyor..." : "✓ Talep Et"}
-                </button>
-              ) : (
-                <div className="w-full py-2 rounded-lg bg-white/10 text-white text-xs font-bold text-center">
-                  {item.claimed ? "✓ Talep Edildi" : "Üretiliyor..."}
-                </div>
-              )}
-            </motion.div>
-          );
-        })}
+                    {/* Action Buttons */}
+                    {isComplete && !item.claimed ? (
+                      <button
+                        onClick={() => onClaim(item.id)}
+                        disabled={isClaiming}
+                        className="w-full py-2 rounded-lg bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white text-xs font-bold transition-all disabled:opacity-50"
+                      >
+                        {isClaiming ? "Talep Ediliyor..." : "✓ Talep Et"}
+                      </button>
+                    ) : item.claimed ? (
+                      <div className="w-full py-2 rounded-lg bg-white/10 text-white text-xs font-bold text-center">
+                        ✓ Talep Edildi
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <div className="flex-1 py-2 rounded-lg bg-white/10 text-white text-xs font-bold text-center">
+                          Üretiliyor...
+                        </div>
+                        <button
+                          onClick={() => setShowCancelConfirm(item.id)}
+                          disabled={isCancelling}
+                          className="px-3 py-2 rounded-lg bg-red-600/20 hover:bg-red-600/40 border border-red-500/50 text-red-300 text-xs font-bold transition-all disabled:opacity-50"
+                          title="İptal Et (Ödül Geri Verilmez)"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Cancel Confirmation Dialog */}
+                    {showCancelConfirm === item.id && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-lg p-4 z-50"
+                      >
+                        <div className="bg-slate-900 border border-red-500/50 rounded-lg p-4 max-w-sm">
+                          <h4 className="font-bold text-red-300 mb-2">⚠️ Üretim İptal Et?</h4>
+                          <p className="text-white/70 text-xs mb-4">
+                            Bu işlem geri alınamaz. <strong>Ödül geri verilmeyecektir!</strong>
+                          </p>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setShowCancelConfirm(null)}
+                              className="flex-1 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all"
+                            >
+                              Vazgeç
+                            </button>
+                            <button
+                              onClick={() => {
+                                onCancel(item.id);
+                                setShowCancelConfirm(null);
+                              }}
+                              disabled={isCancelling}
+                              className="flex-1 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all disabled:opacity-50"
+                            >
+                              {isCancelling ? "İptal Ediliyor..." : "Evet, İptal Et"}
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );

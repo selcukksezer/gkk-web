@@ -42,7 +42,7 @@ export function RecipeList({
   };
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="h-full flex flex-col">
       {/* Header */}
       <div className="px-4 py-2 flex justify-between items-center">
         <h3 className="font-bold text-white">

@@ -106,7 +106,7 @@ GRANT EXECUTE ON FUNCTION public.get_craft_queue() TO authenticated;
 
 -- ====================================================================
 -- RPC: get_craft_recipes
--- Returns craft recipes filtered by user level
+-- Returns craft recipes filtered by user level with item metadata
 -- ====================================================================
 DROP FUNCTION IF EXISTS public.get_craft_recipes(integer);
 
@@ -114,8 +114,13 @@ CREATE FUNCTION public.get_craft_recipes(p_user_level integer DEFAULT 1)
 RETURNS table (
   id uuid,
   recipe_id uuid,
+  name text,
   output_item_id text,
+  output_name text,
   output_quantity integer,
+  output_rarity text,
+  item_type text,
+  recipe_type text,
   required_level integer,
   production_time_seconds integer,
   success_rate double precision,
@@ -131,14 +136,20 @@ BEGIN
   SELECT
     cr.id,
     cr.id as recipe_id,
+    COALESCE(ii.name, cr.output_item_id) as name,
     cr.output_item_id,
+    COALESCE(ii.name, cr.output_item_id) as output_name,
     1 as output_quantity,
+    COALESCE(ii.rarity, 'common') as output_rarity,
+    COALESCE(ii.type, 'accessory') as item_type,
+    COALESCE(ii.production_building_type, 'workbench') as recipe_type,
     cr.required_level,
-    cr.production_time_seconds,
+    COALESCE(cr.production_time_seconds, 30) as production_time_seconds,
     cr.success_rate,
     cr.xp_reward,
     cr.ingredients
   FROM public.crafting_recipes cr
+  LEFT JOIN public.items ii ON ii.id = cr.output_item_id
   WHERE cr.required_level <= p_user_level
   ORDER BY cr.required_level ASC, cr.output_item_id ASC;
 END;
@@ -149,11 +160,10 @@ GRANT EXECUTE ON FUNCTION public.get_craft_recipes(integer) TO authenticated;
 -- ====================================================================
 -- RPC: craft_item_async
 -- Add item to craft queue
--- ====================================================================
-DROP FUNCTION IF EXISTS public.craft_item_async(uuid, uuid, integer);
+-- ==== =================================================================
+DROP FUNCTION IF EXISTS public.craft_item_async(uuid, integer);
 
 CREATE FUNCTION public.craft_item_async(
-  p_user_id uuid,
   p_recipe_id uuid,
   p_batch_count integer DEFAULT 1
 )
@@ -167,18 +177,15 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
+  v_user_id uuid;
   v_recipe crafting_recipes%ROWTYPE;
   v_queue_item craft_queue%ROWTYPE;
   v_completes_at timestamp with time zone;
 BEGIN
-  -- Verify user is authenticated and owns the user_id
-  IF auth.uid() IS NULL THEN
+  -- Verify user is authenticated
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN
     RETURN QUERY SELECT false, NULL::uuid, 'Not authenticated'::text;
-    RETURN;
-  END IF;
-
-  IF auth.uid() != p_user_id THEN
-    RETURN QUERY SELECT false, NULL::uuid, 'Unauthorized'::text;
     RETURN;
   END IF;
 
@@ -194,23 +201,22 @@ BEGIN
 
   -- Insert into craft queue
   INSERT INTO public.craft_queue (user_id, recipe_id, batch_count, completes_at, is_completed, claimed)
-  VALUES (p_user_id, p_recipe_id, p_batch_count, v_completes_at, false, false)
+  VALUES (v_user_id, p_recipe_id, p_batch_count, v_completes_at, false, false)
   RETURNING * INTO v_queue_item;
 
   RETURN QUERY SELECT true, v_queue_item.id, 'Craft started'::text;
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.craft_item_async(uuid, uuid, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.craft_item_async(uuid, integer) TO authenticated;
 
 -- ====================================================================
 -- RPC: claim_crafted_item
 -- Mark craft queue item as claimed and add to inventory
 -- ====================================================================
-DROP FUNCTION IF EXISTS public.claim_crafted_item(uuid, uuid);
+DROP FUNCTION IF EXISTS public.claim_crafted_item(uuid);
 
 CREATE FUNCTION public.claim_crafted_item(
-  p_user_id uuid,
   p_queue_item_id uuid
 )
 RETURNS TABLE (
@@ -222,24 +228,21 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
+  v_user_id uuid;
   v_queue craft_queue%ROWTYPE;
   v_recipe crafting_recipes%ROWTYPE;
 BEGIN
   -- Verify user is authenticated
-  IF auth.uid() IS NULL THEN
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN
     RETURN QUERY SELECT false, 'Not authenticated'::text;
     RETURN;
   END IF;
 
-  IF auth.uid() != p_user_id THEN
-    RETURN QUERY SELECT false, 'Unauthorized'::text;
-    RETURN;
-  END IF;
-
-  -- Fetch queue item
-  SELECT * FROM public.craft_queue WHERE id = p_queue_item_id AND user_id = p_user_id INTO v_queue;
+  -- Fetch queue item - ensure it belongs to authenticated user
+  SELECT * FROM public.craft_queue WHERE id = p_queue_item_id AND user_id = v_user_id INTO v_queue;
   IF v_queue.id IS NULL THEN
-    RETURN QUERY SELECT false, 'Queue item not found'::text;
+    RETURN QUERY SELECT false, 'Queue item not found or unauthorized'::text;
     RETURN;
   END IF;
 
@@ -264,7 +267,7 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.claim_crafted_item(uuid, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_crafted_item(uuid) TO authenticated;
 
 -- ====================================================================
 -- RLS Policies for craft_queue

@@ -7,10 +7,11 @@
 
 "use client";
 
-import { useEffect, useMemo, useCallback } from "react";
+import { useEffect, useMemo, useCallback, useState } from "react";
 import { motion } from "framer-motion";
 import { useCraftingStore } from "@/stores/craftingStore";
 import { usePlayerStore } from "@/stores/playerStore";
+import { useInventoryStore } from "@/stores/inventoryStore";
 import { useUiStore } from "@/stores/uiStore";
 import type { CraftRecipe } from "@/types/crafting";
 import { CraftPreview } from "@/components/game/CraftPreview";
@@ -19,6 +20,9 @@ import { RecipeList } from "@/components/game/RecipeList";
 import { QueueSection } from "@/components/game/QueueSection";
 
 export default function CraftingPage() {
+  const [queueCollapsed, setQueueCollapsed] = useState(false);
+  const [showPreview, setShowPreview] = useState(true);
+  
   // Store subscriptions
   const recipes = useCraftingStore((s) => s.recipes);
   const queue = useCraftingStore((s) => s.queue);
@@ -27,6 +31,7 @@ export default function CraftingPage() {
   const selectedTab = useCraftingStore((s) => s.selectedTab);
   const isLoading = useCraftingStore((s) => s.isLoading);
   const isCrafting = useCraftingStore((s) => s.isCrafting);
+  const isCancelling = useCraftingStore((s) => s.isCancelling);
   const error = useCraftingStore((s) => s.error);
 
   // Store actions
@@ -34,6 +39,7 @@ export default function CraftingPage() {
   const loadQueue = useCraftingStore((s) => s.loadQueue);
   const craftItem = useCraftingStore((s) => s.craftItem);
   const claimItem = useCraftingStore((s) => s.claimItem);
+  const cancelItem = useCraftingStore((s) => s.cancelItem);
   const hasMaterials = useCraftingStore((s) => s.hasMaterials);
   const setSelectedRecipe = useCraftingStore((s) => s.setSelectedRecipe);
   const setBatchCount = useCraftingStore((s) => s.setBatchCount);
@@ -43,17 +49,26 @@ export default function CraftingPage() {
   const level = usePlayerStore((s) => s.level);
   const gems = usePlayerStore((s) => s.gems);
   const addToast = useUiStore((s) => s.addToast);
+  const fetchInventory = useInventoryStore((s) => s.fetchInventory);
 
   // Load recipes & queue on mount
   useEffect(() => {
     loadRecipes();
     loadQueue();
+    // Ensure inventory is loaded so material checks are accurate
+    fetchInventory();
   }, [loadRecipes, loadQueue]);
 
-  // Categorize recipes by item_type
+  // Auto-show preview when a recipe is selected
+  useEffect(() => {
+    if (selectedRecipeId) setShowPreview(true);
+  }, [selectedRecipeId]);
+
+  // Categorize recipes by item_type (now properly populated from RPC)
   const recipeCounts = useMemo(() => {
     const counts: Record<string, number> = { tumu: recipes.length };
     recipes.forEach((r) => {
+      // Use item_type first (preferred), fallback to recipe_type, then accessory
       const key = r.item_type || r.recipe_type || "accessory";
       counts[key] = (counts[key] || 0) + 1;
     });
@@ -81,6 +96,10 @@ export default function CraftingPage() {
     const recipeId = selectedRecipe.id || selectedRecipe.recipe_id || "";
     const success = await craftItem(recipeId, selectedBatchCount);
     if (success) {
+      // Close preview and reset selection when craft successfully started
+      setShowPreview(false);
+      setSelectedRecipe(null);
+      setBatchCount(1);
       addToast(`✅ ${selectedBatchCount}x üretim sıraya eklendi!`, "success");
       await loadQueue();
     } else if (error) {
@@ -100,6 +119,20 @@ export default function CraftingPage() {
       }
     },
     [claimItem, addToast, loadQueue]
+  );
+
+  // Handle cancel
+  const handleCancel = useCallback(
+    async (queueItemId: string) => {
+      const success = await cancelItem(queueItemId);
+      if (success) {
+        addToast("✅ Üretim iptal edildi (Ödül verilmedi)", "success");
+        await loadQueue();
+      } else {
+        addToast("❌ İptal başarısız!", "error");
+      }
+    },
+    [cancelItem, addToast, loadQueue]
   );
 
   return (
@@ -125,67 +158,79 @@ export default function CraftingPage() {
 
         {/* Stacked Layout Container */}
         <div className="flex-1 flex flex-col overflow-hidden px-4 pb-4 space-y-3">
-          {/* Section 1: CraftPreview (Top) */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="flex-shrink-0"
-          >
-            <CraftPreview
-              recipe={selectedRecipe}
-              batchCount={selectedBatchCount}
-              onBatchChange={setBatchCount}
-              onCraft={handleCraft}
-              canCraft={canCraft}
-              isLoading={isCrafting}
-              gems={gems}
-              playerLevel={level}
-              hasMaterials={selectedRecipe ? hasMaterials(selectedRecipe, selectedBatchCount) : false}
-            />
-          </motion.div>
+          {/* Section 1: CraftPreview (Top) - moved into overlay below so it doesn't reduce RecipeList height */}
 
-          {/* Section 2: RecipeTabsBar (Middle-Top) */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="flex-shrink-0"
-          >
-            <RecipeTabsBar
-              activeTab={selectedTab}
-              onTabChange={setSelectedTab}
-              counts={recipeCounts}
-            />
-          </motion.div>
+            {/* Section 2: RecipeTabsBar (Middle-Top) */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="flex-shrink-0"
+            >
+              <RecipeTabsBar
+                  activeTab={selectedTab}
+                  onTabChange={setSelectedTab}
+                  counts={recipeCounts}
+                />
+            </motion.div>
 
-          {/* Section 3: RecipeList (Middle/Flex) */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="flex-1 overflow-hidden"
-          >
-            <RecipeList
-              recipes={recipes}
-              selectedTab={selectedTab}
-              selectedRecipeId={selectedRecipeId}
-              onSelectRecipe={setSelectedRecipe}
-              isLoading={isLoading}
-            />
-          </motion.div>
-
-          {/* Section 4: QueueSection (Bottom) */}
+          {/* Middle area: recipe list fills remaining space; preview and queue are overlays so they don't shrink the list */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25 }}
-            className="flex-shrink-0 max-h-48 overflow-y-auto"
+            className="flex-1 min-h-0 relative"
           >
-            <QueueSection queue={queue} onClaim={handleClaim} isClaiming={isCrafting} />
+            {/* Recipe list occupies full area and is scrollable */}
+            <div className="absolute inset-0 overflow-auto">
+              <RecipeList
+                recipes={recipes}
+                selectedTab={selectedTab}
+                selectedRecipeId={selectedRecipeId}
+                onSelectRecipe={setSelectedRecipe}
+                isLoading={isLoading}
+              />
+            </div>
+
+            {/* Overlay: Queue removed from here and placed at root to avoid transform clipping */}
+
+            {/* Overlay: CraftPreview (top, centered) */}
+            {showPreview && selectedRecipe && (
+              <div className="absolute inset-x-4 top-4 z-10">
+                <CraftPreview
+                  recipe={selectedRecipe}
+                  batchCount={selectedBatchCount}
+                  onBatchChange={setBatchCount}
+                  onCraft={handleCraft}
+                  canCraft={canCraft}
+                  isLoading={isCrafting}
+                  gems={gems}
+                  playerLevel={level}
+                  onClose={() => {
+                    setSelectedRecipe(null);
+                    setBatchCount(1);
+                    setShowPreview(false);
+                  }}
+                />
+              </div>
+            )}
           </motion.div>
         </div>
       </div>
+      {/* Fixed QueueSection anchored to viewport (outside transformed containers) */}
+      {queue && queue.length > 0 && (
+        <div className="fixed z-50 right-4 bottom-16">
+          <div className="w-full max-w-md md:w-72">
+            <QueueSection
+              queue={queue}
+              onClaim={handleClaim}
+              onCancel={handleCancel}
+              isClaiming={isCrafting}
+              isCancelling={isCancelling}
+            />
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }

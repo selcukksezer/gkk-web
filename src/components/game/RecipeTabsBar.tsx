@@ -25,13 +25,16 @@ const TABS = [
 
 export function RecipeTabsBar({ activeTab, onTabChange, counts }: RecipeTabsBarProps) {
   return (
-    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 -mx-4 px-4">
+    <div
+      className="flex gap-2 overflow-x-auto overflow-y-hidden no-scrollbar pb-2 -mx-4 px-4 snap-x snap-mandatory scroll-smooth md:overflow-visible md:flex-wrap md:pb-0 md:-mx-0 md:px-0"
+      style={{ touchAction: "pan-x" }}
+    >
       {TABS.map((tab) => (
         <motion.button
           key={tab.key}
           onClick={() => onTabChange(tab.key)}
           whileTap={{ scale: 0.95 }}
-          className={`flex-shrink-0 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 whitespace-nowrap ${
+          className={`flex-shrink-0 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 whitespace-nowrap snap-center ${
             activeTab === tab.key
               ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/50"
               : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white border border-white/20"

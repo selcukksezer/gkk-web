@@ -24,7 +24,7 @@ interface CraftPreviewProps {
   isLoading: boolean;
   gems: number;
   playerLevel: number;
-  hasMaterials: boolean;
+  onClose?: () => void;
 }
 
 const BATCH_LIMIT = 5;
@@ -57,10 +57,13 @@ export function CraftPreview({
   isLoading,
   gems,
   playerLevel,
-  hasMaterials,
+  onClose,
 }: CraftPreviewProps) {
   const [outputItem, setOutputItem] = useState<ItemMeta | null>(null);
   const [ingredientItems, setIngredientItems] = useState<Map<string, ItemMeta>>(new Map());
+  
+  // Envanter güncellendikçe recompute etmek için subscribe et
+  const getItemQuantity = useInventoryStore((s) => s.getItemQuantity);
 
   // Supabase'den item metadata çek
   useEffect(() => {
@@ -97,10 +100,19 @@ export function CraftPreview({
   const outputRarity = (recipe.output_rarity || outputItem?.rarity || "common") as Rarity;
   const costGems = gemCost(batchCount);
   const successRate = parseRate(recipe.success_rate);
-  const craftTime = recipe.craft_time_seconds || recipe.production_time_seconds || 0;
+  const craftTime = recipe.production_time_seconds || 0;
   const totalTime = craftTime * batchCount;
   const levelTooHigh = recipe.required_level > playerLevel;
   const gemsInsufficient = costGems > gems;
+
+  // Compute materials availability reactively using inventory selector
+  const localHasMaterials = recipe.ingredients
+    ? recipe.ingredients.every((ing) => {
+        const required = (ing.quantity ?? 1) * batchCount;
+        const owned = getItemQuantity(ing.item_id);
+        return owned >= required;
+      })
+    : true;
 
   return (
     <motion.div
@@ -121,10 +133,38 @@ export function CraftPreview({
             </h2>
             <p className="text-xs text-white/40 mt-1">Üretim Ön İzlemesi</p>
           </div>
-          <div className="text-right">
-            <span className="text-sm font-semibold text-cyan-300">
-              x{recipe.output_quantity}
-            </span>
+          <div className="flex items-center gap-2">
+            {/* removed top quantity badge as requested */}
+          </div>
+        </div>
+
+        {/* Production Output - Üretilecek Malzeme */}
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-white/60 uppercase tracking-wide">Üretilecek Malzeme</p>
+          <div className="rounded-lg border-2 border-cyan-500/50 bg-gradient-to-br from-cyan-500/20 to-blue-500/10 p-3">
+            <div className="flex items-center gap-4">
+              <div className="flex-shrink-0">
+                <ItemIcon
+                  icon={outputItem?.icon}
+                  itemType={outputItem?.type}
+                  itemId={recipe.output_item_id}
+                  className="w-14 h-14"
+                />
+              </div>
+              <div className="flex-1">
+                <div className={`text-sm font-bold ${getRarityColor(outputRarity)}`}>
+                  {recipe.output_name || outputItem?.name || "Bilinmiyor"}
+                </div>
+                <div className="text-xs text-cyan-300 mt-1">
+                  Miktar: <span className="font-semibold">x{recipe.output_quantity * batchCount}</span>
+                </div>
+                {outputItem?.description && (
+                  <div className="text-xs text-white/50 mt-2 line-clamp-2">
+                    {outputItem.description}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -137,9 +177,8 @@ export function CraftPreview({
                 const item = ingredientItems.get(ing.item_id);
                 const itemRarity = (item?.rarity || "common") as Rarity;
                 const rarityColor = getRarityColor(itemRarity);
-                const owned = useInventoryStore.getState().getItemQuantity
-                  ? useInventoryStore.getState().getItemQuantity(ing.item_id)
-                  : 0;
+                // Get live inventory quantity through selector (reactive)
+                const owned = getItemQuantity(ing.item_id);
                 const required = (ing.quantity ?? 1) * batchCount;
                 const enough = owned >= required;
 
@@ -234,20 +273,30 @@ export function CraftPreview({
             ⚠️ Elmas yetersiz ({gems}/{costGems})
           </div>
         )}
-        {!hasMaterials && (
+        {!localHasMaterials && (
           <div className="rounded-lg bg-red-500/10 border border-red-500/30 p-2 text-xs text-red-300">
             ⚠️ Malzeme yetersiz
           </div>
         )}
 
-        {/* Craft Button */}
-        <Button
-          onClick={onCraft}
-          disabled={!canCraft || isLoading}
-          className="w-full py-3 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isLoading ? "Üretiliyor..." : `🔨 Üretimi Başlat (${batchCount}x)`}
-        </Button>
+        {/* Action Buttons: Cancel + Start */}
+        <div className="flex items-center gap-3">
+          {onClose && (
+            <Button
+              onClick={onClose}
+              className="flex-1 py-3 bg-red-600/20 hover:bg-red-600/30 text-sm font-semibold"
+            >
+              İptal
+            </Button>
+          )}
+          <Button
+            onClick={onCraft}
+            disabled={!canCraft || isLoading}
+            className="flex-1 py-3 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoading ? "Üretiliyor..." : `🔨 Üretimi Başlat (${batchCount}x)`}
+          </Button>
+        </div>
       </div>
     </motion.div>
   );

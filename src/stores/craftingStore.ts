@@ -16,6 +16,7 @@ interface CraftingState {
   queue: CraftQueueItem[];
   isLoading: boolean;
   isCrafting: boolean;
+  isCancelling: boolean;
   error: string | null;
 
   // UI State
@@ -28,6 +29,7 @@ interface CraftingState {
   craftItem: (recipeId: string, batchCount: number) => Promise<boolean>;
   loadQueue: () => Promise<void>;
   claimItem: (queueItemId: string) => Promise<boolean>;
+  cancelItem: (queueItemId: string) => Promise<boolean>;
   hasMaterials: (recipe: CraftRecipe, batchCount?: number) => boolean;
   isQueueFull: () => boolean;
 
@@ -47,6 +49,7 @@ export const useCraftingStore = create<CraftingState>()((set, get) => ({
   queue: [],
   isLoading: false,
   isCrafting: false,
+  isCancelling: false,
   error: null,
   selectedRecipeId: null,
   selectedBatchCount: 1,
@@ -126,9 +129,7 @@ export const useCraftingStore = create<CraftingState>()((set, get) => ({
     set({ isCrafting: true, error: null });
 
     try {
-      const userId = usePlayerStore.getState().profile?.id;
       const res = await api.rpc("craft_item_async", {
-        p_user_id: userId,
         p_recipe_id: recipeId,
         p_batch_count: batchCount,
       });
@@ -137,7 +138,7 @@ export const useCraftingStore = create<CraftingState>()((set, get) => ({
         // Update gems locally
         usePlayerStore.getState().updateGems(-gemCost, true);
 
-        // Refresh queue & inve, selectedRecipeId: null, selectedBatchCount: 1ntory
+        // Refresh queue & inventory
         await get().loadQueue();
         useInventoryStore.getState().fetchInventory();
         set({ isCrafting: false });
@@ -168,12 +169,10 @@ export const useCraftingStore = create<CraftingState>()((set, get) => ({
   },
 
   // FIXED: RPC name is "claim_crafted_item" (NOT "claim_craft_item")
-  // FIXED: Requires p_user_id parameter
+  // FIXED: Parameter now uses auth.uid() from context, no p_user_id needed
   claimItem: async (queueItemId: string) => {
     try {
-      const userId = usePlayerStore.getState().profile?.id;
       const res = await api.rpc("claim_crafted_item", {
-        p_user_id: userId,
         p_queue_item_id: queueItemId,
       });
 
@@ -189,6 +188,33 @@ export const useCraftingStore = create<CraftingState>()((set, get) => ({
       set({ error: res.error || "Talep edilemedi" });
       return false;
     } catch {
+      return false;
+    }
+  },
+
+  cancelItem: async (queueItemId: string) => {
+    set({ isCancelling: true, error: null });
+
+    try {
+      const res = await api.rpc("cancel_craft_item", {
+        p_queue_item_id: queueItemId,
+      });
+
+      if (res.success) {
+        // Remove cancelled item from queue
+        set((s) => ({
+          queue: s.queue.filter((q) => q.id !== queueItemId),
+          isCancelling: false,
+        }));
+        return true;
+      }
+      set({ isCancelling: false, error: res.error || "İptal edilemedi" });
+      return false;
+    } catch (err) {
+      set({
+        isCancelling: false,
+        error: err instanceof Error ? err.message : "İptal edilemedi",
+      });
       return false;
     }
   },
@@ -218,6 +244,7 @@ export const useCraftingStore = create<CraftingState>()((set, get) => ({
       queue: [],
       isLoading: false,
       isCrafting: false,
+      isCancelling: false,
       error: null,
       selectedRecipeId: null,
       selectedBatchCount: 1,
