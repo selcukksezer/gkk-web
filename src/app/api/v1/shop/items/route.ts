@@ -28,6 +28,10 @@ export async function GET() {
   }
 
   try {
+    console.log("[SHOP API] Starting shop items fetch...");
+    console.log("[SHOP API] supabaseUrl:", supabaseUrl ? "SET" : "MISSING");
+    console.log("[SHOP API] supabaseKey:", supabaseKey ? `SET (length=${supabaseKey.length})` : "MISSING");
+    
     // Apply a short timeout when querying Supabase so server routes don't hang.
     const queryPromise = supabase
       .from("items")
@@ -36,14 +40,18 @@ export async function GET() {
       .order("id", { ascending: true });
     const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error("supabase query timeout")), 3000));
 
+    console.log("[SHOP API] Executing Promise.race...");
     const { data, error } = (await Promise.race([queryPromise, timeoutPromise])) as any;
+    console.log("[SHOP API] Promise.race completed");
 
     console.log("🔍 [SHOP API] Filtered query (shop_available=true):");
     console.log("   Error:", error ? error.message : "none");
+    if (error) console.log("   Error details:", JSON.stringify(error));
     console.log("   Data count:", data?.length ?? 0);
 
     if (error) {
-      console.warn("Supabase items query error:", error.message || error);
+      console.warn("[SHOP API] Supabase items query error:", error.message || error);
+      console.warn("[SHOP API] Full error object:", error);
     }
 
     if (data && Array.isArray(data) && data.length > 0) {

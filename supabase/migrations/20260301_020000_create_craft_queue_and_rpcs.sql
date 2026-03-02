@@ -18,6 +18,7 @@ CREATE TABLE public.craft_queue (
   completes_at timestamp with time zone NOT NULL,
   is_completed boolean DEFAULT false,
   claimed boolean DEFAULT false,
+  failed boolean DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT craft_queue_pkey PRIMARY KEY (id),
@@ -64,7 +65,9 @@ RETURNS table (
   started_at timestamp with time zone,
   completes_at timestamp with time zone,
   is_completed boolean,
-  claimed boolean
+  claimed boolean,
+  failed boolean,
+  xp_reward integer
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -88,7 +91,9 @@ BEGIN
     cq.started_at,
     cq.completes_at,
     (cq.is_completed OR cq.completes_at <= now()) as is_completed,
-    cq.claimed
+    cq.claimed,
+    cq.failed,
+    COALESCE(cr.xp_reward, 0) as xp_reward
   FROM public.craft_queue cq
   LEFT JOIN public.crafting_recipes cr ON cq.recipe_id = cr.id
   LEFT JOIN public.items ii ON ii.id = cr.output_item_id
@@ -250,9 +255,9 @@ BEGIN
   -- Calculate completion time
   v_completes_at := now() + (v_recipe.production_time_seconds * p_batch_count) * INTERVAL '1 second';
 
-  -- Insert into craft queue
-  INSERT INTO public.craft_queue (user_id, recipe_id, batch_count, completes_at, is_completed, claimed)
-  VALUES (v_user_id, p_recipe_id, p_batch_count, v_completes_at, false, false)
+  -- Insert into craft queue — roll will happen in finalize_crafted_item when timer expires
+  INSERT INTO public.craft_queue (user_id, recipe_id, batch_count, completes_at, is_completed, claimed, failed)
+  VALUES (v_user_id, p_recipe_id, p_batch_count, v_completes_at, false, false, false)
   RETURNING * INTO v_queue_item;
 
   RETURN QUERY SELECT true, v_queue_item.id, 'Craft started'::text;
@@ -274,7 +279,8 @@ CREATE FUNCTION public.claim_crafted_item(
 )
 RETURNS TABLE (
   success boolean,
-  message text
+  message text,
+  xp_awarded integer
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -284,39 +290,135 @@ DECLARE
   v_user_id uuid;
   v_queue craft_queue%ROWTYPE;
   v_recipe crafting_recipes%ROWTYPE;
+  v_final_qty integer;
+  v_add_res jsonb;
+  v_is_stackable boolean;
+  v_free_slots integer;
+  v_success_rate double precision;
+  v_roll double precision;
+  v_xp integer;
 BEGIN
   -- Verify user is authenticated
   v_user_id := auth.uid();
   IF v_user_id IS NULL THEN
-    RETURN QUERY SELECT false, 'Not authenticated'::text;
+    RETURN QUERY SELECT false, 'Not authenticated'::text, 0;
     RETURN;
   END IF;
 
-  -- Fetch queue item - ensure it belongs to authenticated user
-  SELECT * FROM public.craft_queue WHERE id = p_queue_item_id AND user_id = v_user_id INTO v_queue;
+  -- Fetch and lock queue item to avoid races
+  SELECT * FROM public.craft_queue WHERE id = p_queue_item_id AND user_id = v_user_id FOR UPDATE INTO v_queue;
   IF v_queue.id IS NULL THEN
-    RETURN QUERY SELECT false, 'Queue item not found or unauthorized'::text;
+    RETURN QUERY SELECT false, 'Queue item not found or unauthorized'::text, 0;
     RETURN;
   END IF;
 
   -- Check if already claimed
   IF v_queue.claimed THEN
-    RETURN QUERY SELECT false, 'Already claimed'::text;
+    RETURN QUERY SELECT false, 'Already claimed'::text, 0;
     RETURN;
   END IF;
 
   -- Fetch recipe to get output item
   SELECT * FROM public.crafting_recipes WHERE id = v_queue.recipe_id INTO v_recipe;
 
-  -- Update queue item as claimed
-  UPDATE public.craft_queue
-  SET claimed = true, updated_at = now()
-  WHERE id = p_queue_item_id;
+  -- Ensure the item is completed (either marked or time has passed)
+  IF NOT v_queue.is_completed AND v_queue.completes_at > now() THEN
+    RETURN QUERY SELECT false, 'Not ready to claim'::text, 0;
+    RETURN;
+  END IF;
 
-  -- TODO: Add item to user inventory (craft_item_async completes this)
-  -- For now, just mark as claimed and return success
+  -- Validate output_item_id exists before attempting inventory add
+  IF v_recipe.output_item_id IS NULL OR trim(v_recipe.output_item_id) = '' THEN
+    RETURN QUERY SELECT false, 'Recipe output_item_id is missing'::text, 0;
+    RETURN;
+  END IF;
 
-  RETURN QUERY SELECT true, 'Item claimed'::text;
+  -- Determine if item is stackable from catalog (decide at claim time)
+  SELECT is_stackable INTO v_is_stackable FROM public.items WHERE id = v_recipe.output_item_id;
+  IF v_is_stackable IS NULL THEN
+    v_is_stackable := false;
+  END IF;
+
+  -- Compute final quantity to add (use batch_count)
+  v_final_qty := COALESCE(v_queue.batch_count, 1);
+
+  -- If the item hasn't been finalized yet but completion time passed, finalize it
+  IF NOT v_queue.is_completed AND v_queue.completes_at <= now() THEN
+    -- finalize_crafted_item will lock and set failed/is_completed deterministically
+    PERFORM public.finalize_crafted_item(p_queue_item_id);
+    -- re-load updated queue row
+    SELECT * FROM public.craft_queue WHERE id = p_queue_item_id AND user_id = v_user_id INTO v_queue;
+  END IF;
+
+  -- If finalized as failed, return failure
+  IF v_queue.failed THEN
+    RETURN QUERY SELECT false, 'Üretim başarısız'::text, 0;
+    RETURN;
+  END IF;
+
+  -- Calculate XP reward for successful production
+  v_xp := COALESCE(v_recipe.xp_reward, 0) * v_final_qty;
+
+  -- Add produced item to inventory via helper.
+  -- If item is stackable, add once (may stack). If not, add one-by-one into separate slots.
+  IF v_is_stackable THEN
+    v_add_res := public.add_inventory_item_v2(
+      jsonb_build_object('item_id', v_recipe.output_item_id, 'quantity', v_final_qty, 'allow_stack', true),
+      NULL
+    );
+
+    -- Check if inventory add succeeded
+    IF v_add_res IS NULL OR (v_add_res->>'success')::boolean IS NOT TRUE THEN
+      RETURN QUERY SELECT false, COALESCE(v_add_res->>'error', 'Failed to add to inventory')::text, 0;
+      RETURN;
+    END IF;
+  ELSE
+    -- Non-stackable: insert v_final_qty times as separate items
+    -- Check free slots first to avoid partial adds
+    SELECT COUNT(*) INTO v_free_slots
+    FROM generate_series(0, 19) AS s(slot)
+    WHERE NOT EXISTS (
+      SELECT 1 FROM public.inventory
+      WHERE user_id = v_user_id AND slot_position = s.slot AND is_equipped = false
+    );
+
+    IF v_free_slots < GREATEST(1, v_final_qty) THEN
+      RETURN QUERY SELECT false, 'Envanter dolu'::text, 0;
+      RETURN;
+    END IF;
+    FOR i IN 1..GREATEST(1, v_final_qty) LOOP
+      v_add_res := public.add_inventory_item_v2(
+        jsonb_build_object('item_id', v_recipe.output_item_id, 'quantity', 1, 'allow_stack', false),
+        NULL
+      );
+      IF v_add_res IS NULL OR (v_add_res->>'success')::boolean IS NOT TRUE THEN
+        RETURN QUERY SELECT false, COALESCE(v_add_res->>'error', 'Failed to add non-stackable item to inventory')::text, 0;
+        RETURN;
+      END IF;
+    END LOOP;
+  END IF;
+
+  -- Award XP to user if successful and return authoritative total XP
+  DECLARE
+    v_new_xp integer := NULL;
+  BEGIN
+    IF v_xp > 0 THEN
+      UPDATE public.users
+      SET xp = COALESCE(xp, 0) + v_xp
+      WHERE auth_id = v_user_id
+      RETURNING xp INTO v_new_xp;
+    END IF;
+
+    -- If DB returned new total XP, use that as the xp_awarded value
+    IF v_new_xp IS NOT NULL THEN
+      v_xp := v_new_xp;
+    END IF;
+  END;
+
+  -- Remove queue item after successful claim
+  DELETE FROM public.craft_queue WHERE id = p_queue_item_id;
+
+  RETURN QUERY SELECT true, 'Item claimed and added to inventory'::text, v_xp;
 END;
 $$;
 

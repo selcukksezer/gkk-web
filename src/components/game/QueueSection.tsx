@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ItemIcon } from "@/components/game/ItemIcon";
 import type { CraftQueueItem } from "@/types/crafting";
@@ -13,6 +13,8 @@ import type { CraftQueueItem } from "@/types/crafting";
 interface QueueSectionProps {
   queue: CraftQueueItem[];
   onClaim: (queueItemId: string) => void;
+  onAcknowledge?: (queueItemId: string) => void;
+  onFinalize?: (queueItemId: string) => void;
   onCancel: (queueItemId: string) => void;
   isClaiming?: boolean;
   isCancelling?: boolean;
@@ -34,10 +36,16 @@ function getRemainingTime(completesAt: string): { time: string; isComplete: bool
   return { time: `${seconds}sn`, isComplete: false };
 }
 
-export function QueueSection({ queue, onClaim, onCancel, isClaiming = false, isCancelling = false }: QueueSectionProps) {
+export function QueueSection({ queue, onClaim, onAcknowledge, onFinalize, onCancel, isClaiming = false, isCancelling = false }: QueueSectionProps) {
   const [timeUpdates, setTimeUpdates] = useState<Record<string, { time: string; isComplete: boolean }>>({});
   const [isExpanded, setIsExpanded] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState<string | null>(null);
+  const [pendingAcks, setPendingAcks] = useState<Record<string, boolean>>({});
+  const [pendingClaims, setPendingClaims] = useState<Record<string, boolean>>({});
+  const [pendingFinalizes, setPendingFinalizes] = useState<Record<string, boolean>>({});
+  const onFinalizeRef = useRef<typeof onFinalize | undefined>(onFinalize);
+  // keep the ref up-to-date without adding it to the effect deps
+  onFinalizeRef.current = onFinalize;
 
   // Update remaining times every second
   useEffect(() => {
@@ -47,6 +55,30 @@ export function QueueSection({ queue, onClaim, onCancel, isClaiming = false, isC
         updates[item.id] = getRemainingTime(item.completes_at);
       });
       setTimeUpdates(updates);
+      // Auto-finalize items that just completed (server will decide success/fail)
+      queue.forEach((item) => {
+        const t = updates[item.id];
+        if (!t) return;
+        const becameComplete = t.isComplete && !item.is_completed && !item.failed && !item.claimed;
+        const fn = onFinalizeRef.current;
+        if (becameComplete && fn) {
+          setPendingFinalizes((prev) => {
+            if (prev[item.id]) return prev;
+            const next = { ...prev, [item.id]: true };
+            // async finalize and clear flag when done
+            (async () => {
+              try {
+                await fn(item.id);
+              } catch (e) {
+                // ignore
+              } finally {
+                setPendingFinalizes((p) => ({ ...p, [item.id]: false }));
+              }
+            })();
+            return next;
+          });
+        }
+      });
     }, 1000);
 
     return () => clearInterval(interval);
@@ -90,7 +122,10 @@ export function QueueSection({ queue, onClaim, onCancel, isClaiming = false, isC
             <AnimatePresence mode="popLayout">
               {queue.map((item) => {
                 const timeInfo = timeUpdates[item.id] || getRemainingTime(item.completes_at);
-                const isComplete = item.is_completed || timeInfo.isComplete;
+                const isTimeComplete = timeInfo.isComplete;
+                const serverCompleted = !!item.is_completed;
+                const showClaimButton = serverCompleted && !item.claimed && !item.failed;
+                const awaitingFinalize = isTimeComplete && !serverCompleted && !item.failed && !item.claimed;
                 // progress percent based on started_at -> completes_at
                 const started = new Date(item.started_at).getTime();
                 const completes = new Date(item.completes_at).getTime();
@@ -106,7 +141,11 @@ export function QueueSection({ queue, onClaim, onCancel, isClaiming = false, isC
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 20 }}
                     className={`rounded-lg p-3 border ${
-                      isComplete ? "border-green-500/50 bg-green-500/10" : "border-white/20 bg-white/5"
+                      serverCompleted && item.failed
+                        ? "border-red-500/50 bg-red-500/10"
+                        : serverCompleted && !item.failed
+                        ? "border-green-500/50 bg-green-500/10"
+                        : "border-white/20 bg-white/5"
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
@@ -114,38 +153,82 @@ export function QueueSection({ queue, onClaim, onCancel, isClaiming = false, isC
                         <ItemIcon icon={item.recipe_icon} itemId={item.recipe_id} className="w-10 h-10" />
                         <div>
                           <p className="font-bold text-sm text-white">{item.recipe_name}</p>
-                          <p className="text-xs text-white/60">x{item.batch_count} adet</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs text-white/60">x{item.batch_count} adet</p>
+                            {serverCompleted && !item.failed && item.xp_reward ? (
+                              <span className="text-xs bg-yellow-600/20 text-yellow-300 px-2 py-0.5 rounded">
+                                +{item.xp_reward * item.batch_count} XP
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className={`text-xs font-bold ${timeInfo.isComplete ? "text-green-300" : "text-yellow-300"}`}>
-                          {timeInfo.time}
-                        </p>
+                            <p className={`text-xs font-bold ${serverCompleted && item.failed ? "text-red-300" : serverCompleted ? "text-green-300" : "text-yellow-300"}`}>
+                              {serverCompleted && item.failed ? "" : timeInfo.time}
+                            </p>
                       </div>
                     </div>
 
                     {/* Progress Bar */}
-                    <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden mb-2">
-                      <motion.div
-                        initial={{ width: "0%" }}
-                        animate={{ width: `${isComplete ? 100 : progressPercent}%` }}
-                        transition={{ ease: "linear", duration: 0.5 }}
-                        className="h-full bg-gradient-to-r from-blue-600 to-purple-600"
-                      />
-                    </div>
+                    {!serverCompleted && (
+                      <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden mb-2">
+                        <motion.div
+                          initial={{ width: "0%" }}
+                          animate={{ width: `${progressPercent}%` }}
+                          transition={{ ease: "linear", duration: 0.5 }}
+                          className="h-full bg-gradient-to-r from-blue-600 to-purple-600"
+                        />
+                      </div>
+                    )}
 
                     {/* Action Buttons */}
-                    {isComplete && !item.claimed ? (
+                    {serverCompleted && item.failed ? (
+                      <div className="flex gap-2">
+                        <div className="flex-1 py-2 rounded-lg bg-red-600/20 text-red-200 text-xs font-bold text-center border border-red-500/50">
+                          ❌ Üretim Başarısız
+                        </div>
+                        <button
+                          onClick={async () => {
+                            if (!onAcknowledge) return;
+                            if (pendingAcks[item.id]) return;
+                            setPendingAcks((s) => ({ ...s, [item.id]: true }));
+                            try {
+                              await onAcknowledge(item.id);
+                            } finally {
+                              setPendingAcks((s) => ({ ...s, [item.id]: false }));
+                            }
+                          }}
+                          disabled={pendingAcks[item.id]}
+                          className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all disabled:opacity-50"
+                        >
+                          {pendingAcks[item.id] ? "İşleniyor..." : "Tamam"}
+                        </button>
+                      </div>
+                    ) : showClaimButton ? (
                       <button
-                        onClick={() => onClaim(item.id)}
-                        disabled={isClaiming}
+                        onClick={async () => {
+                          // prevent double clicks per item
+                          if (pendingClaims[item.id]) return;
+                          setPendingClaims((s) => ({ ...s, [item.id]: true }));
+                          try {
+                            await onClaim(item.id as string);
+                          } finally {
+                            setPendingClaims((s) => ({ ...s, [item.id]: false }));
+                          }
+                        }}
+                        disabled={isClaiming || !!pendingClaims[item.id]}
                         className="w-full py-2 rounded-lg bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white text-xs font-bold transition-all disabled:opacity-50"
                       >
-                        {isClaiming ? "Talep Ediliyor..." : "✓ Talep Et"}
+                        {isClaiming || pendingClaims[item.id] ? "Talep Ediliyor..." : "✓ Talep Et"}
                       </button>
                     ) : item.claimed ? (
                       <div className="w-full py-2 rounded-lg bg-white/10 text-white text-xs font-bold text-center">
                         ✓ Talep Edildi
+                      </div>
+                    ) : awaitingFinalize ? (
+                      <div className="w-full py-2 rounded-lg bg-white/10 text-white text-xs font-bold text-center">
+                        Tamamlanıyor...
                       </div>
                     ) : (
                       <div className="flex gap-2">

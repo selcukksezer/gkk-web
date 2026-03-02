@@ -292,6 +292,8 @@ DECLARE
   v_auth_id UUID;
   v_item_id TEXT;
   v_quantity INTEGER;
+  v_is_stackable BOOLEAN;
+  v_catalog_stack BOOLEAN;
   v_slot INTEGER;
   v_existing RECORD;
   v_row_id UUID;
@@ -304,21 +306,107 @@ BEGIN
   v_item_id := item_data->>'item_id';
   v_quantity := COALESCE((item_data->>'quantity')::INTEGER, 1);
 
+  -- Allow caller (claim) to control stacking via item_data.allow_stack (default true)
+  v_is_stackable := COALESCE((item_data->>'allow_stack')::boolean, true);
+
+  -- Enforce catalog: if item is not stackable in items table, do NOT stack regardless of caller flag
+  SELECT is_stackable INTO v_catalog_stack FROM public.items WHERE id = v_item_id;
+  IF v_catalog_stack IS NULL THEN
+    v_catalog_stack := false;
+  END IF;
+
+  v_is_stackable := v_is_stackable AND v_catalog_stack;
+
   IF v_item_id IS NULL THEN
     RETURN jsonb_build_object('success', false, 'error', 'item_id required');
   END IF;
+  -- Stack behavior respecting catalog.max_stack:
+  IF v_is_stackable THEN
+    -- Get max stack size for item from catalog
+    DECLARE
+      v_max_stack INTEGER := 0;
+      v_existing_space INTEGER := 0;
+      v_space INTEGER := 0;
+      v_add INTEGER := 0;
+      v_required_slots INTEGER := 0;
+      v_free_slots INTEGER := 0;
+      v_rows RECORD;
+    BEGIN
+      SELECT COALESCE(max_stack, 999999) INTO v_max_stack FROM public.items WHERE id = v_item_id;
+      IF v_max_stack IS NULL OR v_max_stack <= 0 THEN
+        v_max_stack := 999999;
+      END IF;
 
-  -- Stackable item kontrolü: aynı item zaten varsa quantity artır
-  SELECT row_id, quantity INTO v_existing
-  FROM public.inventory
-  WHERE user_id = v_auth_id AND item_id = v_item_id AND is_equipped = false
-  LIMIT 1;
+      -- Total available space in existing stacks for this item
+      SELECT COALESCE(SUM(GREATEST(0, v_max_stack - quantity)), 0) INTO v_existing_space
+      FROM public.inventory
+      WHERE user_id = v_auth_id AND item_id = v_item_id AND is_equipped = false;
 
-  IF v_existing IS NOT NULL THEN
-    UPDATE public.inventory
-    SET quantity = v_existing.quantity + v_quantity, updated_at = NOW()
-    WHERE row_id = v_existing.row_id;
-    RETURN jsonb_build_object('success', true, 'row_id', v_existing.row_id, 'action', 'stacked');
+      -- If all quantity fits into existing stacks, just fill them
+      IF v_quantity <= v_existing_space THEN
+        FOR v_rows IN
+          SELECT row_id, quantity FROM public.inventory
+          WHERE user_id = v_auth_id AND item_id = v_item_id AND is_equipped = false
+          ORDER BY created_at ASC
+        LOOP
+          EXIT WHEN v_quantity <= 0;
+          v_space := v_max_stack - v_rows.quantity;
+          IF v_space > 0 THEN
+            v_add := LEAST(v_space, v_quantity);
+            UPDATE public.inventory
+            SET quantity = quantity + v_add, updated_at = NOW()
+            WHERE row_id = v_rows.row_id;
+            v_quantity := v_quantity - v_add;
+          END IF;
+        END LOOP;
+        RETURN jsonb_build_object('success', true, 'action', 'stacked');
+      END IF;
+
+      -- Need new slots as well. Compute required new slots and ensure enough free slots exist
+      v_required_slots := CEIL( (v_quantity - v_existing_space)::numeric / v_max_stack::numeric )::integer;
+      SELECT COUNT(*) INTO v_free_slots FROM generate_series(0,19) AS s(slot)
+      WHERE NOT EXISTS (
+        SELECT 1 FROM public.inventory WHERE user_id = v_auth_id AND slot_position = s.slot AND is_equipped = false
+      );
+
+      IF v_free_slots < v_required_slots THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Envanter dolu');
+      END IF;
+
+      -- Fill existing stacks first
+      FOR v_rows IN
+        SELECT row_id, quantity FROM public.inventory
+        WHERE user_id = v_auth_id AND item_id = v_item_id AND is_equipped = false
+        ORDER BY created_at ASC
+      LOOP
+        EXIT WHEN v_quantity <= 0;
+        v_space := v_max_stack - v_rows.quantity;
+        IF v_space > 0 THEN
+          v_add := LEAST(v_space, v_quantity);
+          UPDATE public.inventory
+          SET quantity = quantity + v_add, updated_at = NOW()
+          WHERE row_id = v_rows.row_id;
+          v_quantity := v_quantity - v_add;
+        END IF;
+      END LOOP;
+
+      -- Insert new rows for remaining quantity
+      WHILE v_quantity > 0 LOOP
+        v_add := LEAST(v_max_stack, v_quantity);
+        SELECT s.slot INTO v_slot FROM generate_series(0,19) AS s(slot)
+        WHERE NOT EXISTS (
+          SELECT 1 FROM public.inventory WHERE user_id = v_auth_id AND slot_position = s.slot AND is_equipped = false
+        ) ORDER BY s.slot LIMIT 1;
+
+        INSERT INTO public.inventory (user_id, item_id, quantity, slot_position, obtained_at)
+        VALUES (v_auth_id, v_item_id, v_add, v_slot, EXTRACT(EPOCH FROM NOW())::BIGINT)
+        RETURNING row_id INTO v_row_id;
+
+        v_quantity := v_quantity - v_add;
+      END LOOP;
+
+      RETURN jsonb_build_object('success', true, 'action', 'stacked_inserted');
+    END;
   END IF;
 
   -- Boş slot bul

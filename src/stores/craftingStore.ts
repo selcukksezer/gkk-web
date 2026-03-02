@@ -28,7 +28,7 @@ interface CraftingState {
   loadRecipes: () => Promise<void>;
   craftItem: (recipeId: string, batchCount: number) => Promise<boolean>;
   loadQueue: () => Promise<void>;
-  claimItem: (queueItemId: string) => Promise<boolean>;
+  claimItem: (queueItemId: string) => Promise<{ success: boolean; message?: string; xp_awarded?: number }>;
   cancelItem: (queueItemId: string) => Promise<boolean>;
   hasMaterials: (recipe: CraftRecipe, batchCount?: number) => boolean;
   isQueueFull: () => boolean;
@@ -116,16 +116,6 @@ export const useCraftingStore = create<CraftingState>()((set, get) => ({
       return false;
     }
 
-    // CAPACITY CHECK: ensure inventory has space for craft output
-    if (recipe && recipe.output_quantity) {
-      const invStore = useInventoryStore.getState();
-      const capacityCheck = invStore.canAddItem(recipe.output_item_id, recipe.output_quantity * batchCount);
-      if (!capacityCheck.canAdd) {
-        set({ error: capacityCheck.reason || "Envanter dolu! Üretim yapılamaz." });
-        return false;
-      }
-    }
-
     set({ isCrafting: true, error: null });
 
     try {
@@ -176,16 +166,47 @@ export const useCraftingStore = create<CraftingState>()((set, get) => ({
         p_queue_item_id: queueItemId,
       });
 
-      if (res.success) {
+      // claim_crafted_item returns TABLE, so res.data is an array with one row
+      const result = (res.data as any)?.[0];
+
+      if (res.success && result?.success) {
         // Remove claimed item from queue
         set((s) => ({
           queue: s.queue.filter((q) => q.id !== queueItemId),
         }));
         // Refresh inventory to show new item
         useInventoryStore.getState().fetchInventory();
+        // Server returns authoritative total XP in xp_awarded; compute delta for UI toast
+        const totalXp = result?.xp_awarded ? (result?.xp_awarded as number) : 0;
+        const prevXp = usePlayerStore.getState().xp || 0;
+        const xpDelta = Math.max(0, totalXp - prevXp);
+        // Apply authoritative total XP to local store immediately to avoid overwrite races
+        if (totalXp > 0) {
+          usePlayerStore.setState({ xp: totalXp });
+        }
+        // Refresh full profile from server to sync other fields
+        await usePlayerStore.getState().fetchProfile();
+        return { success: true, message: result?.message, xp_awarded: xpDelta };
+      }
+
+      const msg = result?.message || res.error || "Talep edilemedi";
+      // Reload queue so failed flag shows if server marked it
+      await get().loadQueue();
+      set({ error: msg });
+      return { success: false, message: msg };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Talep edilemedi";
+      return { success: false, message: msg };
+    }
+  },
+
+  acknowledgeItem: async (queueItemId: string) => {
+    try {
+      const res = await api.rpc("acknowledge_crafted_item", { p_queue_item_id: queueItemId });
+      if (res.success) {
+        set((s) => ({ queue: s.queue.filter((q) => q.id !== queueItemId) }));
         return true;
       }
-      set({ error: res.error || "Talep edilemedi" });
       return false;
     } catch {
       return false;

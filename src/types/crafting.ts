@@ -41,4 +41,6 @@ export interface CraftQueueItem {
   completes_at: string;
   is_completed: boolean;
   claimed: boolean;
+  failed?: boolean;
+  xp_reward?: number;
 }

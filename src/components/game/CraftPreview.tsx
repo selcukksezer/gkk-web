@@ -119,7 +119,8 @@ export function CraftPreview({
       key={recipe.id}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/8 to-white/[0.02] backdrop-blur-2xl p-6 overflow-hidden"
+      className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/8 to-white/[0.02] backdrop-blur-2xl p-6 overflow-auto"
+      style={{ maxHeight: "calc(100vh - 6rem)" }}
     >
       {/* Background Accent */}
       <div className="absolute inset-0 bg-gradient-to-r from-blue-600/0 via-purple-600/5 to-blue-600/0 pointer-events-none" />
@@ -221,6 +222,10 @@ export function CraftPreview({
           <div className="rounded-lg bg-white/5 border border-white/10 p-3">
             <p className="text-xs text-white/50 uppercase tracking-wide">Başarı Oranı</p>
             <p className="text-sm font-bold text-yellow-300 mt-1">{Math.round(successRate * 100)}%</p>
+          </div>
+          <div className="rounded-lg bg-white/5 border border-white/10 p-3">
+            <p className="text-xs text-white/50 uppercase tracking-wide">XP Ödülü (toplam)</p>
+            <p className="text-sm font-bold text-amber-300 mt-1">+{(recipe.xp_reward ?? 0) * batchCount} XP</p>
           </div>
           <div className="rounded-lg bg-white/5 border border-white/10 p-3">
             <p className="text-xs text-white/50 uppercase tracking-wide">Elmas Maliyeti</p>

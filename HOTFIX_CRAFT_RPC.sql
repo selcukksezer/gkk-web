@@ -33,6 +33,7 @@ DECLARE
   v_ingredient_item RECORD;
   v_required_qty integer;
   v_owned_qty integer;
+  v_final_qty integer;
 BEGIN
   -- Verify user is authenticated
   v_user_id := auth.uid();
@@ -139,6 +140,7 @@ DECLARE
   v_user_id uuid;
   v_queue craft_queue%ROWTYPE;
   v_recipe crafting_recipes%ROWTYPE;
+  v_final_qty integer;
 BEGIN
   -- Verify user is authenticated
   v_user_id := auth.uid();
@@ -162,14 +164,35 @@ BEGIN
 
   -- Fetch recipe to get output item
   SELECT * FROM public.crafting_recipes WHERE id = v_queue.recipe_id INTO v_recipe;
+  -- Ensure the item is completed (either marked or time has passed)
+  IF NOT v_queue.is_completed AND v_queue.completes_at > now() THEN
+    RETURN QUERY SELECT false, 'Not ready to claim'::text;
+    RETURN;
+  END IF;
 
-  -- Update queue item as claimed
-  UPDATE public.craft_queue
-  SET claimed = true, updated_at = now()
-  WHERE id = p_queue_item_id;
+  -- Compute final quantity to add (use batch_count; crafting_recipes may not define output_quantity)
+  v_final_qty := COALESCE(v_queue.batch_count, 1) * 1;
 
-  -- TODO: Add item to user inventory after claiming
-  RETURN QUERY SELECT true, 'Item claimed'::text;
+  -- Add produced item to inventory via helper (handles stackable / slots / full inventory)
+  DECLARE v_add_res jsonb;
+  BEGIN
+    -- Validate output_item_id exists
+    IF v_recipe.output_item_id IS NULL OR length(coalesce(v_recipe.output_item_id::text, '')) = 0 THEN
+      RETURN QUERY SELECT false, 'Recipe has no output_item_id'::text;
+      RETURN;
+    END IF;
+
+    v_add_res := public.add_inventory_item_v2(jsonb_build_object('item_id', v_recipe.output_item_id, 'quantity', v_final_qty, 'allow_stack', true), NULL);
+    IF v_add_res IS NULL OR (v_add_res->>'success')::boolean IS NOT TRUE THEN
+      RETURN QUERY SELECT false, COALESCE(v_add_res->>'error', 'Failed to add to inventory')::text;
+      RETURN;
+    END IF;
+
+    -- Remove queue item after successful claim
+    DELETE FROM public.craft_queue WHERE id = p_queue_item_id;
+
+    RETURN QUERY SELECT true, 'Item claimed and added to inventory'::text;
+  END;
 END;
 $$;
 

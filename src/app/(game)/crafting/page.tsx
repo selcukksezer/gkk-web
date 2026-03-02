@@ -8,6 +8,7 @@
 "use client";
 
 import { useEffect, useMemo, useCallback, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
 import { useCraftingStore } from "@/stores/craftingStore";
 import { usePlayerStore } from "@/stores/playerStore";
@@ -110,12 +111,20 @@ export default function CraftingPage() {
   // Handle claim
   const handleClaim = useCallback(
     async (queueItemId: string) => {
-      const success = await claimItem(queueItemId);
-      if (success) {
+      const res = await claimItem(queueItemId);
+      if (res.success) {
         addToast("✅ Ürün talep edildi!", "success");
+        if (res.xp_awarded && res.xp_awarded > 0) {
+          addToast(`✨ +${res.xp_awarded} XP`, "success");
+        }
         await loadQueue();
       } else {
-        addToast("❌ Talep başarısız!", "error");
+        // Başarısız üretimler için toast gösterme, kuyrukta gösterilecek
+        // Sadece envanter dolu gibi diğer hatalar için toast göster
+        if (res.message && res.message !== 'Üretim başarısız') {
+          addToast(`❌ ${res.message}`, "error");
+        }
+        await loadQueue();
       }
     },
     [claimItem, addToast, loadQueue]
@@ -134,6 +143,33 @@ export default function CraftingPage() {
     },
     [cancelItem, addToast, loadQueue]
   );
+
+    // Finalize: run server-side success/failure once completes_at passed
+    const handleFinalize = useCallback(
+      async (queueItemId: string) => {
+        try {
+          const res = await supabase.rpc("finalize_crafted_item", { p_queue_item_id: queueItemId });
+          // Supabase returns rows for table-returning functions
+          // Log server-side success_rate and roll to console for diagnostics
+          // `res` shape can be { data, error } or array depending on client version; handle both
+          // @ts-ignore
+          const rows = res?.data ?? res;
+          if (rows && Array.isArray(rows) && rows.length > 0) {
+            const row = rows[0];
+            console.info(`[finalize] queue=${queueItemId} success=${row.success} success_rate=${row.success_rate} roll=${row.roll}`);
+          } else if (rows && rows.success !== undefined) {
+            // single object
+            // @ts-ignore
+            console.info(`[finalize] queue=${queueItemId} success=${rows.success} success_rate=${rows.success_rate} roll=${rows.roll}`);
+          }
+        } catch (e) {
+          console.error("finalize_crafted_item error", e);
+        } finally {
+          await loadQueue();
+        }
+      },
+      [loadQueue]
+    );
 
   return (
     <motion.div
@@ -196,8 +232,10 @@ export default function CraftingPage() {
 
             {/* Overlay: CraftPreview (top, centered) */}
             {showPreview && selectedRecipe && (
-              <div className="absolute inset-x-4 top-4 z-10">
-                <CraftPreview
+              <div className="fixed left-0 right-0 z-50" style={{ top: "calc(3rem + env(safe-area-inset-top))" }}>
+                <div className="flex justify-center px-4 pointer-events-none">
+                  <div className="pointer-events-auto">
+                    <CraftPreview
                   recipe={selectedRecipe}
                   batchCount={selectedBatchCount}
                   onBatchChange={setBatchCount}
@@ -211,7 +249,9 @@ export default function CraftingPage() {
                     setBatchCount(1);
                     setShowPreview(false);
                   }}
-                />
+                    />
+                  </div>
+                </div>
               </div>
             )}
           </motion.div>
@@ -224,6 +264,11 @@ export default function CraftingPage() {
             <QueueSection
               queue={queue}
               onClaim={handleClaim}
+              onAcknowledge={async (id: string) => {
+                const success = await useCraftingStore.getState().acknowledgeItem(id);
+                if (success) await loadQueue();
+              }}
+              onFinalize={handleFinalize}
               onCancel={handleCancel}
               isClaiming={isCrafting}
               isCancelling={isCancelling}
