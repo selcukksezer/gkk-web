@@ -16,7 +16,7 @@ import { xpProgress } from "@/lib/utils/math";
 const MENU_ITEMS = [
   { path: "/profile", label: "Profil", icon: "👤" },
   { path: "/character", label: "Karakter", icon: "🧙" },
-  { path: "/equipment", label: "Teçhizat", icon: "🛡️" },
+  /* equipment removed */
   { path: "/quests", label: "Görevler", icon: "📜" },
   { path: "/dungeon", label: "Zindan", icon: "🏰" },
   { path: "/hospital", label: "Hastane", icon: "🏥" },
@@ -25,10 +25,9 @@ const MENU_ITEMS = [
   { path: "/crafting", label: "Zanaat", icon: "🔨" },
   { path: "/enhancement", label: "Güçlendirme", icon: "🔥" },
   { path: "/facilities", label: "Tesisler", icon: "🏭" },
-  { path: "/production", label: "Üretim", icon: "⚙️" },
   { path: "/shop", label: "Mağaza", icon: "🛒" },
   { path: "/bank", label: "Banka", icon: "🏦" },
-  { path: "/warehouse", label: "Depo", icon: "📦" },
+  /* warehouse removed */
   { path: "/leaderboard", label: "Sıralama", icon: "🏆" },
   { path: "/season", label: "Sezon", icon: "🌟" },
   { path: "/achievements", label: "Başarımlar", icon: "🏅" },

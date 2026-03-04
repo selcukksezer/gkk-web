@@ -138,14 +138,25 @@ async function request<T = unknown>(
       return request<T>(method, endpoint, body, retryCount, rateLimitRetries + 1);
     }
 
-    // 401 Unauthorized — token refresh (only once)
+    // 401 Unauthorized — attempt token refresh only when we have a refresh token
     if (res.status === 401 && retryCount < 1) {
-      console.warn("[API] 401 - attempting token refresh");
-      const { error } = await supabase.auth.refreshSession();
-      if (!error) {
-        return request<T>(method, endpoint, body, retryCount + 1, rateLimitRetries);
+      console.warn("[API] 401 - checking for refresh token before attempting refresh");
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        // If there's no refresh token available (e.g. running on server or storage empty), don't call refresh
+        if (!session || !session.refresh_token) {
+          return { success: false, error: "Oturum süresi doldu. Lütfen tekrar giriş yapın.", code: 401 };
+        }
+
+        const { error } = await supabase.auth.refreshSession();
+        if (!error) {
+          return request<T>(method, endpoint, body, retryCount + 1, rateLimitRetries);
+        }
+        return { success: false, error: "Oturum süresi doldu. Lütfen tekrar giriş yapın.", code: 401 };
+      } catch (e) {
+        console.warn("[API] Failed to refresh session or check session:", e);
+        return { success: false, error: "Oturum süresi doldu. Lütfen tekrar giriş yapın.", code: 401 };
       }
-      return { success: false, error: "Oturum süresi doldu. Lütfen tekrar giriş yapın.", code: 401 };
     }
 
     const data = await res.json().catch(() => null);
