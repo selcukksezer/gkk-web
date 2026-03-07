@@ -1,7 +1,7 @@
 # PLAN 04 — Zindan (Dungeon) Sistemi
 
 > **Durum:** Tasarım Aşaması  
-> **Son Güncelleme:** 2026-03-04  
+> **Son Güncelleme:** 2026-03-07  
 > **Bağımlılıklar:** Item sistemi (power hesabı), Tesis sistemi (catalyst drop'ları), Enhancement sistemi (item güçlendirme)
 
 ---
@@ -14,7 +14,7 @@
 - Seviye 1 oyuncu → Zindan 1'i **%100 başarıyla** geçer
 - Aynı oyuncu → Zindan 2'de düşük başarı oranına sahip olur (ekipmansız ~%25-40)
 - Oyuncu aynı zindanı tekrarlayarak para/item/XP kasmalıdır
-- **Günlük limit mekanikleri:** Enerji + Yorgunluk (Fatigue)
+- **Günlük limit mekanikleri:** Enerji maliyetleri + Boss deneme limitleri
 - 1 yıllık sezonda, hardcore oyuncu bile tüm 65 zindanı kolayca bitiremez
 
 ---
@@ -274,36 +274,26 @@ function calculateTotalPower(player: PlayerProfile, equippedItems: InventoryItem
 
 ---
 
-## 5. Yorgunluk (Fatigue) Sistemi
+## 5. Enerji Yönetimi
 
-### 5.1 Mekanik
+### 5.1 Enerji Tüketimi
 
-Her zindan koşusu **+1 Fatigue** ekler. Fatigue, başarı oranından düşer.
+Zindan koşuları enerji tüketir. Enerji, enerji iksiri kullanımı ve belirli aktivite ödülleri ile yenilenir.
+Han/Mekan'da satılan **Han-only enerji itemları** temel enerji yenileme kaynağıdır (bkz. PLAN_07).
 
-```
-fatigue_penalty = fatigue_points × 0.02  (her fatigue = -%2 başarı)
-```
+- **Enerji sınırı:** Enerji kıtlığı doğal günlük limit oluşturur
+- **Boss limitleri:** Zone boss'larında günlük 3 deneme limiti uygulanır
+- **Hastane/Hapishane:** Sağlık/güvenlik nedeniyle aktiflik kısıtlanır
+- **Overdose:** Han enerji potionı overdose'u hastaneye düşürür (bkz. §7 ve PLAN_08)
 
-- **Max Fatigue:** 50 (= -%100, pratikte %5'e düşürür)
-- **Fatigue Reset:** Her gün gece yarısı (00:00 UTC)
-- **Fatigue Azaltma:** 1 gem = -1 fatigue (opsiyonel P2W)
+### 5.2 Günlük Efektif Limit
 
-### 5.2 Günlük Örnek
-
-Bir oyuncu 20 zindan koştu:
-```
-fatigue = 20 → penalty = 40%
-95% başarı oranı → 95% - 40% = 55%'e düşer
-```
-
-Bu sistem, oyuncuları günde ~15-25 zindan koşmaya yönlendirir (ötesi çok riskli).
-
-### 5.3 Enerji + Fatigue Kombine Limiti
-
-- Günlük enerji: ~480 (24 saat full regen)
-- Zone 1 (5 enerji): 480/5 = 96 koşu, ama 50 fatigue'den sonra pratikte imkansız
-- Zone 6 (40 enerji): 480/40 = 12 koşu, fatigue minimal etki
-- **Etkili günlük limit:** ~20-30 koşu (casual), ~40-50 koşu (hardcore, gem ile fatigue reset)
+| Zone | Enerji/Koşu | Max Koşu/Gün (500 enerji bütçesi) | Efektif Limit |
+|------|------------|-----------------------------------|---------------|
+| Zone 1 | 5-8 | ~60-100 | Enerji tükenmeden boss limit devreye girer |
+| Zone 3 | 12-18 | ~28-42 | Orta limit |
+| Zone 5 | 25-35 | ~14-20 | Düşük limit |
+| Zone 7 | 45-50 | ~10-11 | Doğal kısıtlama |
 
 ---
 
@@ -512,7 +502,7 @@ CREATE TABLE IF NOT EXISTS public.dungeon_runs (
   -- Stats at time of run
   player_power INTEGER DEFAULT 0,
   success_rate_at_run NUMERIC DEFAULT 0,
-  fatigue_at_run INTEGER DEFAULT 0,
+  -- fatigue_at_run removed (Fatigue system removed)
   
   -- First clear bonus
   is_first_clear BOOLEAN DEFAULT false,
@@ -540,10 +530,6 @@ CREATE TABLE IF NOT EXISTS public.player_dungeon_stats (
   today_attempts INTEGER DEFAULT 0,
   today_boss_attempts INTEGER DEFAULT 0,
   
-  -- Daily fatigue
-  fatigue INTEGER DEFAULT 0,
-  fatigue_reset_at DATE DEFAULT CURRENT_DATE,
-  
   UNIQUE(player_id, dungeon_id)
 );
 
@@ -561,7 +547,6 @@ DECLARE
   v_dungeon RECORD;
   v_player RECORD;
   v_power INTEGER;
-  v_fatigue INTEGER;
   v_success_rate NUMERIC;
   v_success BOOLEAN;
   v_is_critical BOOLEAN;
@@ -608,11 +593,10 @@ BEGIN
   
   -- Reset daily counters if new day
   UPDATE player_dungeon_stats 
-  SET today_attempts = 0, today_boss_attempts = 0, fatigue = 0, fatigue_reset_at = CURRENT_DATE
-  WHERE player_id = p_player_id AND fatigue_reset_at < CURRENT_DATE;
+  SET today_attempts = 0, today_boss_attempts = 0
+  WHERE player_id = p_player_id AND dungeon_id = p_dungeon_id AND today_attempts > 0;
   
-  -- Get fatigue
-  SELECT fatigue, today_boss_attempts INTO v_fatigue, v_today_boss
+  SELECT today_boss_attempts INTO v_today_boss
   FROM player_dungeon_stats 
   WHERE player_id = p_player_id AND dungeon_id = p_dungeon_id;
   
@@ -639,9 +623,6 @@ BEGIN
       END IF;
     END;
   END IF;
-  
-  -- Apply fatigue penalty
-  v_success_rate := GREATEST(0.05, v_success_rate - (v_fatigue * 0.02));
   
   -- Apply luck bonus
   v_success_rate := LEAST(0.95, v_success_rate + COALESCE(v_player.luck, 0) * 0.001);
@@ -705,8 +686,7 @@ BEGIN
     total_failures = total_failures + CASE WHEN v_success THEN 0 ELSE 1 END,
     first_clear_at = CASE WHEN v_success AND first_clear_at IS NULL THEN now() ELSE first_clear_at END,
     today_attempts = today_attempts + 1,
-    today_boss_attempts = today_boss_attempts + CASE WHEN v_dungeon.is_boss THEN 1 ELSE 0 END,
-    fatigue = fatigue + 1
+    today_boss_attempts = today_boss_attempts + CASE WHEN v_dungeon.is_boss THEN 1 ELSE 0 END
   WHERE player_id = p_player_id AND dungeon_id = p_dungeon_id;
   
   -- Insert run record
@@ -714,12 +694,12 @@ BEGIN
     player_id, dungeon_id, success, is_critical,
     gold_earned, xp_earned, items_dropped,
     hospitalized, hospital_until,
-    player_power, success_rate_at_run, fatigue_at_run, is_first_clear
+    player_power, success_rate_at_run, is_first_clear
   ) VALUES (
     p_player_id, p_dungeon_id, v_success, v_is_critical,
     v_gold, v_xp, v_items,
     v_hospitalized, v_hospital_until,
-    v_power, v_success_rate, v_fatigue, v_is_first
+    v_power, v_success_rate, v_is_first
   );
   
   RETURN jsonb_build_object(
@@ -731,7 +711,6 @@ BEGIN
     'hospitalized', v_hospitalized,
     'hospital_until', v_hospital_until,
     'is_first_clear', v_is_first,
-    'fatigue', v_fatigue + 1,
     'success_rate', round(v_success_rate * 100, 1)
   );
 END;
