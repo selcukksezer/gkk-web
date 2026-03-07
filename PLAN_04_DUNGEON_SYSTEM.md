@@ -1,7 +1,7 @@
 # PLAN 04 — Zindan (Dungeon) Sistemi
 
 > **Durum:** Tasarım Aşaması  
-> **Son Güncelleme:** 2026-03-04  
+> **Son Güncelleme:** 2026-03-07  
 > **Bağımlılıklar:** Item sistemi (power hesabı), Tesis sistemi (catalyst drop'ları), Enhancement sistemi (item güçlendirme)
 
 ---
@@ -14,7 +14,7 @@
 - Seviye 1 oyuncu → Zindan 1'i **%100 başarıyla** geçer
 - Aynı oyuncu → Zindan 2'de düşük başarı oranına sahip olur (ekipmansız ~%25-40)
 - Oyuncu aynı zindanı tekrarlayarak para/item/XP kasmalıdır
-- **Günlük limit mekanikleri:** Enerji + Yorgunluk (Fatigue)
+- **Günlük limit mekanikleri:** Enerji maliyetleri + Boss deneme limitleri
 - 1 yıllık sezonda, hardcore oyuncu bile tüm 65 zindanı kolayca bitiremez
 
 ---
@@ -194,11 +194,15 @@ else:
 
 ```
 luck_bonus = player_luck × 0.001          (max +5%)
+             -- Savaşçı: +5% ek zindan başarı bonusu (PLAN_11)
+             -- Gölge: luck × 0.001 × 1.40 ek loot bonus (PLAN_11)
 reputation_bonus = reputation × 0.0005     (max +2.5%)
 guild_bonus = guild_level × 0.01           (max +5%)
 season_modifier = season_specific_bonus     (değişken, 0-10%)
 
 final_rate = clamp(success_rate + luck_bonus + reputation_bonus + guild_bonus + season_modifier, 0.05, 0.95)
+
+-- Savaşçı sınıfı ise: final_rate += 0.05 (PLAN_11 pasif bonus)
 ```
 
 ### 3.3 Örnek Senaryolar
@@ -256,7 +260,7 @@ End-game'de bile %100 garantili değil. Enhancement, luck, guild bonusu kritik.
 function calculateTotalPower(player: PlayerProfile, equippedItems: InventoryItem[]): number {
   let power = 0;
   
-  // Equipment power
+  // Equipment power (canonical formula — PLAN_06 §5.1 ile tutarlı)
   for (const item of equippedItems) {
     const enhMultiplier = 1 + (item.enhancement_level * 0.15);
     power += Math.floor((item.attack + item.defense + item.health / 10 + item.luck * 2) * enhMultiplier);
@@ -268,42 +272,82 @@ function calculateTotalPower(player: PlayerProfile, equippedItems: InventoryItem
   // Reputation bonus
   power += Math.floor((player.reputation ?? 0) * 0.1);
   
+  // Luck contribution (player baz luck — PLAN_11)
+  power += Math.floor((player.luck ?? 0) * 50);
+  
   return power;
 }
 ```
 
+### 4.1 Karakter Stat Entegrasyonu (PLAN_11)
+
+Karakter sınıfından gelen baz statlar (attack/defense/health/luck) hem **power hesabına** hem de **zindan içi hasar/hayatta kalma modifiyerlerine** doğrudan katkı sağlar.
+
+**Önemli Prensip:** Baz statlar (sınıf + level büyümesi) ekipman statlarından çok daha küçüktür. Asıl güç ekipmandan gelir; sınıf statları **yönlendirici** (directional) etki yaratır.
+
+```
+-- Zindan hasar hesabı (success_rate bağımsız, animasyon ve loot için)
+dungeon_damage_output = (player.attack × class_boss_bonus) + equipment_attack_total
+dungeon_survivability  = player.max_health + equipment_health_total
+dungeon_mitigation     = player.defense × 0.001   (% hasar azalma, max %30)
+
+-- Hastane süresi modifiyeri (defense bazlı)
+effective_hospital_time = base_hospital_time × (1 - dungeon_mitigation)
+  Savaşçı: additional × 0.80 (hospital_duration_reduction -20%)
+
+-- Loot kalitesi modifiyeri (luck bazlı)
+loot_luck_modifier = 1 + player.luck × 0.002
+  Gölge: loot_luck_modifier = 1 + player.luck × 0.002 × 1.40  (luck_bonus +40%)
+```
+
+**Boss hasarı sınıf modifiyerleri** (`enter_dungeon` RPC §9.4'e eklenir):
+
+```sql
+-- Savaşçı: Boss zindanlarda hasar bonusu
+IF v_player.character_class = 'warrior' AND v_dungeon.is_boss THEN
+  -- Loot bonus olarak modellenir (gold +%15 boss reward)
+  v_gold := floor(v_gold * 1.15);
+END IF;
+
+-- Gölge: Tüm zindanlarda loot luck bonusu
+IF v_player.character_class = 'shadow' THEN
+  v_luck_for_loot := COALESCE(v_player.luck, 0) * 1.40;
+  v_gold := floor(v_gold * (1 + v_luck_for_loot * 0.002));
+END IF;
+
+-- Defense bazlı hastane süresi azaltma
+v_defense_mitigation := LEAST(0.30, COALESCE(v_player.defense, 0) * 0.001);
+IF v_hospitalized THEN
+  v_hospital_minutes := floor(v_hospital_minutes * (1 - v_defense_mitigation));
+  -- Savaşçı ek indirim
+  IF v_player.character_class = 'warrior' THEN
+    v_hospital_minutes := floor(v_hospital_minutes * 0.80);
+  END IF;
+END IF;
+```
+
 ---
 
-## 5. Yorgunluk (Fatigue) Sistemi
+## 5. Enerji Yönetimi
 
-### 5.1 Mekanik
+### 5.1 Enerji Tüketimi
 
-Her zindan koşusu **+1 Fatigue** ekler. Fatigue, başarı oranından düşer.
+Zindan koşuları enerji tüketir. Enerji, enerji iksiri kullanımı ve belirli aktivite ödülleri ile yenilenir.
+Han/Mekan'da satılan **Han-only enerji itemları** temel enerji yenileme kaynağıdır (bkz. PLAN_07).
 
-```
-fatigue_penalty = fatigue_points × 0.02  (her fatigue = -%2 başarı)
-```
+- **Enerji sınırı:** Enerji kıtlığı doğal günlük limit oluşturur
+- **Boss limitleri:** Zone boss'larında günlük 3 deneme limiti uygulanır
+- **Hastane/Hapishane:** Sağlık/güvenlik nedeniyle aktiflik kısıtlanır
+- **Overdose:** Han enerji potionı overdose'u hastaneye düşürür (bkz. §7 ve PLAN_08)
 
-- **Max Fatigue:** 50 (= -%100, pratikte %5'e düşürür)
-- **Fatigue Reset:** Her gün gece yarısı (00:00 UTC)
-- **Fatigue Azaltma:** 1 gem = -1 fatigue (opsiyonel P2W)
+### 5.2 Günlük Efektif Limit
 
-### 5.2 Günlük Örnek
-
-Bir oyuncu 20 zindan koştu:
-```
-fatigue = 20 → penalty = 40%
-95% başarı oranı → 95% - 40% = 55%'e düşer
-```
-
-Bu sistem, oyuncuları günde ~15-25 zindan koşmaya yönlendirir (ötesi çok riskli).
-
-### 5.3 Enerji + Fatigue Kombine Limiti
-
-- Günlük enerji: ~480 (24 saat full regen)
-- Zone 1 (5 enerji): 480/5 = 96 koşu, ama 50 fatigue'den sonra pratikte imkansız
-- Zone 6 (40 enerji): 480/40 = 12 koşu, fatigue minimal etki
-- **Etkili günlük limit:** ~20-30 koşu (casual), ~40-50 koşu (hardcore, gem ile fatigue reset)
+| Zone | Enerji/Koşu | Max Koşu/Gün (500 enerji bütçesi) | Efektif Limit |
+|------|------------|-----------------------------------|---------------|
+| Zone 1 | 5-8 | ~60-100 | Enerji tükenmeden boss limit devreye girer |
+| Zone 3 | 12-18 | ~28-42 | Orta limit |
+| Zone 5 | 25-35 | ~14-20 | Düşük limit |
+| Zone 7 | 45-50 | ~10-11 | Doğal kısıtlama |
 
 ---
 
@@ -512,7 +556,7 @@ CREATE TABLE IF NOT EXISTS public.dungeon_runs (
   -- Stats at time of run
   player_power INTEGER DEFAULT 0,
   success_rate_at_run NUMERIC DEFAULT 0,
-  fatigue_at_run INTEGER DEFAULT 0,
+  -- fatigue_at_run removed (Fatigue system removed)
   
   -- First clear bonus
   is_first_clear BOOLEAN DEFAULT false,
@@ -539,10 +583,7 @@ CREATE TABLE IF NOT EXISTS public.player_dungeon_stats (
   best_power_at_clear INTEGER DEFAULT 0,
   today_attempts INTEGER DEFAULT 0,
   today_boss_attempts INTEGER DEFAULT 0,
-  
-  -- Daily fatigue
-  fatigue INTEGER DEFAULT 0,
-  fatigue_reset_at DATE DEFAULT CURRENT_DATE,
+  today_date DATE DEFAULT CURRENT_DATE,   -- günlük sıfırlama için tarih takibi
   
   UNIQUE(player_id, dungeon_id)
 );
@@ -561,7 +602,6 @@ DECLARE
   v_dungeon RECORD;
   v_player RECORD;
   v_power INTEGER;
-  v_fatigue INTEGER;
   v_success_rate NUMERIC;
   v_success BOOLEAN;
   v_is_critical BOOLEAN;
@@ -569,19 +609,24 @@ DECLARE
   v_xp INTEGER;
   v_hospitalized BOOLEAN := false;
   v_hospital_until TIMESTAMPTZ;
+  v_hospital_minutes INTEGER;
   v_is_first BOOLEAN := false;
   v_items JSONB := '[]'::JSONB;
   v_today_attempts INTEGER;
   v_today_boss INTEGER;
+  v_luck_for_loot NUMERIC;
+  v_ratio NUMERIC;
+  v_hospital_chance NUMERIC;
+  v_defense_mitigation NUMERIC;
 BEGIN
   -- Get dungeon
-  SELECT * INTO v_dungeon FROM dungeons WHERE id = p_dungeon_id;
+  SELECT * INTO v_dungeon FROM public.dungeons WHERE id = p_dungeon_id;
   IF NOT FOUND THEN
     RETURN jsonb_build_object('error', 'dungeon_not_found');
   END IF;
   
   -- Get player
-  SELECT * INTO v_player FROM players WHERE id = p_player_id;
+  SELECT * INTO v_player FROM public.users WHERE id = p_player_id;
   IF NOT FOUND THEN
     RETURN jsonb_build_object('error', 'player_not_found');
   END IF;
@@ -608,11 +653,10 @@ BEGIN
   
   -- Reset daily counters if new day
   UPDATE player_dungeon_stats 
-  SET today_attempts = 0, today_boss_attempts = 0, fatigue = 0, fatigue_reset_at = CURRENT_DATE
-  WHERE player_id = p_player_id AND fatigue_reset_at < CURRENT_DATE;
+  SET today_attempts = 0, today_boss_attempts = 0, today_date = CURRENT_DATE
+  WHERE player_id = p_player_id AND dungeon_id = p_dungeon_id AND today_date < CURRENT_DATE;
   
-  -- Get fatigue
-  SELECT fatigue, today_boss_attempts INTO v_fatigue, v_today_boss
+  SELECT today_boss_attempts INTO v_today_boss
   FROM player_dungeon_stats 
   WHERE player_id = p_player_id AND dungeon_id = p_dungeon_id;
   
@@ -621,30 +665,40 @@ BEGIN
     RETURN jsonb_build_object('error', 'boss_daily_limit');
   END IF;
   
-  -- Calculate total power (simplified — full calc on client)
-  v_power := v_player.attack + v_player.defense + v_player.level * 500;
+  -- Calculate total power
+  -- Canonical formula: equipment power is passed from client; here we use stored player power
+  -- (full equipment power calculation occurs client-side or via get_current_user)
+  -- Server uses player.power (pre-calculated) if available, else approximation
+  v_power := COALESCE(v_player.power, 0);
+  IF v_power = 0 THEN
+    -- Fallback approximation if power not stored
+    v_power := v_player.level * 500
+             + floor(COALESCE(v_player.reputation, 0) * 0.1)
+             + floor(COALESCE(v_player.luck, 0) * 50);
+  END IF;
   
   -- Calculate success rate
   IF v_dungeon.power_requirement = 0 THEN
     v_success_rate := 1.0;
   ELSE
-    DECLARE v_ratio NUMERIC;
-    BEGIN
-      v_ratio := v_power::NUMERIC / v_dungeon.power_requirement;
-      IF v_ratio >= 1.5 THEN v_success_rate := 0.95;
-      ELSIF v_ratio >= 1.0 THEN v_success_rate := 0.70 + (v_ratio - 1.0) * 0.50;
-      ELSIF v_ratio >= 0.5 THEN v_success_rate := 0.25 + (v_ratio - 0.5) * 0.90;
-      ELSIF v_ratio >= 0.25 THEN v_success_rate := 0.10 + (v_ratio - 0.25) * 0.60;
-      ELSE v_success_rate := GREATEST(0.05, v_ratio * 0.40);
-      END IF;
-    END;
+    v_ratio := v_power::NUMERIC / v_dungeon.power_requirement;
+    IF v_ratio >= 1.5 THEN v_success_rate := 0.95;
+    ELSIF v_ratio >= 1.0 THEN v_success_rate := 0.70 + (v_ratio - 1.0) * 0.50;
+    ELSIF v_ratio >= 0.5 THEN v_success_rate := 0.25 + (v_ratio - 0.5) * 0.90;
+    ELSIF v_ratio >= 0.25 THEN v_success_rate := 0.10 + (v_ratio - 0.25) * 0.60;
+    ELSE v_success_rate := GREATEST(0.05, v_ratio * 0.40);
+    END IF;
   END IF;
   
-  -- Apply fatigue penalty
-  v_success_rate := GREATEST(0.05, v_success_rate - (v_fatigue * 0.02));
+  -- Apply luck bonus (PLAN_11 §3.3)
+  v_success_rate := v_success_rate + COALESCE(v_player.luck, 0) * 0.001;
   
-  -- Apply luck bonus
-  v_success_rate := LEAST(0.95, v_success_rate + COALESCE(v_player.luck, 0) * 0.001);
+  -- Apply Warrior class dungeon success bonus (PLAN_11 §9.1)
+  IF COALESCE(v_player.character_class, '') = 'warrior' THEN
+    v_success_rate := v_success_rate + 0.05;
+  END IF;
+  
+  v_success_rate := LEAST(0.95, v_success_rate);
   
   -- Roll for success
   v_success := random() <= v_success_rate;
@@ -658,25 +712,43 @@ BEGIN
       v_gold := floor(v_gold * 1.5);
       v_xp := floor(v_xp * 1.5);
     END IF;
+    
+    -- Luck-based loot bonus (PLAN_11 §3.3 + §4.1)
+    v_luck_for_loot := COALESCE(v_player.luck, 0);
+    IF COALESCE(v_player.character_class, '') = 'shadow' THEN
+      v_luck_for_loot := v_luck_for_loot * 1.40;  -- Gölge: +40% loot luck (PLAN_11)
+    END IF;
+    v_gold := floor(v_gold * (1 + v_luck_for_loot * 0.002));
+    v_xp   := floor(v_xp   * (1 + COALESCE(v_player.luck, 0) * 0.001));
+    
+    -- Warrior boss damage modelled as +15% gold reward on boss dungeons (PLAN_11)
+    IF COALESCE(v_player.character_class, '') = 'warrior' AND v_dungeon.is_boss THEN
+      v_gold := floor(v_gold * 1.15);
+    END IF;
   ELSE
     v_gold := floor(v_dungeon.gold_min * 0.3);
     v_xp := floor(v_dungeon.xp_reward * 0.2);
     
-    -- Hospital check on failure (inverse of success rate)
-    DECLARE v_hospital_chance NUMERIC;
-    BEGIN
-      v_hospital_chance := GREATEST(0.05, LEAST(0.90, 1.0 - v_success_rate));
-      v_hospital_chance := v_hospital_chance * (1 - COALESCE(v_player.luck, 0) * 0.003);
-      IF random() <= v_hospital_chance THEN
-        v_hospitalized := true;
-        v_hospital_until := now() + (
-          (v_dungeon.hospital_min_minutes + floor(random() * (v_dungeon.hospital_max_minutes - v_dungeon.hospital_min_minutes)))
-          || ' minutes'
-        )::INTERVAL;
-        
-        UPDATE players SET hospital_until = v_hospital_until WHERE id = p_player_id;
+    -- Hospital check on failure
+    v_hospital_chance := GREATEST(0.05, LEAST(0.90, 1.0 - v_success_rate));
+    v_hospital_chance := v_hospital_chance * (1 - COALESCE(v_player.luck, 0) * 0.003);
+    IF random() <= v_hospital_chance THEN
+      v_hospitalized := true;
+      v_hospital_minutes := v_dungeon.hospital_min_minutes
+        + floor(random() * GREATEST(0, v_dungeon.hospital_max_minutes - v_dungeon.hospital_min_minutes));
+      
+      -- Defense-based mitigation: each point of defense reduces hospital time by 0.1% (max 30%)
+      v_defense_mitigation := LEAST(0.30, COALESCE(v_player.defense, 0) * 0.001);
+      v_hospital_minutes := floor(v_hospital_minutes * (1 - v_defense_mitigation));
+      
+      -- Warrior class: additional -20% hospital duration (PLAN_11)
+      IF COALESCE(v_player.character_class, '') = 'warrior' THEN
+        v_hospital_minutes := floor(v_hospital_minutes * 0.80);
       END IF;
-    END;
+      
+      v_hospital_until := now() + (v_hospital_minutes || ' minutes')::INTERVAL;
+      UPDATE public.users SET hospital_until = v_hospital_until WHERE id = p_player_id;
+    END IF;
   END IF;
   
   -- First clear check
@@ -692,7 +764,7 @@ BEGIN
   END IF;
   
   -- Update player (energy, gold, xp)
-  UPDATE players SET 
+  UPDATE public.users SET 
     energy = energy - v_dungeon.energy_cost,
     gold = gold + v_gold,
     xp = xp + v_xp
@@ -706,7 +778,7 @@ BEGIN
     first_clear_at = CASE WHEN v_success AND first_clear_at IS NULL THEN now() ELSE first_clear_at END,
     today_attempts = today_attempts + 1,
     today_boss_attempts = today_boss_attempts + CASE WHEN v_dungeon.is_boss THEN 1 ELSE 0 END,
-    fatigue = fatigue + 1
+    today_date = CURRENT_DATE
   WHERE player_id = p_player_id AND dungeon_id = p_dungeon_id;
   
   -- Insert run record
@@ -714,12 +786,12 @@ BEGIN
     player_id, dungeon_id, success, is_critical,
     gold_earned, xp_earned, items_dropped,
     hospitalized, hospital_until,
-    player_power, success_rate_at_run, fatigue_at_run, is_first_clear
+    player_power, success_rate_at_run, is_first_clear
   ) VALUES (
     p_player_id, p_dungeon_id, v_success, v_is_critical,
     v_gold, v_xp, v_items,
     v_hospitalized, v_hospital_until,
-    v_power, v_success_rate, v_fatigue, v_is_first
+    v_power, v_success_rate, v_is_first
   );
   
   RETURN jsonb_build_object(
@@ -731,7 +803,6 @@ BEGIN
     'hospitalized', v_hospitalized,
     'hospital_until', v_hospital_until,
     'is_first_clear', v_is_first,
-    'fatigue', v_fatigue + 1,
     'success_rate', round(v_success_rate * 100, 1)
   );
 END;
@@ -781,4 +852,4 @@ GRANT EXECUTE ON FUNCTION public.enter_dungeon(UUID, TEXT) TO authenticated;
 
 ---
 
-*Bu belge `PLAN_01_ITEMS_EQUIPMENT.md`, `PLAN_02_FACILITIES_RESOURCES.md` ve `PLAN_03_CRAFTING_SYSTEM.md` ile birlikte kullanılmalıdır.*
+*Bu belge `PLAN_01_ITEMS_EQUIPMENT.md`, `PLAN_02_FACILITIES_RESOURCES.md`, `PLAN_03_CRAFTING_SYSTEM.md` ve `PLAN_11_CHARACTER_CLASS_SYSTEM.md` (Savaşçı zindan bonusu, Gölge loot bonusu, Savaşçı hastane süresi azalması) ile birlikte kullanılmalıdır.*

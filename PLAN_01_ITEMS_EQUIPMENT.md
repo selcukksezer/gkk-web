@@ -1,8 +1,8 @@
 # PLAN 01 — Item & Ekipman Sistemi
 
 > **Durum:** Tasarım Aşaması  
-> **Son Güncelleme:** 2026-03-04  
-> **Bağımlılıklar:** Tesis sistemi (kaynak üretimi), Crafting sistemi (üretim), Enhancement sistemi (+0/+10)
+> **Son Güncelleme:** 2026-03-07 
+> **Bağımlılıklar:** Tesis sistemi (kaynak üretimi), Crafting sistemi (üretim), Enhancement sistemi (+0/+10), PLAN_11 (Karakter Sınıfı — luck stat)
 
 ---
 
@@ -550,6 +550,9 @@ CREATE TABLE IF NOT EXISTS public.items (
   
   -- Enhancement
   can_enhance BOOLEAN DEFAULT false,
+  is_han_only BOOLEAN DEFAULT false,          -- Han/Mekan-only item mi? (PLAN_07)
+  is_market_tradeable BOOLEAN DEFAULT true,   -- Market'te trade edilebilir mi?
+  is_direct_tradeable BOOLEAN DEFAULT true,   -- Direkt oyuncuya trade edilebilir mi?
   max_enhancement INTEGER DEFAULT 10,
   
   -- Economy
@@ -636,4 +639,4 @@ Enhancement ile (tam +10): Power × 2.5
 
 ---
 
-*Bu belge `PLAN_02_FACILITIES_RESOURCES.md`, `PLAN_03_CRAFTING_SYSTEM.md` ve `PLAN_04_DUNGEON_SYSTEM.md` ile birlikte kullanılmalıdır.*
+*Bu belge `PLAN_02_FACILITIES_RESOURCES.md`, `PLAN_03_CRAFTING_SYSTEM.md`, `PLAN_04_DUNGEON_SYSTEM.md`, `PLAN_07_MEKAN_SYSTEM.md` (Han-only itemlar için `is_han_only` alanı) ve `PLAN_11_CHARACTER_CLASS_SYSTEM.md` (luck stat, karakter sınıfı bağlamı) ile birlikte kullanılmalıdır.*

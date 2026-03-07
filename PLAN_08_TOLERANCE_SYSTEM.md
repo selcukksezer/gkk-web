@@ -1,8 +1,8 @@
 # PLAN 08 — Tolerans & Detox Sistemi
 
 > **Durum:** Tasarım Aşaması  
-> **Son Güncelleme:** 2026-03-04  
-> **Bağımlılıklar:** PLAN_01 (iksir verileri), PLAN_04 (hastane), PLAN_07 (Mekan — detox satışı)  
+> **Son Güncelleme:** 2026-03-07  
+> **Bağımlılıklar:** PLAN_01 (iksir verileri), PLAN_04 (hastane), PLAN_07 (Mekan — detox satışı), PLAN_11 (Simyacı sınıfı tolerans bonusları)  
 > **Kapsam:** Tolerance bar, overdose mekanizması, addiction, detox içecekleri
 
 ---
@@ -25,7 +25,7 @@ Tolerans sistemi, iksir kullanımının **bir maliyeti** olmasını sağlar. Oyu
 - Tolerance 80+ ise overdose riski ciddi
 - Overdose = hastaneye düşme (PLAN_04)
 - Detox içecekleri tolerance düşürür (sadece Mekan'da satılır, PLAN_07)
-- Doğal iyileşme: tolerance günde -2 azalır (kullanmadan)
+- **Simyacı sınıfı (PLAN_11):** Tolerans artışı -%25, iksir etkinliği +%30, overdose şansı -%20
 
 ---
 
@@ -38,8 +38,8 @@ Tolerans sistemi, iksir kullanımının **bir maliyeti** olmasını sağlar. Oyu
 | 0-20 | **Temiz** | %100 | Yok |
 | 21-40 | **Alışma** | %85 | Hafif titreme efekti (kozmetik) |
 | 41-60 | **Toleranslı** | %65 | İksir süreleri %20 kısalır |
-| 61-80 | **Bağımlı** | %45 | Overdose riski aktif, enerji regen %10 yavaş |
-| 81-100 | **Kritik** | %25 | Yüksek overdose riski, enerji regen %25 yavaş |
+| 61-80 | **Bağımlı** | %45 | Overdose riski aktif |
+| 81-100 | **Kritik** | %25 | Yüksek overdose riski |
 
 ### 2.2 Tolerance Artışı (İksir Bazlı)
 
@@ -135,20 +135,19 @@ overdose_hospital_minutes = 30 + (tolerance × 2)
 
 Addiction level, uzun süreli iksir alışkanlığının etkisidir:
 
-| Addiction Level | Etki | Tolerance Doğal Azalma |
-|----------------|------|----------------------|
-| 0 | Normal | -2/gün |
-| 1-2 | Hafif huzursuzluk | -2/gün |
-| 3-4 | Çekme belirtileri: enerji regen %5 yavaş | -1.5/gün |
-| 5-6 | Şiddetli çekme: enerji regen %10 yavaş, ATK %5 düşüş | -1/gün |
-| 7-8 | Ağır bağımlılık: enerji regen %20 yavaş, ATK/DEF %10 düşüş | -0.5/gün |
-| 9-10 | Kritik bağımlılık: enerji regen %30 yavaş, tüm stat'lar %15 düşüş | -0.25/gün |
+| Addiction Level | Etki |
+|----------------|------|
+| 0 | Normal |
+| 1-2 | Hafif huzursuzluk |
+| 3-4 | Çekme belirtileri |
+| 5-6 | Şiddetli çekme: ATK %5 düşüş |
+| 7-8 | Ağır bağımlılık: ATK/DEF %10 düşüş |
+| 9-10 | Kritik bağımlılık: tüm stat'lar %15 düşüş |
 
 ### 4.2 Addiction Artışı
 
 ```
 Her overdose → addiction_level += 1
-48 saat iksir kullanmadan → addiction_level -= 1 (min 0)
 Detox Supreme kullanımı → addiction_level -= 2
 ```
 
@@ -186,11 +185,14 @@ Addiction level 3+ olan oyuncu **24 saat iksir kullanmazsa**:
 - Supreme Detox: 12 saat cooldown
 - Full Cleanse: 24 saat cooldown (günde 1)
 
-### 5.3 Doğal İyileşme
+### 5.3 Doğal İyileşme Yok
 
-- Tolerance: İksir kullanmadan **günde -2** azalır (addiction level'a göre değişir, §4.1)
-- Addiction: 48 saat iksir kullanmadan **-1** azalır
-- İksir kullanmayan saf oyuncu: 50 gün hiç kullanmazken tolerance 100→0 (addiction 0'da)
+Tolerance ve addiction değerleri **zamanla kendiliğinden düşmez**. Yalnızca şu yollarla azalır:
+- **Detox itemları** (bkz. §5.1 tablosu) — sadece Mekan/Han'da satılır
+- **Full Cleanse Elixir** — tolerance ve addiction'ı tamamen sıfırlar
+- Zamanla otomatik iyileşme **kaldırılmıştır**; oyuncu detox almadan temizlenemez.
+
+Bu tasarım Han/Mekan trafiğini artırır ve enerji kıtlığı + detox maliyeti kombinasyonunu ana sınırlayıcı olarak kullanır.
 
 ---
 
@@ -262,7 +264,7 @@ ALTER TABLE game.users ADD COLUMN IF NOT EXISTS
 CREATE TABLE game.tolerance_log (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid REFERENCES game.users(id) NOT NULL,
-  event_type text NOT NULL CHECK (event_type IN ('potion_use', 'overdose', 'detox', 'natural_decay')),
+  event_type text NOT NULL CHECK (event_type IN ('potion_use', 'overdose', 'detox')),
   item_id text,
   tolerance_before int NOT NULL,
   tolerance_after int NOT NULL,
@@ -595,7 +597,7 @@ Karar: İkinci iksir kullanmak mı yoksa %35 başarıyla denemek mi?
 | **PLAN_09 PvP** | Addiction 3+: çekme belirtileri PvP damage %10 düşürür |
 | **PLAN_05 Enhancement** | Tolerance etkinlik kaybı, enhancement yerine iksir bağımlılığı → alternatif güçlenme |
 | **PLAN_06 Ekonomi** | Detox = önemli gold sink ($500K - $150M/ay arası) |
-| **PLAN_10 Anıt** | Bazı anıt seviyeleri: lonca üyelerine tolerance decay bonus |
+| **PLAN_10 Anıt** | Anıt Lv 80: overdose'dan ilk kurtulma (günde 1 kez) bonusu |
 
 ---
 
@@ -611,4 +613,4 @@ Karar: İkinci iksir kullanmak mı yoksa %35 başarıyla denemek mi?
 
 ---
 
-*Bu belge PLAN_04 (hastane — overdose sonucu), PLAN_07 (Mekan — detox satışı) ve PLAN_01 (iksir verileri: tolerance_increase, overdose_risk) ile entegredir.*
+*Bu belge PLAN_04 (hastane — overdose sonucu), PLAN_07 (Mekan — detox satışı), PLAN_01 (iksir verileri: tolerance_increase, overdose_risk) ve PLAN_11 (Simyacı sınıfı: tolerans/overdose bonusları, ücretsiz günlük detox) ile entegredir.*
