@@ -894,4 +894,4 @@ Lonca büyüklüğüne göre boyut çarpanı (§3.0) bu formül sonuçlarına uy
 
 ---
 
-*Bu belge PLAN_04 (zindan boss — blueprint drop), PLAN_02 (tesis — structural kaynak), PLAN_06 (ekonomi — gold sink), PLAN_08 (tolerans — Lv 20 bonus: tolerance decay), PLAN_09 (PvP — Lv 40 bonus: PvP shield) ile entegredir.*
+*Bu belge PLAN_04 (zindan boss — blueprint drop), PLAN_02 (tesis — structural kaynak), PLAN_06 (ekonomi — gold sink), PLAN_08 (tolerans — Lv 20 bonus: overdose koruması), PLAN_09 (PvP — Lv 40 bonus: PvP shield) ile entegredir.*

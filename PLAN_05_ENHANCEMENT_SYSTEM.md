@@ -1,7 +1,7 @@
 # PLAN 05 — Enhancement (Geliştirme) Sistemi
 
 > **Durum:** Tasarım Aşaması  
-> **Son Güncelleme:** 2026-03-04  
+> **Son Güncelleme:** 2026-03-07  
 > **Bağımlılıklar:** Item sistemi (ekipman stat'ları), Crafting sistemi (scroll üretimi), Tesis sistemi (rune kaynakları)  
 > **Mevcut Kod:** `src/hooks/useEnhancement.ts` (232 satır, çalışır durumda)
 
@@ -435,6 +435,22 @@ GRANT EXECUTE ON FUNCTION public.enhance_item(UUID, UUID, TEXT) TO authenticated
 
 ---
 
+## 10. Ekonomik Uyum Notu (PLAN_06 ile)
+
+Enhancement sistemi PLAN_06 yeni ekonomi modeliyle şu şekilde uyumludur:
+
+| Enhancement Seviyesi | Tipik Kullanım Zamanı | PLAN_06 Aylık Gelir | Gold Sink Oranı |
+|---------------------|----------------------|---------------------|----------------|
+| +1 → +3 | Hafta 1-2 | ~50M/ay | Düşük (güvenli bölge) |
+| +4 → +5 | Ay 1-3 | ~350M-1B/ay | Orta (%5-10 gelir) |
+| +6 → +7 | Ay 4-8 | ~1.5B-5B/ay | Yüksek (%10-20 gelir) |
+| +8 → +10 | Ay 9-12 | ~3B-8B/ay | Çok yüksek (ana sink) |
+
+**Yeni ekonomiyle uyum noktaları:**
+- Enerji regen kaldırıldı → Oyuncu Han'dan enerji alır → Enhancement gold'u ve Han harcamaları rekabet eder
+- Fatigue sistemi kaldırıldı → Zindan koşu sayısı enerji bütçesiyle sınırlı (PLAN_04/06) → Enhancement odaklı oyuncu aktif kalabilir
+- Enhancement başarısızlıkları (+6+) yıkım riski taşır → Büyük gold sink → Enflasyon kontrolü
+
 ## 10. Uygulama Öncelikleri
 
 1. **Faz 1:** `useEnhancement.ts`'e rarity multiplier ve blessed rune ekle
@@ -445,4 +461,4 @@ GRANT EXECUTE ON FUNCTION public.enhance_item(UUID, UUID, TEXT) TO authenticated
 
 ---
 
-*Bu belge `PLAN_01_ITEMS_EQUIPMENT.md` ile birlikte kullanılmalıdır.*
+*Bu belge `PLAN_01_ITEMS_EQUIPMENT.md` ve `PLAN_06_ECONOMY_BALANCE.md` (ekonomik uyum) ile birlikte kullanılmalıdır. Han-only enerji itemları için bkz. `PLAN_07_MEKAN_SYSTEM.md`.*

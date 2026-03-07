@@ -562,7 +562,7 @@ Oyun dengesi izlemek için takip edilecek metrikler:
 
 ## 15. Uygulama Öncelikleri
 
-1. **Faz 1:** GameConstants güncelleme (fatigue, power formülleri, ×100 stat, ×500 level çarpanı)
+1. **Faz 1:** GameConstants güncelleme (Han enerji itemları, power formülleri, ×100 stat, ×500 level çarpanı)
 2. **Faz 2:** XP tablosu (level 70 cap) ve seviye atlama sistemini doğrula
 3. **Faz 3:** Tesis ekonomisi seed data + test (×100 gold)
 4. **Faz 4:** Zindan ekonomisi seed data + test (×100 power, custom zone gereksinimleri)
