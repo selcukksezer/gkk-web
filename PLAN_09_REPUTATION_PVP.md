@@ -1,7 +1,7 @@
 # PLAN 09 — Reputation & PvP Sistemi
 
 > **Durum:** Tasarım Aşaması  
-> **Son Güncelleme:** 2026-03-04  
+> **Son Güncelleme:** 2026-03-07  
 > **Bağımlılıklar:** PLAN_07 (Mekan — PvP arenası), PLAN_04 (hastane), PLAN_06 (ekonomi)  
 > **Kapsam:** Reputation puanı, PvP mekanikleri, PvP rating, ganimet, sıralama
 
@@ -23,7 +23,7 @@ Reputation, oyuncunun **toplumsal statüsünü** ve güç sıralamasını temsil
 - PvP Rating: Top oyuncular ~2,500-3,000
 
 **Temel kurallar:**
-- PvP **sadece Mekan içinde** gerçekleşir (PLAN_07: Dövüş Kulübü, Lüks Lounge, Yeraltı)
+- PvP **sadece Han/Mekan içinde** gerçekleşir (PLAN_07: Dövüş Kulübü/Han merkezi, Lüks Lounge, Yeraltı); Han PvP'nin kalbidir
 - Reputation kaynakları: PvP, zindan, quest, sosyal — çok yönlü
 - Reputation **power formülüne katkı** yapar: `power += reputation × 0.1`
 - PvP'de yenilen reputation kaybeder, kazanan kazanır → **reputation hırsızlığı**
@@ -46,6 +46,25 @@ Reputation, oyuncunun **toplumsal statüsünü** ve güç sıralamasını temsil
 | Mekan işletme | 10-50 / müşteri | — | Mekan sahibi bonusu |
 | Lonca katkısı | 20-100 | — | Anıt katkısı, lonca görevleri |
 | Sosyal (arkadaş davet) | 100 | 1/gün | Arkadaş referansı |
+
+### 2.1.1 Han Trafiği ve Reputation Döngüsü
+
+PvP ve reputation sistemi, Han/Mekan ekonomisiyle entegre bir döngü oluşturur:
+
+```
+Enerji kıtlığı → Oyuncu Han'a gider (enerji item alır)
+  → Han'da diğer oyuncularla karşılaşır
+    → PvP meydan okuması (isteğe bağlı)
+      → Kazanan: rep + gold ganimet + Han üzerinden kazanç
+        → Daha fazla Han trafiği → Mekan sahibine komisyon
+          → Han ekonomisi güçlenir → daha iyi stok → daha fazla oyuncu çeker
+```
+
+Bu döngü şu güçlendiricilerle desteklenir:
+- **Han-only enerji itemları:** Oyuncuyu fiziksel olarak Han'a getirir
+- **PvP rep kazanımı:** Han'da olmak reputation için avantajlıdır
+- **Mekan sahipleri:** Daha fazla PvP → daha fazla komisyon → daha iyi mekan
+- **Reputation → Power:** Rep kazanımı güç artışına dönüşür (`power += rep × 0.1`)
 
 ### 2.2 Reputation Kaybı
 
@@ -713,13 +732,25 @@ export function getReputationTitle(reputation: number): ReputationTitle {
 
 | Kontrol | PLAN_06 Değeri | PLAN_09 Değeri | Uyum |
 |---------|---------------|---------------|------|
-| PvP enerji | 15 | 15 | ✓ |
+| PvP enerji maliyeti | 15 (enerji kıtlık sisteminde — bkz. PLAN_06 §4) | 15 | ✓ |
 | Günlük PvP geliri | 1-5M (end-game) | Max 5M gold_stolen × 20 dövüş = max 100M ama gerçekte 3-10M | ✓ |
 | End-game reputation | ~356,000 | 356,000 (12 ay birikim) | ✓ |
 | Power'a rep katkısı | rep × 0.1 | rep × 0.1 = 35,600 power | ✓ |
 | PvP ganimet Mekan komisyonu | PLAN_07 %5 | %5 | ✓ |
 
-### 11.2 Rep İlerleme Doğrulaması
+### 11.2 Han-Merkezli PvP Ekonomik Doğrulaması
+
+Han/Mekan PvP döngüsünün ekonomik sürdürülebilirliği:
+
+| Metrik | Değer | Not |
+|--------|-------|-----|
+| Han'a gelen oyuncu (enerji alım için) | Günde tüm aktif oyuncular | Enerji kıtlığı zorunlu kılar |
+| Han PvP tetiklenme oranı | Ziyaret başına ~%30 | Fırsat ve rakip varlığı |
+| PvP komisyonu (Mekan sahibine) | Ganimet'in %5'i | Mekan sahibi gelir motivasyonu |
+| Günlük PvP rep kazanımı | 200-400 rep | Toplam rep hedefine %25-40 katkı |
+| Han item satışından Mekan geliri | 1-10M/gün (aktif mekan) | PLAN_06 §2.1 ile uyumlu |
+
+### 11.3 Rep İlerleme Doğrulaması
 
 ```
 Ay 12'de hedef: 356,000 reputation
@@ -750,4 +781,4 @@ Toplam: 650-1,200 rep/gün → Ortalama ~975 ✓
 
 ---
 
-*Bu belge PLAN_07 (Mekan — PvP arenası ve komisyon), PLAN_04 (hastane — PvP sonrası), PLAN_06 (ekonomi — PvP gelir/gider) ve PLAN_08 (tolerans — çekme belirtileri PvP etkisi) ile entegredir.*
+*Bu belge PLAN_07 (Han/Mekan — PvP arenası, Han-only enerji itemları, komisyon), PLAN_04 (hastane — PvP sonrası), PLAN_06 (ekonomi — PvP gelir/gider, enerji kıtlık modeli) ve PLAN_08 (tolerans — çekme belirtileri PvP etkisi, Han-only detox) ile entegredir.*
