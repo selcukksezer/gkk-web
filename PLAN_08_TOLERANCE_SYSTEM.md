@@ -26,7 +26,6 @@ Tolerans sistemi, iksir kullanımının **bir maliyeti** olmasını sağlar. Oyu
 - Overdose = hastaneye düşme (PLAN_04)
 - Detox içecekleri tolerance düşürür (sadece Mekan'da satılır, PLAN_07)
 
-
 ---
 
 ## 2. Tolerans Mekanizması
