@@ -143,7 +143,7 @@ Bu itemlar The Crim tarzı han/kulüp ortamına özgüdür. Oyuncular tarafında
 Her Han-only item için veritabanında şu bayraklar kullanılır:
 
 ```sql
--- items tablosuna eklenen bayraklar (PLAN_01 §7 ile uyumlu)
+-- items tablosuna eklenen bayraklar (PLAN_01 §3 item şemasıyla uyumlu)
 is_han_only          BOOLEAN DEFAULT false,   -- Han-only item ise true
 is_market_tradeable  BOOLEAN DEFAULT true,    -- Han-only itemlarda false
 is_direct_tradeable  BOOLEAN DEFAULT true,    -- Han-only itemlarda false

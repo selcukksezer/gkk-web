@@ -529,6 +529,7 @@ CREATE TABLE IF NOT EXISTS public.player_dungeon_stats (
   best_power_at_clear INTEGER DEFAULT 0,
   today_attempts INTEGER DEFAULT 0,
   today_boss_attempts INTEGER DEFAULT 0,
+  today_date DATE DEFAULT CURRENT_DATE,   -- günlük sıfırlama için tarih takibi
   
   UNIQUE(player_id, dungeon_id)
 );
@@ -593,8 +594,8 @@ BEGIN
   
   -- Reset daily counters if new day
   UPDATE player_dungeon_stats 
-  SET today_attempts = 0, today_boss_attempts = 0
-  WHERE player_id = p_player_id AND dungeon_id = p_dungeon_id AND today_attempts > 0;
+  SET today_attempts = 0, today_boss_attempts = 0, today_date = CURRENT_DATE
+  WHERE player_id = p_player_id AND dungeon_id = p_dungeon_id AND today_date < CURRENT_DATE;
   
   SELECT today_boss_attempts INTO v_today_boss
   FROM player_dungeon_stats 
@@ -686,7 +687,8 @@ BEGIN
     total_failures = total_failures + CASE WHEN v_success THEN 0 ELSE 1 END,
     first_clear_at = CASE WHEN v_success AND first_clear_at IS NULL THEN now() ELSE first_clear_at END,
     today_attempts = today_attempts + 1,
-    today_boss_attempts = today_boss_attempts + CASE WHEN v_dungeon.is_boss THEN 1 ELSE 0 END
+    today_boss_attempts = today_boss_attempts + CASE WHEN v_dungeon.is_boss THEN 1 ELSE 0 END,
+    today_date = CURRENT_DATE
   WHERE player_id = p_player_id AND dungeon_id = p_dungeon_id;
   
   -- Insert run record

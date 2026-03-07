@@ -270,6 +270,7 @@ Han/Mekan'a özel itemlar (PLAN_07 §5 kataloğu) normal crafting sistemiyle ür
 - Üretilen item `items` tablosunda `is_han_only = true`, `is_market_tradeable = false`, `is_direct_tradeable = false` değerlere sahip olur
 - Başarısız craft: kaynak %50 kaybı, gold tam kayıp (normal crafting kuralları)
 - Stok akışı: craft → hanın stokuna gönder (kişisel envanteri bypass eder — `start_han_crafting` RPC ile)
+- **Trade kısıtı uygulama:** `market_list_item` ve `trade_item_direct` RPC'leri, `is_market_tradeable` ve `is_direct_tradeable` bayraklarını kontrol ederek Han-only itemların piyasaya/direkt trade'e çıkmasını engeller
 
 **Reçete sayısına katkı:** 7 adet Han-only reçetesi, toplam reçete sayısını **205 → 212**'ye çıkarır.
 

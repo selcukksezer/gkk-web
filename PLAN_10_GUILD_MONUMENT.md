@@ -28,7 +28,7 @@ Lonca Anıtı, lonca üyelerinin birlikte inşa ettiği **100 seviyeli** devasa 
 - 10 üye: Lv 50-60 (sezon sonu)
 - 20 üye: Lv 70-80 (sezon sonu)
 - 30 üye: Lv 85-95 (sezon sonu; Lv 100 sınırda)
-- 40-50 üye: Lv 95-100 (sezon sonu; Lv 100 ulaşılabilir ama trivial değil)
+- 40-50 üye: Lv 95-100 (sezon sonu; Lv 100 ulaşılabilir ama kolay değil)
 
 ---
 

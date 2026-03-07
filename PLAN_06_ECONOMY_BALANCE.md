@@ -130,7 +130,7 @@ Enerji regen (otomatik yenilenme) **kaldırılmıştır**. Enerji yalnızca aşa
 
 | Kaynak | Enerji Miktarı | Notlar |
 |--------|---------------|--------|
-| **Han/Mekan enerji itemları** | 20-100 enerji/item | Sadece Han'da satılır; market/trade yasak |
+| **Han/Mekan enerji itemları** | 50-100 enerji/item | Sadece Han'da satılır; market/trade yasak (PLAN_07 §5.2: Küçük Han Şarabı +50, Büyük Han Şarabı +100) |
 | Zindan başarı ödülü (bazı) | 5-15 enerji | Zone 4+ zindanlarda küçük enerji bonusu |
 | Quest tamamlama | 10-30 enerji | Günlük quest paketi |
 | Günlük giriş bonusu | 30 enerji | Sadece ilk giriş |
@@ -526,7 +526,7 @@ Oyun test edilirken bu parametreler ilk ayarlanacaklardır:
 | Enhancement yıkım oranları | `enhance_item` RPC | Mevcut | ±20% |
 | Gold reward çarpanları | `dungeons` seed | Mevcut | ±30% |
 | Crafting başarı oranları | `craft_recipes` seed | Bölüm 2 | ±10% |
-| Han enerji item miktarı | GameConstants | 20-100 | 10-150 |
+| Han enerji item miktarı | GameConstants | 50-100 | 30-150 |
 | Boss günlük limit | `dungeons` seed | 3 | 1-5 |
 
 ---
