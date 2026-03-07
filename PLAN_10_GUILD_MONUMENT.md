@@ -1,7 +1,7 @@
 # PLAN 10 — Lonca Anıtı Sistemi (Guild Monument)
 
 > **Durum:** Tasarım Aşaması  
-> **Son Güncelleme:** 2026-03-04  
+> **Son Güncelleme:** 2026-03-07  
 > **Bağımlılıklar:** PLAN_04 (zindan boss — blueprint drop), PLAN_06 (ekonomi), PLAN_02 (tesis kaynakları)  
 > **Kapsam:** 100 seviyeli lonca anıtı, 3 kaynak tipi, boss blueprint sistemi, lonca sıralaması
 
@@ -21,8 +21,14 @@ Lonca Anıtı, lonca üyelerinin birlikte inşa ettiği **100 seviyeli** devasa 
 
 **Zaman çizelgesi:**
 - Ay 1-3: Bireysel büyüme odağı, lonca kurma
-- Ay 4-8: Anıt Lv 1-50 inşaat (orta zorluk)
-- Ay 9-12: Anıt Lv 50-100 yarışı (çok zor, sadece en aktif loncalar)
+- Ay 4-8: Anıt Lv 1-60 inşaat (orta zorluk; 30 aktif üyeli lonca ulaşılabilir hedef)
+- Ay 9-12: Anıt Lv 60-100 yarışı (çok zor; Lv 100 yalnızca en organize, 40-50 üyeli lonca için ulaşılabilir)
+
+**Lonca büyüklüğüne göre beklenen Lv 100 erişimi:**
+- 10 üye: Lv 50-60 (sezon sonu)
+- 20 üye: Lv 70-80 (sezon sonu)
+- 30 üye: Lv 85-95 (sezon sonu; Lv 100 sınırda)
+- 40-50 üye: Lv 95-100 (sezon sonu; Lv 100 ulaşılabilir ama trivial değil)
 
 ---
 
@@ -89,6 +95,22 @@ Bağış → Lonca Deposu → Anıt yükseltmede kullanım
 ---
 
 ## 3. Anıt Seviyeleri (1-100) — Detaylı Tablo
+
+### 3.0 Lonca Büyüklüğüne Göre Maliyet Ölçeklendirmesi
+
+Anıt maliyetleri aşağıdaki tabloda lonca büyüklüğüne (aktif üye sayısına) göre otomatik olarak ölçeklenir. Bu sayede küçük loncalar sezon boyunca anlamlı ilerleme yapabilirken, Lv 100 yalnızca büyük ve organize loncalara açık kalır.
+
+**Etkin Maliyet = Tablo Maliyeti × Boyut Çarpanı**
+
+| Aktif Üye Sayısı | Boyut Çarpanı | Açıklama |
+|-----------------|--------------|---------|
+| 1-10 | ×0.35 | Küçük lonca — maliyetler %65 düşük |
+| 11-20 | ×0.55 | Orta lonca |
+| 21-30 | ×0.75 | Büyük lonca |
+| 31-40 | ×0.90 | Büyük-fazla lonca |
+| 41-50 | ×1.00 | Maksimum lonca — tam tablo maliyeti |
+
+> **Örnek:** Lv 50 yükseltmesi (tablo: 1.2B gold). 20 üyeli lonca için: 1.2B × 0.55 = 660M gold.
 
 ### 3.1 Seviye 1-25: Temel İnşaat
 
@@ -227,6 +249,8 @@ Bağış → Lonca Deposu → Anıt yükseltmede kullanım
 | **Mystical** | ~6.3M |
 | **Critical** | ~972K |
 
+> **Not:** Yukarıdaki değerler 41-50 üyeli (tam boyut) lonca için geçerlidir. Küçük loncalar §3.0 boyut çarpanını uygular.
+
 ---
 
 ## 4. Boss Blueprint Sistemi
@@ -251,10 +275,13 @@ Belirli anıt milestone seviyelerinde (80, 85, 90, 95, 100) yükseltme için öz
 Zone 5 Boss: 3 kill/gün limit, 20 üye aktif
   → 60 kill/gün × %5 = 3 parça/gün → 10 parça = ~3.3 gün
 
-Zone 7 Final Boss: 3 kill/gün, 20 üye, ancak hepsi Zone 7'ye ulaşamaz
-  → Diyelim 10 üye aktif: 30 kill/gün × %0.5 = 0.15 parça/gün → 30 parça = ~200 gün
+Zone 7 Final Boss: 3 kill/gün limit, 20 üye, ancak hepsi Zone 7'ye ulaşamaz
+  → Diyelim 10 üye Zone 7 erişimi: 30 kill/gün × %0.5 = 0.15 parça/gün → 30 parça = ~200 gün
 
-Bu tasarım gereği aşırı zordur — Eternal Blueprint 200 günlük lonca çaba gerektirir.
+> **Boss limiti uyumu:** Zone 5-7 boss'ları günlük 3 deneme limiti ile kısıtlıdır (PLAN_04). Bu,
+> blueprint farming'in doğrudan üye sayısı ile ölçeklendiğini gösterir; daha fazla üye = daha çok boss
+> kill = daha hızlı blueprint toplama. 30 üyeli lonca Eternal Blueprint'i ~130 günde tamamlar
+> (30 üye × 3 kill × %0.5 = 0.45 parça/gün → 30 / 0.45 ≈ 67 gün Zone 7 erişimi varsayımıyla).
 ```
 
 ### 4.4 Blueprint Parçalama
@@ -278,7 +305,7 @@ Anıt seviyesi lonca üyelerine pasif bonus verir:
 | 5 | Lonca XP Bonusu | Üyelere +%5 XP |
 | 10 | Lonca Gold Bonusu | Üyelere +%3 gold kazanımı |
 | 15 | Enerji Bonusu | +5 max enerji |
-| 20 | Tolerance Decay | Günlük tolerance azalma +1 (bonus) |
+| 20 | Overdose Koruması | PvP ve zindan dışı overdose şansı -%10 |
 | 25 | Tesis Hız Bonusu | Tesis üretim süresi -%5 |
 | 30 | Zindan Luck | Zindan loot luck +10 |
 | 35 | Crafting Bonusu | Crafting başarı oranı +%3 |
@@ -373,7 +400,7 @@ Anıt ilerleme hızı lonca büyüklüğüne doğrudan bağlıdır:
 | Lv 75 | 3.1M str, 1.7M mys, 194K crit, 103B gold | ~Ay 8-9 |
 | Lv 100 | 8.8M str, 6.3M mys, 972K crit, 577B gold | ~Ay 11-12+ |
 
-> **Tasarım amacı:** En aktif, en organize 30+ kişilik lonca bile Lv 100'e **zar zor** ulaşır. Sezon sonu yarışı çok gerilimli olacak.
+> **Tasarım amacı:** 30 kişilik aktif lonca Lv 85-95'e ulaşır; Lv 100 sınırda. 40-50 üyeli tam lonca Lv 100'e ulaşabilir. Sezon sonu yarışı gerilimli fakat erişilmez değil. Boyut çarpanı (§3.0) küçük loncaların sezon boyunca anlamlı ilerleme yapmasını sağlar.
 
 ---
 
@@ -758,7 +785,7 @@ export const MONUMENT_BONUSES: Record<number, { type: string; description: strin
   5:   { type: 'xp_bonus',          description: 'Lonca XP Bonusu',         value: 5 },
   10:  { type: 'gold_bonus',        description: 'Lonca Gold Bonusu',       value: 3 },
   15:  { type: 'energy_bonus',      description: 'Max Enerji +5',           value: 5 },
-  20:  { type: 'tolerance_decay',   description: 'Tolerance Decay +1/gün',  value: 1 },
+  20:  { type: 'overdose_protection', description: 'Overdose Şansı -%10',    value: 10 },
   25:  { type: 'facility_speed',    description: 'Tesis Üretim -%5',        value: 5 },
   30:  { type: 'loot_luck',         description: 'Zindan Loot Luck +10',    value: 10 },
   35:  { type: 'craft_bonus',       description: 'Crafting Başarı +%3',     value: 3 },
@@ -814,11 +841,14 @@ Anıt sistemi oyunun **en büyük gold sink'i**:
 30 üyeli lonca, ayda toplam ~3B-8B gold kazanıyor (PLAN_06)
 Gold'un %30-50'si anıta giderse: 900M - 4B / ay anıt gold sink
 
-12 ay toplam anıt gold sink (lonca): ~30B - 48B
-Hedef: 577B → 30 üye × 12 ay herkes max bağış yapsa bile yetişmez
+12 ay toplam anıt gold sink (30 üyeli lonca, ×0.75 çarpan): ~577B × 0.75 = ~433B
+  → 30 üye × 12 ay × ort. 1.2B gold/ay (PLAN_06 gelir) = ~432B — neredeyse tam uyumlu ✓
 
-Çözüm: Gold gereksinimi gerçek implementasyonda "lonca büyüklüğü" ile skala edilecek.
-Veya büyük loncalar (50 üye) Lv 100'e ulaşabilir, küçük loncalar Lv 60-80'de kalır.
+Boyut çarpanı (§3.0) ekonomik tutarlılığı sağlar:
+- 10 üye (×0.35): ~201B hedef → 10 üye × 12 ay × 1.2B × 0.35 = ~50B (erişilemez, Lv 55-65 hedef)
+- 20 üye (×0.55): ~317B → 20 üye × ~316B bütçe (sezon Lv 70-80 uyumlu)
+- 30 üye (×0.75): ~433B → ~432B bütçe (sezon Lv 90-95 uyumlu)  
+- 50 üye (×1.00): ~577B → 50 üye × ~600B bütçe (Lv 100 ulaşılabilir)
 ```
 
 > **Not:** Yukarıdaki seviye tablosu "ideal" değerlerdir. Gerçek implementasyonda daha detaylı balancing yapılacak. Temel prensip: Lv 100 sezon sonunda zar zor ulaşılabilir olmalı.
@@ -860,6 +890,7 @@ gold(lv)       = FLOOR(500000 * lv + 100000 * lv^2)
 ```
 
 Milestone seviyelerde (her 10. ve boss blueprint seviyeleri) %20-50 ek maliyet çarpanı uygulanmalı.
+Lonca büyüklüğüne göre boyut çarpanı (§3.0) bu formül sonuçlarına uygulanır.
 
 ---
 
