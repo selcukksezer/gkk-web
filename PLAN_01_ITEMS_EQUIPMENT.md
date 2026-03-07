@@ -2,7 +2,7 @@
 
 > **Durum:** Tasarım Aşaması  
 > **Son Güncelleme:** 2026-03-07 
-> **Bağımlılıklar:** Tesis sistemi (kaynak üretimi), Crafting sistemi (üretim), Enhancement sistemi (+0/+10)
+> **Bağımlılıklar:** Tesis sistemi (kaynak üretimi), Crafting sistemi (üretim), Enhancement sistemi (+0/+10), PLAN_11 (Karakter Sınıfı — luck stat)
 
 ---
 
@@ -639,4 +639,4 @@ Enhancement ile (tam +10): Power × 2.5
 
 ---
 
-*Bu belge `PLAN_02_FACILITIES_RESOURCES.md`, `PLAN_03_CRAFTING_SYSTEM.md`, `PLAN_04_DUNGEON_SYSTEM.md` ve `PLAN_07_MEKAN_SYSTEM.md` (Han-only itemlar için `is_han_only` alanı) ile birlikte kullanılmalıdır.*
+*Bu belge `PLAN_02_FACILITIES_RESOURCES.md`, `PLAN_03_CRAFTING_SYSTEM.md`, `PLAN_04_DUNGEON_SYSTEM.md`, `PLAN_07_MEKAN_SYSTEM.md` (Han-only itemlar için `is_han_only` alanı) ve `PLAN_11_CHARACTER_CLASS_SYSTEM.md` (luck stat, karakter sınıfı bağlamı) ile birlikte kullanılmalıdır.*

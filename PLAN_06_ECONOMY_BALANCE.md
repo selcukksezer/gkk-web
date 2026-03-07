@@ -173,9 +173,14 @@ Enerji sistemi doğal bir günlük limit oluşturur:
 ### 5.1 Power Formülü
 
 ```
-total_power = (level × 500) + equipment_power + (reputation × 0.1)
+total_power = (level × 500) + equipment_power + (reputation × 0.1) + (luck × 50)
+              -- luck × 50: kasıtlı olarak küçük tutulmuştur (denge amacıyla)
+              -- Luck'ın asıl etkisi %'lik bonuslarda (kritik, dodge, loot) yatmaktadır
 equipment_power = Σ(base_stat × (1 + enhancement × 0.15))  -- tüm 8 slot
+luck = baz_luck (sınıf) + (luck_per_level × (level - 1)) + item_luck_bonus
 ```
+
+> **Not:** `luck × 50` katkısı kasıtlı olarak küçüktür (~1-2.4% power etkisi). Luck'ın asıl değeri kritik vuruş, kaçınma, loot kalitesi ve zindan başarı bonusunda yatmaktadır. Karakter sınıfları için bkz. PLAN_11.
 
 ### 5.2 Detaylı İlerleme Tablosu
 
@@ -587,7 +592,7 @@ Oyun dengesi izlemek için takip edilecek metrikler:
 | Zone 7 gold/run | PLAN_04 | 3,000,000 - 8,860,000 |
 | NPC Common kaynak | PLAN_02 | 500 gold |
 | NPC Mythic kaynak | PLAN_02 | 500,000 gold |
-| Power formülü | PLAN_01 | level×500 + equip + rep×0.1 |
+| Power formülü | PLAN_01, PLAN_11 | level×500 + equip + rep×0.1 + luck×50 |
 | Enhancement formülü | PLAN_01/05 | base × (1 + enh × 0.15) |
 | Max power | PLAN_01 | ~450,000 |
 | Level cap | Bu belge | 70 |
@@ -597,4 +602,4 @@ Oyun dengesi izlemek için takip edilecek metrikler:
 
 ---
 
-*Bu belge tüm PLAN_01 - PLAN_10 dosyalarının ekonomik tutarlılığını sağlamak için master referanstır. Tüm gold, power ve zaman değerleri güncel sezon süresi (1 yıl) ve ×100 stat/gold skalası ile uyumludur.*
+*Bu belge tüm PLAN_01 - PLAN_11 dosyalarının ekonomik tutarlılığını sağlamak için master referanstır. Tüm gold, power ve zaman değerleri güncel sezon süresi (1 yıl) ve ×100 stat/gold skalası ile uyumludur. Karakter sınıfı bonusları için bkz. PLAN_11.*

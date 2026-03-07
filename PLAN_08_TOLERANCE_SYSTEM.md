@@ -2,7 +2,7 @@
 
 > **Durum:** Tasarım Aşaması  
 > **Son Güncelleme:** 2026-03-07  
-> **Bağımlılıklar:** PLAN_01 (iksir verileri), PLAN_04 (hastane), PLAN_07 (Mekan — detox satışı)  
+> **Bağımlılıklar:** PLAN_01 (iksir verileri), PLAN_04 (hastane), PLAN_07 (Mekan — detox satışı), PLAN_11 (Simyacı sınıfı tolerans bonusları)  
 > **Kapsam:** Tolerance bar, overdose mekanizması, addiction, detox içecekleri
 
 ---
@@ -25,6 +25,7 @@ Tolerans sistemi, iksir kullanımının **bir maliyeti** olmasını sağlar. Oyu
 - Tolerance 80+ ise overdose riski ciddi
 - Overdose = hastaneye düşme (PLAN_04)
 - Detox içecekleri tolerance düşürür (sadece Mekan'da satılır, PLAN_07)
+- **Simyacı sınıfı (PLAN_11):** Tolerans artışı -%25, iksir etkinliği +%30, overdose şansı -%20
 
 ---
 
@@ -612,4 +613,4 @@ Karar: İkinci iksir kullanmak mı yoksa %35 başarıyla denemek mi?
 
 ---
 
-*Bu belge PLAN_04 (hastane — overdose sonucu), PLAN_07 (Mekan — detox satışı) ve PLAN_01 (iksir verileri: tolerance_increase, overdose_risk) ile entegredir.*
+*Bu belge PLAN_04 (hastane — overdose sonucu), PLAN_07 (Mekan — detox satışı), PLAN_01 (iksir verileri: tolerance_increase, overdose_risk) ve PLAN_11 (Simyacı sınıfı: tolerans/overdose bonusları, ücretsiz günlük detox) ile entegredir.*

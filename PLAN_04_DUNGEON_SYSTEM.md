@@ -194,11 +194,15 @@ else:
 
 ```
 luck_bonus = player_luck × 0.001          (max +5%)
+             -- Savaşçı: +5% ek zindan başarı bonusu (PLAN_11)
+             -- Gölge: luck × 0.001 × 1.40 ek loot bonus (PLAN_11)
 reputation_bonus = reputation × 0.0005     (max +2.5%)
 guild_bonus = guild_level × 0.01           (max +5%)
 season_modifier = season_specific_bonus     (değişken, 0-10%)
 
 final_rate = clamp(success_rate + luck_bonus + reputation_bonus + guild_bonus + season_modifier, 0.05, 0.95)
+
+-- Savaşçı sınıfı ise: final_rate += 0.05 (PLAN_11 pasif bonus)
 ```
 
 ### 3.3 Örnek Senaryolar
@@ -762,4 +766,4 @@ GRANT EXECUTE ON FUNCTION public.enter_dungeon(UUID, TEXT) TO authenticated;
 
 ---
 
-*Bu belge `PLAN_01_ITEMS_EQUIPMENT.md`, `PLAN_02_FACILITIES_RESOURCES.md` ve `PLAN_03_CRAFTING_SYSTEM.md` ile birlikte kullanılmalıdır.*
+*Bu belge `PLAN_01_ITEMS_EQUIPMENT.md`, `PLAN_02_FACILITIES_RESOURCES.md`, `PLAN_03_CRAFTING_SYSTEM.md` ve `PLAN_11_CHARACTER_CLASS_SYSTEM.md` (Savaşçı zindan bonusu, Gölge loot bonusu, Savaşçı hastane süresi azalması) ile birlikte kullanılmalıdır.*

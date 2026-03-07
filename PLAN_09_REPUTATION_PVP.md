@@ -2,7 +2,7 @@
 
 > **Durum:** Tasarım Aşaması  
 > **Son Güncelleme:** 2026-03-07  
-> **Bağımlılıklar:** PLAN_07 (Mekan — PvP arenası), PLAN_04 (hastane), PLAN_06 (ekonomi)  
+> **Bağımlılıklar:** PLAN_07 (Mekan — PvP arenası), PLAN_04 (hastane), PLAN_06 (ekonomi), PLAN_11 (Savaşçı PvP bonusu, Gölge dodge bonusu)  
 > **Kapsam:** Reputation puanı, PvP mekanikleri, PvP rating, ganimet, sıralama
 
 ---
@@ -147,6 +147,17 @@ Tur 1:
 
 HP azaltma → 3 tur sonunda en çok HP kalan kazanır.
 HP eşitse → power yüksek olan kazanır.
+```
+
+**Karakter Sınıfı Modifiyerleri (PLAN_11):**
+
+```
+-- Savaşçı saldırgan ise:
+  attacker_damage = attacker_damage × 1.20        (PvP hasar +%20)
+  crit_check += 0.10                              (Kritik şans +%10)
+
+-- Gölge savunmacı ise:
+  dodge_check = random() < (luck × 0.001 + 0.15) ? 0.0 : 1.0  (Dodge +%15)
 ```
 
 ### 3.3 PvP Rating (Elo Sistemi)
@@ -781,4 +792,4 @@ Toplam: 650-1,200 rep/gün → Ortalama ~975 ✓
 
 ---
 
-*Bu belge PLAN_07 (Han/Mekan — PvP arenası, Han-only enerji itemları, komisyon), PLAN_04 (hastane — PvP sonrası), PLAN_06 (ekonomi — PvP gelir/gider, enerji kıtlık modeli) ve PLAN_08 (tolerans — çekme belirtileri PvP etkisi, Han-only detox) ile entegredir.*
+*Bu belge PLAN_07 (Han/Mekan — PvP arenası, Han-only enerji itemları, komisyon), PLAN_04 (hastane — PvP sonrası), PLAN_06 (ekonomi — PvP gelir/gider, enerji kıtlık modeli), PLAN_08 (tolerans — çekme belirtileri PvP etkisi, Han-only detox) ve PLAN_11 (Savaşçı: PvP hasar +%20 / kritik +%10; Gölge: dodge +%15) ile entegredir.*

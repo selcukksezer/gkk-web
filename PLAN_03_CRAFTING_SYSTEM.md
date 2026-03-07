@@ -2,7 +2,7 @@
 
 > **Durum:** Tasarım Aşaması  
 > **Son Güncelleme:** 2026-03-07  
-> **Bağımlılıklar:** Tesis sistemi (kaynak temini), Item sistemi (üretilen ekipmanlar)
+> **Bağımlılıklar:** Tesis sistemi (kaynak temini), Item sistemi (üretilen ekipmanlar), PLAN_11 (Simyacı sınıfı crafting bonusu)
 
 ---
 
@@ -477,4 +477,4 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 ---
 
-*Bu belge `PLAN_01_ITEMS_EQUIPMENT.md` ve `PLAN_02_FACILITIES_RESOURCES.md` ile birlikte kullanılmalıdır.*
+*Bu belge `PLAN_01_ITEMS_EQUIPMENT.md` ve `PLAN_02_FACILITIES_RESOURCES.md` ile birlikte kullanılmalıdır. Simyacı sınıfının crafting başarı bonusu (+%15) ve Han craft süresi azaltması (-%20) için bkz. `PLAN_11_CHARACTER_CLASS_SYSTEM.md`.*

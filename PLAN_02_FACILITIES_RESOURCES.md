@@ -2,7 +2,7 @@
 
 > **Durum:** Tasarım Aşaması  
 > **Son Güncelleme:** 2026-03-07  
-> **Bağımlılıklar:** Crafting sistemi (kaynak tüketimi), Item sistemi (üretilen ekipmanlar)
+> **Bağımlılıklar:** Crafting sistemi (kaynak tüketimi), Item sistemi (üretilen ekipmanlar), PLAN_11 (Gölge sınıfı tesis şüphe azalması)
 
 ---
 
@@ -494,4 +494,4 @@ Son oyun (hepsi Lv 8-10): ~50,000,000-100,000,000 gold/gün
 
 ---
 
-*Bu belge `PLAN_01_ITEMS_EQUIPMENT.md` ve `PLAN_03_CRAFTING_SYSTEM.md` ile birlikte kullanılmalıdır. Han-only item craft için gerekli kaynaklar (Mel Aureum, Fons Vitae, Herba Immortalis vb.) bu planda tanımlıdır; bkz. `PLAN_07_MEKAN_SYSTEM.md §5`.*
+*Bu belge `PLAN_01_ITEMS_EQUIPMENT.md` ve `PLAN_03_CRAFTING_SYSTEM.md` ile birlikte kullanılmalıdır. Han-only item craft için gerekli kaynaklar (Mel Aureum, Fons Vitae, Herba Immortalis vb.) bu planda tanımlıdır; bkz. `PLAN_07_MEKAN_SYSTEM.md §5`. Gölge sınıfının tesis şüphe azaltma bonusu için bkz. `PLAN_11_CHARACTER_CLASS_SYSTEM.md`.*
