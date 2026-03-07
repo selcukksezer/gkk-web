@@ -3,7 +3,8 @@
 > **Durum:** Tasarım Aşaması  
 > **Son Güncelleme:** 2026-03-07  
 > **Bağımlılıklar:** PLAN_01 (item stats), PLAN_04 (dungeon), PLAN_06 (ekonomi/power), PLAN_08 (tolerans), PLAN_09 (PvP), PLAN_02 (tesisler)  
-> **Kapsam:** 3 karakter sınıfı seçimi, sınıfa özgü stat bonusları, stat sistemi (attack/defense/health/luck), tüm sınıflar için evrensel item erişimi
+> **Kapsam:** 3 karakter sınıfı seçimi, sınıfa özgü stat bonusları, stat sistemi (attack/defense/health/luck), tüm sınıflar için evrensel item erişimi  
+> **Önemli:** Karakter statları **hem PvP hem zindan** sisteminde geçerlidir (bkz. §3.1 ve §9.1). MASTER_GAMEPLAN.md §1.4 kanonik stat etki tablosuna başvurun.
 
 ---
 
@@ -108,12 +109,18 @@ Oyuna başlayan her oyuncuya **3 farklı karakter sınıfı** sunulur. Oyuncu ya
 
 | Stat | Sütun | Tür | Açıklama |
 |------|-------|-----|---------|
-| **Attack** | `attack` | `integer` | Saldırı gücü; zindan ve PvP hasarını belirler |
-| **Defense** | `defense` | `integer` | Savunma gücü; alınan hasarı azaltır |
-| **Health** | `health` | `integer` | Mevcut can puanı |
+| **Attack** | `attack` | `integer` | Saldırı gücü; **hem zindan hem PvP** hasarını belirler |
+| **Defense** | `defense` | `integer` | Savunma gücü; hem zindan hastane süresini hem PvP hasarını azaltır |
+| **Health** | `health` | `integer` | Mevcut can puanı; zindan/PvP hayatta kalma kapasitesi |
 | **Max Health** | `max_health` | `integer` | Maksimum can puanı |
-| **Luck** | `luck` | `integer` | Şans; kritik vuruş, kaçınma, loot kalitesini etkiler |
+| **Luck** | `luck` | `integer` | Şans; zindan başarı/loot, PvP kritik/dodge |
 | **Power** | `power` | `integer` | Hesaplanan toplam güç (formülle) |
+
+> **Zindan stat entegrasyonu (PLAN_04 §4.1 ile tutarlı):**  
+> - `attack` → Boss loot ödülü modifiyeri (Savaşçı: ×1.15)  
+> - `defense` → Hastane süresi azaltma: `× (1 - defense×0.001)`, max %30  
+> - `luck` → Zindan başarı `+luck×0.001`, loot multiplier `× (1+luck×0.002)`  
+> - `health` → Hayatta kalma kapasitesi (loot/animasyon için kozmetik)
 
 ### 3.2 Stat Büyüme (Level Başına)
 
@@ -633,22 +640,36 @@ Bu seçim sezon boyunca geçerli olacak.
 
 ### 9.1 PLAN_04 Zindan Sistemi (Değişiklikler)
 
-```sql
--- enter_dungeon RPC güncelleme noktaları:
+> **Özet:** Karakter statları artık hem PvP'de hem zindanda geçerlidir. `enter_dungeon` RPC'ye aşağıdaki bloklar eklenmiştir (tam uygulama: PLAN_04 §4.1 ve §9.4).
 
--- 1. Savaşçı: Zindan başarı oranı bonusu
+```sql
+-- enter_dungeon RPC — sınıf entegrasyon noktaları:
+
+-- 1. Savaşçı: Zindan başarı oranı bonusu (+5%)
 IF v_player.character_class = 'warrior' THEN
   v_success_rate := v_success_rate + 0.05;
 END IF;
+v_success_rate := LEAST(0.95, v_success_rate);
 
--- 2. Gölge: Loot luck bonusu
+-- 2. Gölge: Tüm zindanlarda loot luck bonusu (×1.40)
 IF v_player.character_class = 'shadow' THEN
-  v_gold := floor(v_gold * (1 + v_player.luck * 0.002 * 1.40)); -- %40 ek luck
+  v_luck_for_loot := COALESCE(v_player.luck, 0) * 1.40;
+  v_gold := floor(v_gold * (1 + v_luck_for_loot * 0.002));
 END IF;
 
--- 3. Savaşçı: Hastane süresi azalma
-IF v_hospitalized AND v_player.character_class = 'warrior' THEN
-  v_hospital_minutes := floor(v_hospital_minutes * 0.80);
+-- 3. Savaşçı: Boss gold bonusu (+15%) — boss hasarının gold karşılığı
+IF v_player.character_class = 'warrior' AND v_dungeon.is_boss THEN
+  v_gold := floor(v_gold * 1.15);
+END IF;
+
+-- 4. Defense bazlı hastane süresi azaltma (tüm sınıflar)
+v_defense_mitigation := LEAST(0.30, COALESCE(v_player.defense, 0) * 0.001);
+IF v_hospitalized THEN
+  v_hospital_minutes := floor(v_hospital_minutes * (1 - v_defense_mitigation));
+  -- Savaşçı ek indirim (-20%)
+  IF v_player.character_class = 'warrior' THEN
+    v_hospital_minutes := floor(v_hospital_minutes * 0.80);
+  END IF;
 END IF;
 ```
 

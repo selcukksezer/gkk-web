@@ -260,7 +260,7 @@ End-game'de bile %100 garantili değil. Enhancement, luck, guild bonusu kritik.
 function calculateTotalPower(player: PlayerProfile, equippedItems: InventoryItem[]): number {
   let power = 0;
   
-  // Equipment power
+  // Equipment power (canonical formula — PLAN_06 §5.1 ile tutarlı)
   for (const item of equippedItems) {
     const enhMultiplier = 1 + (item.enhancement_level * 0.15);
     power += Math.floor((item.attack + item.defense + item.health / 10 + item.luck * 2) * enhMultiplier);
@@ -272,8 +272,58 @@ function calculateTotalPower(player: PlayerProfile, equippedItems: InventoryItem
   // Reputation bonus
   power += Math.floor((player.reputation ?? 0) * 0.1);
   
+  // Luck contribution (player baz luck — PLAN_11)
+  power += Math.floor((player.luck ?? 0) * 50);
+  
   return power;
 }
+```
+
+### 4.1 Karakter Stat Entegrasyonu (PLAN_11)
+
+Karakter sınıfından gelen baz statlar (attack/defense/health/luck) hem **power hesabına** hem de **zindan içi hasar/hayatta kalma modifiyerlerine** doğrudan katkı sağlar.
+
+**Önemli Prensip:** Baz statlar (sınıf + level büyümesi) ekipman statlarından çok daha küçüktür. Asıl güç ekipmandan gelir; sınıf statları **yönlendirici** (directional) etki yaratır.
+
+```
+-- Zindan hasar hesabı (success_rate bağımsız, animasyon ve loot için)
+dungeon_damage_output = (player.attack × class_boss_bonus) + equipment_attack_total
+dungeon_survivability  = player.max_health + equipment_health_total
+dungeon_mitigation     = player.defense × 0.001   (% hasar azalma, max %30)
+
+-- Hastane süresi modifiyeri (defense bazlı)
+effective_hospital_time = base_hospital_time × (1 - dungeon_mitigation)
+  Savaşçı: additional × 0.80 (hospital_duration_reduction -20%)
+
+-- Loot kalitesi modifiyeri (luck bazlı)
+loot_luck_modifier = 1 + player.luck × 0.002
+  Gölge: loot_luck_modifier = 1 + player.luck × 0.002 × 1.40  (luck_bonus +40%)
+```
+
+**Boss hasarı sınıf modifiyerleri** (`enter_dungeon` RPC §9.4'e eklenir):
+
+```sql
+-- Savaşçı: Boss zindanlarda hasar bonusu
+IF v_player.character_class = 'warrior' AND v_dungeon.is_boss THEN
+  -- Loot bonus olarak modellenir (gold +%15 boss reward)
+  v_gold := floor(v_gold * 1.15);
+END IF;
+
+-- Gölge: Tüm zindanlarda loot luck bonusu
+IF v_player.character_class = 'shadow' THEN
+  v_luck_for_loot := COALESCE(v_player.luck, 0) * 1.40;
+  v_gold := floor(v_gold * (1 + v_luck_for_loot * 0.002));
+END IF;
+
+-- Defense bazlı hastane süresi azaltma
+v_defense_mitigation := LEAST(0.30, COALESCE(v_player.defense, 0) * 0.001);
+IF v_hospitalized THEN
+  v_hospital_minutes := floor(v_hospital_minutes * (1 - v_defense_mitigation));
+  -- Savaşçı ek indirim
+  IF v_player.character_class = 'warrior' THEN
+    v_hospital_minutes := floor(v_hospital_minutes * 0.80);
+  END IF;
+END IF;
 ```
 
 ---
@@ -559,19 +609,24 @@ DECLARE
   v_xp INTEGER;
   v_hospitalized BOOLEAN := false;
   v_hospital_until TIMESTAMPTZ;
+  v_hospital_minutes INTEGER;
   v_is_first BOOLEAN := false;
   v_items JSONB := '[]'::JSONB;
   v_today_attempts INTEGER;
   v_today_boss INTEGER;
+  v_luck_for_loot NUMERIC;
+  v_ratio NUMERIC;
+  v_hospital_chance NUMERIC;
+  v_defense_mitigation NUMERIC;
 BEGIN
   -- Get dungeon
-  SELECT * INTO v_dungeon FROM dungeons WHERE id = p_dungeon_id;
+  SELECT * INTO v_dungeon FROM public.dungeons WHERE id = p_dungeon_id;
   IF NOT FOUND THEN
     RETURN jsonb_build_object('error', 'dungeon_not_found');
   END IF;
   
   -- Get player
-  SELECT * INTO v_player FROM players WHERE id = p_player_id;
+  SELECT * INTO v_player FROM public.users WHERE id = p_player_id;
   IF NOT FOUND THEN
     RETURN jsonb_build_object('error', 'player_not_found');
   END IF;
@@ -610,27 +665,40 @@ BEGIN
     RETURN jsonb_build_object('error', 'boss_daily_limit');
   END IF;
   
-  -- Calculate total power (simplified — full calc on client)
-  v_power := v_player.attack + v_player.defense + v_player.level * 500;
+  -- Calculate total power
+  -- Canonical formula: equipment power is passed from client; here we use stored player power
+  -- (full equipment power calculation occurs client-side or via get_current_user)
+  -- Server uses player.power (pre-calculated) if available, else approximation
+  v_power := COALESCE(v_player.power, 0);
+  IF v_power = 0 THEN
+    -- Fallback approximation if power not stored
+    v_power := v_player.level * 500
+             + floor(COALESCE(v_player.reputation, 0) * 0.1)
+             + floor(COALESCE(v_player.luck, 0) * 50);
+  END IF;
   
   -- Calculate success rate
   IF v_dungeon.power_requirement = 0 THEN
     v_success_rate := 1.0;
   ELSE
-    DECLARE v_ratio NUMERIC;
-    BEGIN
-      v_ratio := v_power::NUMERIC / v_dungeon.power_requirement;
-      IF v_ratio >= 1.5 THEN v_success_rate := 0.95;
-      ELSIF v_ratio >= 1.0 THEN v_success_rate := 0.70 + (v_ratio - 1.0) * 0.50;
-      ELSIF v_ratio >= 0.5 THEN v_success_rate := 0.25 + (v_ratio - 0.5) * 0.90;
-      ELSIF v_ratio >= 0.25 THEN v_success_rate := 0.10 + (v_ratio - 0.25) * 0.60;
-      ELSE v_success_rate := GREATEST(0.05, v_ratio * 0.40);
-      END IF;
-    END;
+    v_ratio := v_power::NUMERIC / v_dungeon.power_requirement;
+    IF v_ratio >= 1.5 THEN v_success_rate := 0.95;
+    ELSIF v_ratio >= 1.0 THEN v_success_rate := 0.70 + (v_ratio - 1.0) * 0.50;
+    ELSIF v_ratio >= 0.5 THEN v_success_rate := 0.25 + (v_ratio - 0.5) * 0.90;
+    ELSIF v_ratio >= 0.25 THEN v_success_rate := 0.10 + (v_ratio - 0.25) * 0.60;
+    ELSE v_success_rate := GREATEST(0.05, v_ratio * 0.40);
+    END IF;
   END IF;
   
-  -- Apply luck bonus
-  v_success_rate := LEAST(0.95, v_success_rate + COALESCE(v_player.luck, 0) * 0.001);
+  -- Apply luck bonus (PLAN_11 §3.3)
+  v_success_rate := v_success_rate + COALESCE(v_player.luck, 0) * 0.001;
+  
+  -- Apply Warrior class dungeon success bonus (PLAN_11 §9.1)
+  IF COALESCE(v_player.character_class, '') = 'warrior' THEN
+    v_success_rate := v_success_rate + 0.05;
+  END IF;
+  
+  v_success_rate := LEAST(0.95, v_success_rate);
   
   -- Roll for success
   v_success := random() <= v_success_rate;
@@ -644,25 +712,43 @@ BEGIN
       v_gold := floor(v_gold * 1.5);
       v_xp := floor(v_xp * 1.5);
     END IF;
+    
+    -- Luck-based loot bonus (PLAN_11 §3.3 + §4.1)
+    v_luck_for_loot := COALESCE(v_player.luck, 0);
+    IF COALESCE(v_player.character_class, '') = 'shadow' THEN
+      v_luck_for_loot := v_luck_for_loot * 1.40;  -- Gölge: +40% loot luck (PLAN_11)
+    END IF;
+    v_gold := floor(v_gold * (1 + v_luck_for_loot * 0.002));
+    v_xp   := floor(v_xp   * (1 + COALESCE(v_player.luck, 0) * 0.001));
+    
+    -- Warrior boss damage modelled as +15% gold reward on boss dungeons (PLAN_11)
+    IF COALESCE(v_player.character_class, '') = 'warrior' AND v_dungeon.is_boss THEN
+      v_gold := floor(v_gold * 1.15);
+    END IF;
   ELSE
     v_gold := floor(v_dungeon.gold_min * 0.3);
     v_xp := floor(v_dungeon.xp_reward * 0.2);
     
-    -- Hospital check on failure (inverse of success rate)
-    DECLARE v_hospital_chance NUMERIC;
-    BEGIN
-      v_hospital_chance := GREATEST(0.05, LEAST(0.90, 1.0 - v_success_rate));
-      v_hospital_chance := v_hospital_chance * (1 - COALESCE(v_player.luck, 0) * 0.003);
-      IF random() <= v_hospital_chance THEN
-        v_hospitalized := true;
-        v_hospital_until := now() + (
-          (v_dungeon.hospital_min_minutes + floor(random() * (v_dungeon.hospital_max_minutes - v_dungeon.hospital_min_minutes)))
-          || ' minutes'
-        )::INTERVAL;
-        
-        UPDATE players SET hospital_until = v_hospital_until WHERE id = p_player_id;
+    -- Hospital check on failure
+    v_hospital_chance := GREATEST(0.05, LEAST(0.90, 1.0 - v_success_rate));
+    v_hospital_chance := v_hospital_chance * (1 - COALESCE(v_player.luck, 0) * 0.003);
+    IF random() <= v_hospital_chance THEN
+      v_hospitalized := true;
+      v_hospital_minutes := v_dungeon.hospital_min_minutes
+        + floor(random() * GREATEST(0, v_dungeon.hospital_max_minutes - v_dungeon.hospital_min_minutes));
+      
+      -- Defense-based mitigation: each point of defense reduces hospital time by 0.1% (max 30%)
+      v_defense_mitigation := LEAST(0.30, COALESCE(v_player.defense, 0) * 0.001);
+      v_hospital_minutes := floor(v_hospital_minutes * (1 - v_defense_mitigation));
+      
+      -- Warrior class: additional -20% hospital duration (PLAN_11)
+      IF COALESCE(v_player.character_class, '') = 'warrior' THEN
+        v_hospital_minutes := floor(v_hospital_minutes * 0.80);
       END IF;
-    END;
+      
+      v_hospital_until := now() + (v_hospital_minutes || ' minutes')::INTERVAL;
+      UPDATE public.users SET hospital_until = v_hospital_until WHERE id = p_player_id;
+    END IF;
   END IF;
   
   -- First clear check
@@ -678,7 +764,7 @@ BEGIN
   END IF;
   
   -- Update player (energy, gold, xp)
-  UPDATE players SET 
+  UPDATE public.users SET 
     energy = energy - v_dungeon.energy_cost,
     gold = gold + v_gold,
     xp = xp + v_xp
