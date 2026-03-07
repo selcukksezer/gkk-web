@@ -1,7 +1,7 @@
 # PLAN 06 — Ekonomi & Denge (Economy & Balance)
 
 > **Durum:** Tasarım Aşaması  
-> **Son Güncelleme:** 2026-03-04  
+> **Son Güncelleme:** 2026-03-07  
 > **Bağımlılıklar:** Tüm diğer plan dosyaları  
 > **Kapsam:** Gold akışı, enerji bütçesi, sezon ilerleme hızı, oyuncu güç eğrisi
 
@@ -124,31 +124,47 @@ Tüm 15 tesisi belirli seviyeye çıkarma toplam maliyeti:
 
 ## 4. Enerji Bütçesi
 
-### 4.1 Günlük Enerji
+### 4.1 Enerji Kaynakları (Yeni Model)
 
-```
-Max Enerji: 100
-Yenilenme: 1 enerji / 3 dakika = 20/saat = 480/gün (24 saat)
-Fiili günlük: ~200-300 (8-12 saat aktif oyun)
-```
+Enerji regen (otomatik yenilenme) **kaldırılmıştır**. Enerji yalnızca aşağıdaki yollarla kazanılır:
 
-### 4.2 Enerji Tüketim Dağılımı (Önerilen)
+| Kaynak | Enerji Miktarı | Notlar |
+|--------|---------------|--------|
+| **Han/Mekan enerji itemları** | 20-100 enerji/item | Sadece Han'da satılır; market/trade yasak |
+| Zindan başarı ödülü (bazı) | 5-15 enerji | Zone 4+ zindanlarda küçük enerji bonusu |
+| Quest tamamlama | 10-30 enerji | Günlük quest paketi |
+| Günlük giriş bonusu | 30 enerji | Sadece ilk giriş |
+| Premium enerji refill | 50-100 enerji | Gem ile, günde max 2 kez |
 
-| Aktivite | Enerji/Koşu | Günlük Koşu | Günlük Enerji |
-|----------|-------------|-------------|---------------|
-| Zindan (birincil) | 5-50 | 15-25 | 150-250 |
-| Quest | 5-20 | 3-5 | 30-50 |
+### 4.2 Han Enerji Itemları (Temel Kaynak)
+
+Han/Mekan'da satılan 6-7 özel item, enerji ve tolerans yönetiminin ana mekanizmasıdır (bkz. PLAN_07 §5 Han Katalogu).
+
+**Tasarım amacı:**
+- Enerji kıtlığı → oyuncuyu Han'a çeker → Han trafiği artar → PvP ve sosyal etkileşim
+- Han item üretimi zorlu → ekonomik değer yüksek → iyi bir gold sink
+- Market/trade yasağı → Han monopolü korunur
+
+### 4.3 Günlük Enerji Bütçesi (Tipik Oyuncu)
+
+| Aktivite | Enerji/Koşu | Günlük Koşu | Günlük Enerji Harcama |
+|----------|-------------|-------------|----------------------|
+| Zindan (birincil) | 5-50 | 8-15 | 80-200 |
+| Quest | 5-20 | 2-4 | 20-50 |
 | PvP | 15 | 2-5 | 30-75 |
-| **TOPLAM** | — | — | ~210-375 |
+| **TOPLAM** | — | — | ~130-325 |
 
-### 4.3 Enerji Darboğazı
+Günlük enerji arzı (Han item + quest + giriş bonusu): ~150-350
+
+### 4.4 Enerji Darboğazı
 
 Enerji sistemi doğal bir günlük limit oluşturur:
-- Zone 1 (5 enerji): Max ~60 zindan/gün (fatigue ile ~25-30 etkili)
-- Zone 4 (20 enerji): Max ~15 zindan/gün
-- Zone 6 (40 enerji): Max ~7 zindan/gün
+- Zone 1 (5 enerji): Günde ~30-60 zindan (Han item kullanımına bağlı)
+- Zone 4 (20 enerji): Günde ~8-15 zindan
+- Zone 6 (40 enerji): Günde ~4-8 zindan
+- Zone 7 (50 enerji): Günde ~3-6 zindan
 
-Bu, yüksek zone'larda ilerlemenin **doğal olarak yavaşlamasını** sağlar.
+**Kritik kural:** Oyuncu Han'a gitmeden/item almadan enerji bitmesi durumunda aktivite kısıtlanır. Bu, Han trafiğini ekonomik olarak zorunlu kılar.
 
 ---
 
@@ -299,7 +315,7 @@ season_score = (max_dungeon_cleared × 1000)
 |----------|-------------|------|-------------|
 | Enerji yenileme | 50 gem | +100 enerji | Düşük (hız) |
 | Hastane çıkış | 3 gem/dk | Bekleme atlama | Düşük (kolaylık) |
-| Fatigue sıfırlama | 20 gem | Fatigue = 0 | Orta (daha çok koşu) |
+| Ekstra enerji refill | 50 gem | +50 enerji (günde max 2) | Düşük (hız) |
 | 2. Crafting slot | 100 gem/ay | Paralel üretim | Düşük (kolaylık) |
 | Kozmetikler | 50-500 gem | Görünüm | Yok |
 | Premium Battle Pass | 500 gem/sezon | Ekstra ödüller | Orta |
@@ -328,12 +344,14 @@ season_score = (max_dungeon_cleared × 1000)
 | Market işlem ücreti | %2 fee |
 | Tesis yükseltme | Katlanarak artan maliyet |
 | Hastane healer | Sabit maliyet |
+| Han-only item craft maliyeti | Yüksek kaynak/gold gereksinimi |
+| Hastane/hapishane fırsat maliyeti | Aktivite kaybı = ekonomik maliyet |
 
 ### 8.2 Enflasyon Senaryoları
 
 | Senaryo | Risk | Çözüm |
 |---------|------|-------|
-| Çok fazla zindan gold'u | Orta | Fatigue sistemi + enerji limiti |
+| Çok fazla zindan gold'u | Orta | Enerji kıtlığı (Han itemı gereksinimi) + Boss deneme limitleri |
 | Tesis kaynak satışı | Düşük | NPC fiyatları düşük tutulur |
 | Market manipülasyonu | Orta | Max order limiti + expiry |
 | Bot farming | Yüksek | Rate limiting + CAPTCHA + ban |
@@ -394,9 +412,9 @@ Oyuncu aylık gelirinin %70-80'ini harcamalı, %20-30 birikim yapabilmeli. Bu, s
 
 Zone'lar arası "doğal duvar" mekanizmaları:
 1. **Power requirement duvarı:** Equipment upgrade + enhancement gerektir
-2. **Enerji limiti:** Yüksek zone'larda daha az koşu (Z7: max 4/gün)
-3. **Fatigue:** Her koşuda artan başarı cezası
-4. **Hospital riski:** Başarısız koşuda hastaneye düşme (PLAN_04)
+2. **Enerji kıtlığı:** Han itemı gerektiren enerji sistemi yüksek zone'larda koşu sayısını sınırlar
+3. **Boss günlük limit:** Zone boss'larında 3 deneme/gün
+4. **Hospital riski:** Başarısız koşuda hastaneye düşme; overdose → Han enerji potionı riski (PLAN_04, PLAN_08)
 5. **Kaynak darboğazı:** Mythic malzeme sadece Z6-7'de düşer
 6. **Enhancement RNG duvarı:** +6 sonrası yıkım riski, haftalarca geri atabilir
 
@@ -504,13 +522,11 @@ Oyun test edilirken bu parametreler ilk ayarlanacaklardır:
 | Parametre | Dosya | Varsayılan | Ayar Aralığı |
 |-----------|-------|-----------|-------------|
 | Zindan Power Requirement eğrisi | `dungeons` seed | Üstel | Doğrusal ↔ Üstel |
-| Fatigue penalty per point | `enter_dungeon` RPC | %2 | %1 - %3 |
-| Max fatigue | Config | 50 | 30 - 80 |
 | Tesis drop rate tablosu | `collect_facility` RPC | Bölüm 2 tablo | ±10% |
 | Enhancement yıkım oranları | `enhance_item` RPC | Mevcut | ±20% |
 | Gold reward çarpanları | `dungeons` seed | Mevcut | ±30% |
 | Crafting başarı oranları | `craft_recipes` seed | Bölüm 2 | ±10% |
-| Enerji regen hızı | GameConstants | 3 dk | 2-5 dk |
+| Han enerji item miktarı | GameConstants | 20-100 | 10-150 |
 | Boss günlük limit | `dungeons` seed | 3 | 1-5 |
 
 ---
@@ -519,7 +535,7 @@ Oyun test edilirken bu parametreler ilk ayarlanacaklardır:
 
 | Tehdit | Önlem |
 |--------|-------|
-| Zindan botu | Fatigue + rate limit + sunucu zaman doğrulaması |
+| Zindan botu | Enerji limiti + rate limit + sunucu zaman doğrulaması |
 | Gold çoğaltma | Server-authoritative economy (tüm gold hareketleri RPC'de) |
 | Envanter manipülasyonu | RLS + server-side inventory management |
 | Multi-account abuse | IP tracking + device fingerprint |

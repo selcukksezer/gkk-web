@@ -305,7 +305,7 @@ Anıt seviyesi lonca üyelerine pasif bonus verir:
 | 5 | Lonca XP Bonusu | Üyelere +%5 XP |
 | 10 | Lonca Gold Bonusu | Üyelere +%3 gold kazanımı |
 | 15 | Enerji Bonusu | +5 max enerji |
-| 20 | Overdose Koruması | PvP ve zindan dışı overdose şansı -%10 |
+| 20 | Overdose Koruması | Overdose şansı -%10 |
 | 25 | Tesis Hız Bonusu | Tesis üretim süresi -%5 |
 | 30 | Zindan Luck | Zindan loot luck +10 |
 | 35 | Crafting Bonusu | Crafting başarı oranı +%3 |
@@ -785,7 +785,7 @@ export const MONUMENT_BONUSES: Record<number, { type: string; description: strin
   5:   { type: 'xp_bonus',          description: 'Lonca XP Bonusu',         value: 5 },
   10:  { type: 'gold_bonus',        description: 'Lonca Gold Bonusu',       value: 3 },
   15:  { type: 'energy_bonus',      description: 'Max Enerji +5',           value: 5 },
-  20:  { type: 'overdose_protection', description: 'Overdose Şansı -%10',    value: 10 },
+  20:  { type: 'overdose_protection', description: 'Overdose Şansı -%10',    value: 10 }, // 10 = yüzde puan azalma
   25:  { type: 'facility_speed',    description: 'Tesis Üretim -%5',        value: 5 },
   30:  { type: 'loot_luck',         description: 'Zindan Loot Luck +10',    value: 10 },
   35:  { type: 'craft_bonus',       description: 'Crafting Başarı +%3',     value: 3 },
@@ -845,10 +845,10 @@ Gold'un %30-50'si anıta giderse: 900M - 4B / ay anıt gold sink
   → 30 üye × 12 ay × ort. 1.2B gold/ay (PLAN_06 gelir) = ~432B — neredeyse tam uyumlu ✓
 
 Boyut çarpanı (§3.0) ekonomik tutarlılığı sağlar:
-- 10 üye (×0.35): ~201B hedef → 10 üye × 12 ay × 1.2B × 0.35 = ~50B (erişilemez, Lv 55-65 hedef)
-- 20 üye (×0.55): ~317B → 20 üye × ~316B bütçe (sezon Lv 70-80 uyumlu)
-- 30 üye (×0.75): ~433B → ~432B bütçe (sezon Lv 90-95 uyumlu)  
-- 50 üye (×1.00): ~577B → 50 üye × ~600B bütçe (Lv 100 ulaşılabilir)
+- 10 üye (×0.35): hedef ~201B (577B×0.35) → bütçe 10×12×1.2B=~144B (hedefin altında; Lv 55-65 ulaşılabilir)
+- 20 üye (×0.55): hedef ~317B (577B×0.55) → bütçe 20×12×1.2B=~288B (yakın; sezon Lv 70-80 uyumlu)
+- 30 üye (×0.75): hedef ~433B (577B×0.75) → bütçe 30×12×1.2B=~432B (neredeyse tam uyumlu; Lv 90-95)
+- 50 üye (×1.00): hedef ~577B → bütçe 50×12×1.2B=~720B (fazla; Lv 100 ulaşılabilir)
 ```
 
 > **Not:** Yukarıdaki seviye tablosu "ideal" değerlerdir. Gerçek implementasyonda daha detaylı balancing yapılacak. Temel prensip: Lv 100 sezon sonunda zar zor ulaşılabilir olmalı.
