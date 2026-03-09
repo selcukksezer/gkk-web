@@ -88,6 +88,13 @@ export function ItemCard({
       {isEquipped && (
         <span className="absolute top-0.5 left-0.5 text-[9px]">✅</span>
       )}
+      
+      {/* Han-only badge */}
+      {item.is_han_only && (
+        <span className="absolute top-0.5 right-0.5 text-[9px] bg-amber-500/90 px-1.5 rounded text-white font-bold">
+          HAN
+        </span>
+      )}
 
       {/* Rarity dot */}
       <span

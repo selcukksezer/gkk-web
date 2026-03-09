@@ -1,9 +1,11 @@
-# PLAN 07 — Mekan Sistemi (Business & Social Hub)
+# PLAN 07 — Mekan/Han Sistemi (Business & Social Hub)
 
 > **Durum:** Tasarım Aşaması  
-> **Son Güncelleme:** 2026-03-04  
+> **Son Güncelleme:** 2026-03-07  
 > **Bağımlılıklar:** PLAN_01 (iksirler), PLAN_06 (ekonomi), PLAN_08 (tolerans), PLAN_09 (PvP)  
-> **Kapsam:** Mekan açma, işletme, iksir ticareti, sosyal alan, PvP arenası
+> **Kapsam:** Mekan/Han açma, işletme, Han-only item ticareti, enerji ve tolerans yönetimi, PvP arenası
+
+> **Terminoloji Notu:** "Mekan" genel işletme türlerini kapsar. "Han" ise oyunun merkezi sosyal/PvP hub'ı olarak ayrıca vurgulanır. Tüm Mekan türleri Han çekirdeği etrafında şekillenir; özellikle Dövüş Kulübü türü Han/Circus rolünü üstlenir.
 
 ---
 
@@ -12,12 +14,13 @@
 Mekan sistemi oyuncuların **kendi işletmelerini** kurabilecekleri, iksir ve detox içecek satabilecekleri, PvP dövüşlerine ev sahipliği yapabilecekleri ve sosyal etkileşim kurabilecekleri fiziksel alanlardır.
 
 **Temel kurallar:**
-- **İksirler SADECE Mekan'larda** satın alınabilir (NPC dükkanı yok!)
+- **Han/Mekan Tekeli:** İksirler, Han-only enerji itemları ve detox içecekleri SADECE Mekan'lardan satın alınabilir (NPC dükkanı yok!)
 - Her oyuncu **en fazla 1 Mekan** sahibi olabilir
 - Mekan sahipleri fiyat belirler (min-max sınır dahilinde)
-- PvP sadece Mekan içinde gerçekleşir (sokak dövüşü yok)
-- Detox içecekleri sadece Mekan'larda satılır (PLAN_08)
+- PvP sadece Mekan içinde gerçekleşir; Han/Dövüş Kulübü merkezi PvP arena'sıdır
+- Han-only itemlar: craft → han stock → satış akışı; market veya direkt trade **yasak**
 - Mekan **açık** olmak için sahibinin online olması gerekmez (otonom çalışır)
+- **Enerji kıtlığı** oyuncuları Han'a çeker; Han enerji itemları temel enerji kaynağıdır (PLAN_06 §4)
 
 ---
 
@@ -131,7 +134,58 @@ Mekan sahibi fiyat belirler, ama min-max sınır vardır:
 
 ---
 
-## 5. PvP Arena (Dövüş Kulübü)
+## 5. Han-Only Item Katalogu
+
+Bu itemlar The Crim tarzı han/kulüp ortamına özgüdür. Oyuncular tarafından craft edilir, **yalnızca Han/Mekan stokunda** satışa sunulur. Market veya direkt trade ile el değiştiremez.
+
+### 5.1 Teknik Kısıtlamalar
+
+Her Han-only item için veritabanında şu bayraklar kullanılır:
+
+```sql
+-- items tablosuna eklenen bayraklar (PLAN_01 §3 item şemasıyla uyumlu)
+is_han_only          BOOLEAN DEFAULT false,   -- Han-only item ise true
+is_market_tradeable  BOOLEAN DEFAULT true,    -- Han-only itemlarda false
+is_direct_tradeable  BOOLEAN DEFAULT true,    -- Han-only itemlarda false
+```
+
+Han-only itemların stok akışı:
+```
+Oyuncu craft → Han/Mekan stokuna ekle → Müşteri satın alır → Han stoku azalır
+           ↑ SADECE bu yol mevcut — market veya trade yasak
+```
+
+### 5.2 Han-Only Item Listesi (6 Temel Item)
+
+| Item ID | Latince Adı | Türkçe | Etki | Craft Maliyeti | Han Satış Bandı | Overdose Riski |
+|---------|------------|--------|------|---------------|-----------------|----------------|
+| `han_item_vigor_minor` | Vinum Vigor Minor | Küçük Han Şarabı | +50 enerji; tolerance +3 | 3× Mel Regale + 2× Herba Medicinalis + 50K gold | 80K - 200K | — |
+| `han_item_vigor_major` | Vinum Vigor Major | Büyük Han Şarabı | +100 enerji; tolerance +8 | 5× Mel Aureum + 3× Flos Lunaris + 200K gold | 300K - 800K | %5 (tol > 60) |
+| `han_item_elixir_purge` | Elixir Purgationis | Arındırma İçeceği | tolerance -20; addiction -1 | 4× Aqua Purificata + 3× Fungus Medicinalis + 100K gold | 150K - 400K | — |
+| `han_item_clarity` | Potio Claritatis | Berraklık Potionı | tolerance -40; addiction -2 | 5× Fons Vitae + 4× Aqua Aeterna + 500K gold | 700K - 2M | — |
+| `han_item_berserk` | Furor Berserkium | Berserker Özü | ATK ×1.5 / 5 dk; tolerance +20; overdose riski yüksek | 5× Radix Draconis + 3× Venenum Apis + 3× Ignis Scintilla + 1M gold | 1.5M - 5M | %25 (tol > 50) |
+| `han_item_shadow_brew` | Potio Umbrarum | Gölge Karışımı | PvP dodge +15% / 10 dk; tolerance +10 | 4× Cor Umbrae + 3× Pulvis Umbrae + 800K gold | 1.2M - 3.5M | %10 |
+| `han_item_restoration` | Restoratio Magna | Büyük Restorasyon | HP +15,000; tolerance +5; addiction -1 | 5× Herba Immortalis + 4× Mel Aureum + 3× Aqua Sacra + 800K gold | 1.2M - 3.5M | — |
+
+### 5.3 Craft Gereksinimleri Detayı
+
+- **Üretim:** Oyuncular bu itemları kendi tesis kaynaklarıyla üretir (PLAN_03 Han recipe kategorisi)
+- **Zorluk:** Craft maliyeti yüksek tutulmuş; bu itemlar sıradan kaynaktan pahalı
+- **Stok:** Craft edilen item direkt Han stokuna girer; oyuncu kendisi kullanamaz (trade yasağı kapsamı dışında)
+- **Bozulma:** Han stokunda 7 günden fazla kalan item %10 etkinlik kaybeder
+
+### 5.4 Enerji Potionı Overdose Kuralı
+
+`han_item_vigor_major` gibi enerji veren itemların overdose kuralı (PLAN_08 ile tutarlı):
+
+```
+Tolerance > 60 → overdose_chance = 0.05 × tolerance_multiplier
+Overdose → hastaneye düş (PLAN_04 §7), tolerance +10 ek artış
+```
+
+Overdose kontrolü `use_han_item` RPC'sinde uygulanır (PLAN_08 `use_potion` mantığıyla aynı).
+
+## 6. PvP Arena (Dövüş Kulübü)
 
 ### 5.1 PvP Kuralları (Mekan İçi)
 
@@ -166,7 +220,7 @@ PvP rating'e dayalı haftalık sıralama:
 
 ---
 
-## 6. Sosyal Özellikler
+## 7. Sosyal Özellikler
 
 ### 6.1 Mekan İçi Aktiviteler
 
@@ -197,7 +251,7 @@ Fame etkileri:
 
 ---
 
-## 7. Kaçak Ticaret (Yeraltı İmparatorluğu Özel)
+## 8. Kaçak Ticaret (Yeraltı İmparatorluğu Özel)
 
 ### 7.1 Kaçak Maddeler
 
@@ -216,7 +270,7 @@ Sadece Yeraltı İmparatorluğu mekanlarında satılabilir:
 - **Yüksek risk:** Polis baskını olasılığı (rastgele event)
 - **Polis baskını:** Yakalanırsa: 24 saat hapis, mekan 48 saat kapalı, gold ceza
 - **Baskın olasılığı:** Her satışta %2 baz, suspicion arttıkça yükselir
-- **Suspicion** her kaçak satışta +5, günde -2 doğal azalma
+- **Suspicion** her kaçak satışta +5, yalnızca belirli "temizleme" etkinliğiyle azalır (otomatik azalma yok)
 
 ### 7.3 Polis Baskını Cezaları
 
@@ -230,7 +284,7 @@ Sadece Yeraltı İmparatorluğu mekanlarında satılabilir:
 
 ---
 
-## 8. Veritabanı Şeması (Önerilen)
+## 9. Veritabanı Şeması (Önerilen)
 
 ### 8.1 `game.mekans` Tablosu
 
@@ -303,7 +357,7 @@ CREATE TABLE game.mekan_pvp_matches (
 
 ---
 
-## 9. RPC Fonksiyonları (Önerilen)
+## 10. RPC Fonksiyonları (Önerilen)
 
 ### 9.1 Mekan Açma
 
@@ -420,7 +474,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 ---
 
-## 10. TypeScript Tipleri
+## 11. TypeScript Tipleri
 
 ```typescript
 export type MekanType = 'bar' | 'kahvehane' | 'dovus_kulubu' | 'luks_lounge' | 'yeralti';
@@ -477,7 +531,7 @@ export interface MekanPvpMatch {
 
 ---
 
-## 11. UI Sayfaları (Önerilen)
+## 12. UI Sayfaları (Önerilen)
 
 | Sayfa | Rota | Açıklama |
 |-------|------|----------|
@@ -489,7 +543,7 @@ export interface MekanPvpMatch {
 
 ---
 
-## 12. Ekonomik Etki Analizi
+## 13. Ekonomik Etki Analizi
 
 ### 12.1 Gold Sink Katkısı
 
@@ -520,14 +574,14 @@ Gold akışı: Crafter → Mekan Sahibi → (kira gold sink) → Sunucu
 | Mekan günlük gelir (end-game) | 5-30M/gün | Lv 10 Yeraltı: ~30M/gün | ✓ |
 | Mekan açma maliyeti vs gelir | Ay 1 toplam: 50M | Bar: 5M (ilk hafta karşılanır) | ✓ |
 | İksir craft maliyeti | PLAN_03: 5K-500K | Aynı değerler | ✓ |
-| PvP enerji maliyeti | PLAN_06 §4: 15 enerji | 15 enerji | ✓ |
+| PvP enerji maliyeti | PLAN_06 §4.3: 15 enerji | 15 enerji | ✓ |
 
 ---
 
-## 13. Uygulama Öncelikleri
+## 14. Uygulama Öncelikleri
 
-1. **Faz 1:** DB tabloları oluştur (mekans, mekan_stock, mekan_sales)
-2. **Faz 2:** `open_mekan`, `buy_from_mekan` RPC'leri
+1. **Faz 1:** DB tabloları oluştur (mekans, mekan_stock, mekan_sales); `items` tablosuna `is_han_only`, `is_market_tradeable`, `is_direct_tradeable` kolonlarını ekle
+2. **Faz 2:** `open_mekan`, `buy_from_mekan` RPC'leri; `use_han_item` RPC (tolerance + overdose entegrasyonlu)
 3. **Faz 3:** Mekan listesi ve detay UI sayfaları
 4. **Faz 4:** Stok yönetimi ve fiyatlandırma UI
 5. **Faz 5:** PvP Arena (PLAN_09 ile birlikte)

@@ -13,3 +13,4 @@ export * from "./facility";
 export * from "./crafting";
 export * from "./market";
 export * from "./auth";
+export * from "./mekan";

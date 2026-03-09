@@ -34,6 +34,7 @@ export default function ProfilePage() {
   const pvpWins = usePlayerStore((s) => s.pvpWins);
   const pvpLosses = usePlayerStore((s) => s.pvpLosses);
   const pvpRating = usePlayerStore((s) => s.pvpRating);
+  const characterClass = usePlayerStore((s) => s.characterClass);
 
   const xpForNext = Math.floor(1000 * Math.pow(level, 1.5));
   const winRate =
@@ -68,6 +69,15 @@ export default function ProfilePage() {
             <div className="space-y-2">
               <InfoRow label="İsim" value={player?.display_name || player?.username || "—"} />
               <InfoRow label="Seviye" value={String(level)} />
+              <InfoRow 
+                label="Sınıf" 
+                value={
+                  characterClass
+                    ? characterClass === 'warrior' ? '🗡️ Savaşçı' : 
+                      characterClass === 'alchemist' ? '⚗️ Simyacı' : '🌑 Gölge'
+                    : '❓ Seçilmedi'
+                } 
+              />
               <div>
                 <div className="flex justify-between text-xs mb-1">
                   <span className="text-[var(--text-muted)]">Deneyim</span>

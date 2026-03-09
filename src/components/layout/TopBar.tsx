@@ -22,6 +22,8 @@ const MENU_ITEMS = [
   { path: "/hospital", label: "Hastane", icon: "🏥" },
   { path: "/prison", label: "Cezaevi", icon: "🚓" },
   { path: "/pvp", label: "PvP Arena", icon: "⚔️" },
+  { path: "/mekans", label: "Mekanlar", icon: "🏪" },
+  { path: "/my-mekan", label: "Benim Mekanım", icon: "🏬" },
   { path: "/crafting", label: "Zanaat", icon: "🔨" },
   { path: "/enhancement", label: "Güçlendirme", icon: "🔥" },
   { path: "/facilities", label: "Tesisler", icon: "🏭" },

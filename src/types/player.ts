@@ -49,6 +49,8 @@ export interface PlayerProfile {
   agility?: number;
   intelligence?: number;
   luck?: number;
+  character_class?: 'warrior' | 'alchemist' | 'shadow' | null;
+  class_selected_at?: string | null;
   hp?: number;
 }
 

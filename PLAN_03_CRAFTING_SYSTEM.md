@@ -1,8 +1,8 @@
 # PLAN 03 — Crafting (Üretim) Sistemi
 
 > **Durum:** Tasarım Aşaması  
-> **Son Güncelleme:** 2026-03-04  
-> **Bağımlılıklar:** Tesis sistemi (kaynak temini), Item sistemi (üretilen ekipmanlar)
+> **Son Güncelleme:** 2026-03-07  
+> **Bağımlılıklar:** Tesis sistemi (kaynak temini), Item sistemi (üretilen ekipmanlar), PLAN_11 (Simyacı sınıfı crafting bonusu)
 
 ---
 
@@ -249,6 +249,33 @@ Her slot için birincil/ikincil/üçüncül tesis atamaları:
 
 ---
 
+## 5.5 Han-Only Item Reçeteleri
+
+Han/Mekan'a özel itemlar (PLAN_07 §5 kataloğu) normal crafting sistemiyle üretilir ancak ayrı bir recipe kategorisine girer.
+
+**Kategori:** `recipe_type = 'han_only'`
+
+| Item | Item ID | Kaynaklar | Gold | Süre | Başarı |
+|------|---------|-----------|------|------|--------|
+| Küçük Han Şarabı | `han_item_vigor_minor` | 3× Mel Regale + 2× Herba Medicinalis | 50,000 | 30 dk | %95 |
+| Büyük Han Şarabı | `han_item_vigor_major` | 5× Mel Aureum + 3× Flos Lunaris | 200,000 | 2 saat | %85 |
+| Arındırma İçeceği | `han_item_elixir_purge` | 4× Aqua Purificata + 3× Fungus Medicinalis | 100,000 | 1 saat | %90 |
+| Berraklık Potionı | `han_item_clarity` | 5× Fons Vitae + 4× Aqua Aeterna | 500,000 | 4 saat | %80 |
+| Berserker Özü | `han_item_berserk` | 5× Radix Draconis + 3× Venenum Apis + 3× Ignis Scintilla | 1,000,000 | 6 saat | %60 |
+| Gölge Karışımı | `han_item_shadow_brew` | 4× Cor Umbrae + 3× Pulvis Umbrae | 800,000 | 5 saat | %70 |
+| Büyük Restorasyon | `han_item_restoration` | 5× Herba Immortalis + 4× Mel Aureum + 3× Aqua Sacra | 800,000 | 5 saat | %75 |
+
+**Önemli kurallar:**
+- Bu reçeteler `craft_recipes` tablosunda `recipe_type = 'han_only'` olarak işaretlenir
+- Üretilen item `items` tablosunda `is_han_only = true`, `is_market_tradeable = false`, `is_direct_tradeable = false` değerlere sahip olur
+- Başarısız craft: kaynak %50 kaybı, gold tam kayıp (normal crafting kuralları)
+- Stok akışı: craft → hanın stokuna gönder (kişisel envanteri bypass eder — `start_han_crafting` RPC ile)
+- **Trade kısıtı uygulama:** `market_list_item` ve `trade_item_direct` RPC'leri, `is_market_tradeable` ve `is_direct_tradeable` bayraklarını kontrol ederek Han-only itemların piyasaya/direkt trade'e çıkmasını engeller
+
+**Reçete sayısına katkı:** 7 adet Han-only reçetesi, toplam reçete sayısını **205 → 212**'ye çıkarır.
+
+---
+
 ## 6. Başarısız Crafting Mekanikleri
 
 Crafting başarısız olduğunda:
@@ -435,7 +462,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 | Necklace (4 tip × 6 rarity) | 24 |
 | İksirler | 10 |
 | Scroll'lar | 3 |
-| **TOPLAM** | **205** |
+| Han-Only Itemlar | 7 |
+| **TOPLAM** | **212** |
 
 ---
 
@@ -449,4 +477,4 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 ---
 
-*Bu belge `PLAN_01_ITEMS_EQUIPMENT.md` ve `PLAN_02_FACILITIES_RESOURCES.md` ile birlikte kullanılmalıdır.*
+*Bu belge `PLAN_01_ITEMS_EQUIPMENT.md` ve `PLAN_02_FACILITIES_RESOURCES.md` ile birlikte kullanılmalıdır. Simyacı sınıfının crafting başarı bonusu (+%15) ve Han craft süresi azaltması (-%20) için bkz. `PLAN_11_CHARACTER_CLASS_SYSTEM.md`.*

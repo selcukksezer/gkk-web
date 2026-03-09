@@ -17,6 +17,59 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Button } from "@/components/ui/Button";
 import { formatGold, formatCompact } from "@/lib/utils/string";
 
+// Character class data (PLAN_11 — Karakter Sınıfı & Stat Sistemi)
+const CLASS_DATA: Record<'warrior' | 'alchemist' | 'shadow', {
+  name: string;
+  icon: string;
+  description: string;
+  class_feature: string;
+  base_stats: { attack: number; defense: number; health: number; luck: number };
+  bonuses: { label: string; value: string; color: string }[];
+}> = {
+  warrior: {
+    name: "🗡️ Savaşçı",
+    icon: "🗡️",
+    description: "Yeraltı dünyasının sert dövüşçüsü. Han'ın en güçlü PvP oyuncusu.",
+    class_feature: "Kan Hırsı — PvP kazandıktan sonra 30 dk boyunca attack %10 artar (üst üste 3 kazanımda %20'ye çıkar).",
+    base_stats: { attack: 18, defense: 12, health: 120, luck: 5 },
+    bonuses: [
+      { label: "PvP Hasar", value: "+20%", color: "var(--color-error)" },
+      { label: "Boss Hasar", value: "+15%", color: "var(--color-gold)" },
+      { label: "PvP Kritik Şansı", value: "+10%", color: "var(--color-warning)" },
+      { label: "Zindan Başarısı", value: "+5%", color: "var(--color-success)" },
+      { label: "Hastane Süresi", value: "-20%", color: "var(--text-muted)" },
+    ],
+  },
+  alchemist: {
+    name: "⚗️ Simyacı",
+    icon: "⚗️",
+    description: "İksirlerin ve formüllerin efendisi. Crafting ve üretim odaklı oyuncunun tercihi.",
+    class_feature: "Formül Ustası — Her gün 1 adet ücretsiz Minor Detox Drink üretme hakkı (craft malzemesi gerekmez).",
+    base_stats: { attack: 10, defense: 12, health: 140, luck: 12 },
+    bonuses: [
+      { label: "İksir Etkinliği", value: "+30%", color: "var(--rarity-epic)" },
+      { label: "Tolerans Artışı", value: "-25%", color: "var(--color-success)" },
+      { label: "Overdose Şansı", value: "-20%", color: "var(--color-success)" },
+      { label: "Crafting Başarısı", value: "+15%", color: "var(--color-gold)" },
+      { label: "Han Üretim Süresi", value: "-20%", color: "var(--text-muted)" },
+    ],
+  },
+  shadow: {
+    name: "🌑 Gölge",
+    icon: "🌑",
+    description: "Şüphe altında faaliyet gösteren, gizliliği ve kaçınmayı benimseyen karakter.",
+    class_feature: "Gölgelik — Tesisler'de şüphe artış hızı %30 düşük, rüşvet maliyeti %25 az.",
+    base_stats: { attack: 12, defense: 10, health: 110, luck: 18 },
+    bonuses: [
+      { label: "Tesis Şüphesi", value: "-30%", color: "var(--color-success)" },
+      { label: "Rüşvet Maliyeti", value: "-25%", color: "var(--color-success)" },
+      { label: "Hapişhaneden Kaçış", value: "+20%", color: "var(--color-warning)" },
+      { label: "Zindan Loot Şansı", value: "+40%", color: "var(--color-gold)" },
+      { label: "PvP Kaçınma", value: "+15%", color: "var(--text-muted)" },
+    ],
+  },
+};
+
 type CharTab = "stats" | "skills" | "achievements";
 
 const CHAR_TABS: { key: CharTab; label: string }[] = [
@@ -117,6 +170,8 @@ export default function CharacterPage() {
   const maxEnergy = usePlayerStore((s) => s.maxEnergy);
   const tolerance = usePlayerStore((s) => s.tolerance);
   const globalSuspicionLevel = usePlayerStore((s) => s.globalSuspicionLevel);
+  const characterClass = usePlayerStore((s) => s.characterClass);
+  const luck = usePlayerStore((s) => s.luck);
   const fetchProfile = usePlayerStore((s) => s.fetchProfile);
 
   // Inventory
@@ -158,7 +213,7 @@ export default function CharacterPage() {
   const finalAtk = baseAtk + eqAtk + lvlAtk;
   const finalDef = baseDef + eqDef + lvlDef;
   const finalSpeed = baseSpeed + Math.floor(level * 0.3);
-  const finalLuck = baseLuck + Math.floor(level * 0.5);
+  const finalLuck = (luck ?? 0) + Math.floor(level * 0.5);
   const critChance = Math.min(5 + Math.floor(level * 0.4) + Math.floor(skillLevels.combat * 1.5), 50);
   const critDamage = 150 + Math.floor(level * 0.5) + skillLevels.combat * 5;
   const evasion = Math.floor(skillLevels.stealth * 3 + level * 0.2);
@@ -173,6 +228,35 @@ export default function CharacterPage() {
         <h1 className="text-xl font-bold text-[var(--gold)]">🧙 Karakter</h1>
         <span className="text-xs text-[var(--text-muted)]">Seviye {level}</span>
       </div>
+
+      {/* Character Class Card */}
+      {characterClass && (
+        <Card variant="elevated" className="border-l-4" style={{ borderLeftColor: 
+          characterClass === 'warrior' ? 'var(--color-error)' : 
+          characterClass === 'alchemist' ? 'var(--rarity-epic)' : 
+          'var(--text-muted)'
+        }}>
+          <div className="p-4">
+            <div className="flex items-start gap-3 mb-2">
+              <div className="text-4xl">{CLASS_DATA[characterClass].icon}</div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-[var(--text-primary)]">
+                  {CLASS_DATA[characterClass].name}
+                </h3>
+                <p className="text-xs text-[var(--text-secondary)] mt-1">
+                  {CLASS_DATA[characterClass].description}
+                </p>
+              </div>
+            </div>
+            <div className="bg-[var(--bg-input)] rounded-lg p-2 mt-3 border-l-2 border-[var(--accent)]">
+              <p className="text-xs text-[var(--text-muted)] font-medium">⭐ Sınıf Özelliği</p>
+              <p className="text-xs text-[var(--text-secondary)] mt-1">
+                {CLASS_DATA[characterClass].class_feature}
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Player Name + XP Bar */}
       <Card variant="elevated">
@@ -307,11 +391,43 @@ export default function CharacterPage() {
                         <td className="py-2 text-right text-[var(--accent-light)]">+{evasion}%</td>
                         <td className="py-2 text-right font-bold text-[var(--text-primary)]">{evasion}%</td>
                       </tr>
+                      <tr>
+                        <td className="py-2 text-[var(--text-primary)]">⭐ Şans</td>
+                        <td className="py-2 text-right text-[var(--text-muted)]">5</td>
+                        <td className="py-2 text-right text-[var(--color-success)]">+0</td>
+                        <td className="py-2 text-right text-[var(--accent-light)]">+{Math.floor(level * 0.5)}</td>
+                        <td className="py-2 text-right font-bold text-[var(--color-warning)]">{finalLuck}</td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
               </div>
             </Card>
+            
+            {/* Class Bonuses */}
+            {characterClass && (
+              <Card>
+                <div className="p-4">
+                  <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-3">
+                    🎭 Sınıf Bonusları — {CLASS_DATA[characterClass].name}
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                    {CLASS_DATA[characterClass].bonuses.map((bonus) => (
+                      <div
+                        key={bonus.label}
+                        className="bg-[var(--bg-input)] p-3 rounded-lg border border-[var(--border-subtle)]"
+                        style={{ borderLeftColor: bonus.color, borderLeftWidth: "3px" }}
+                      >
+                        <div className="text-[var(--text-muted)] font-medium">{bonus.label}</div>
+                        <div className="font-bold text-lg mt-1" style={{ color: bonus.color }}>
+                          {bonus.value}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            )}
 
             {/* Equipment Slots */}
             <Card>
