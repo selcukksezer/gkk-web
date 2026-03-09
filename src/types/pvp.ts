@@ -44,3 +44,26 @@ export interface PvPHistoryEntry {
   created_at: string;
   battle_log: string[];
 }
+
+export interface PvpMatch {
+  id: string;
+  mekan_id: string;
+  attacker_id: string;
+  defender_id: string;
+  winner_id: string | null;
+  attacker_power: number;
+  defender_power: number;
+  attacker_hp_remaining: number;
+  defender_hp_remaining: number;
+  gold_stolen: number;
+  rep_change_winner: number;
+  rep_change_loser: number;
+  attacker_rating_before: number;
+  attacker_rating_after: number;
+  defender_rating_before: number;
+  defender_rating_after: number;
+  is_critical_success: boolean;
+  hospital_triggered: boolean;
+  rounds: number;
+  created_at: string;
+}

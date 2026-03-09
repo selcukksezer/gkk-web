@@ -48,6 +48,7 @@ export default function CraftingPage() {
 
   // Player & UI
   const level = usePlayerStore((s) => s.level);
+  const characterClass = usePlayerStore((s) => s.characterClass);
   const gems = usePlayerStore((s) => s.gems);
   const addToast = useUiStore((s) => s.addToast);
   const fetchInventory = useInventoryStore((s) => s.fetchInventory);

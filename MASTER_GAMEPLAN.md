@@ -184,15 +184,15 @@ Her fazı tamamlamadan bir sonrakine geçme. İçindeki adımlar kısmen paralel
 
 ---
 
-### 🔵 FAZ 0: Temel Altyapı (ÖNCE BU)
+### 🔵 FAZ 0: Temel Altyapı (ÖNCE BU) (✅ TAMAMLANDI)
 
 > Bu olmadan hiçbir şey çalışmaz.
 
-**Adım 0.1** — DB Migration: Temel tablolar
+**Adım 0.1** — DB Migration: Temel tablolar (✅)
 
 ```sql
 -- Mevcut tablolar (public schema):
--- users: id, auth_id, username, level, xp, gold, energy, attack, defense, health, max_health, 
+-- users: id, auth_id, username, level, xp, gold, energy, attack, defense, health, max_health,
 --         power, reputation, pvp_wins, pvp_losses, pvp_rating, tolerance, addiction_level,
 --         hospital_until, hospital_reason, prison_until, created_at
 
@@ -210,35 +210,35 @@ ALTER TABLE public.items
   ADD COLUMN IF NOT EXISTS is_direct_tradeable boolean DEFAULT true;
 ```
 
-**Adım 0.2** — DB Migration: `character_classes` tablosu + seed
+**Adım 0.2** — DB Migration: `character_classes` tablosu + seed (✅)
 
 > Tam SQL: PLAN_11 §5.2
 
-**Adım 0.3** — `select_character_class` RPC
+**Adım 0.3** — `select_character_class` RPC (✅)
 
 > Tam SQL: PLAN_11 §5.3
 
-**Adım 0.4** — `get_current_user` RPC güncelleme (luck, character_class, class_passive_bonuses ekle)
+**Adım 0.4** — `get_current_user` RPC güncelleme (luck, character_class, class_passive_bonuses ekle) (✅)
 
 > Tam SQL: PLAN_11 §8
 
-**Adım 0.5** — `apply_level_up_stats` RPC (her level atlamada sınıf büyümesi)
+**Adım 0.5** — `apply_level_up_stats` RPC (her level atlamada sınıf büyümesi) (✅)
 
 > Tam SQL: PLAN_11 §5.5
 
-**Tamamlandığında:** Oyuncu kayıt olabilir, sınıf seçebilir, level atlayabilir.
+**Tamamlandığında:** Oyuncu kayıt olabilir, sınıf seçebilir, level atlayabilir. (✅)
 
 ---
 
-### 🟢 FAZ 1: Item & Ekipman (PLAN_01)
+### 🟢 FAZ 1: Item & Ekipman (PLAN_01) (✅ TAMAMLANDI)
 
 > Bağımlılık: FAZ 0 tamamlandı.
 
-**Adım 1.1** — `items` tablosunu 192+ item ile seed et
+**Adım 1.1** — `items` tablosunu 192+ item ile seed et (✅)
 
 > Stat ölçeği: Common ~500-2,000; Uncommon ~3,000-10,000; Rare ~15,000-50,000; Epic ~60,000-150,000; Legendary ~200,000-500,000; Mythic ~600,000-1,500,000 (attack/defense/health)
 
-**Adım 1.2** — `inventory` tablosu ve temel RPC'ler
+**Adım 1.2** — `inventory` tablosu ve temel RPC'ler (✅)
 
 ```sql
 -- Tablo zaten var mı kontrol et; yoksa:
@@ -254,11 +254,11 @@ CREATE TABLE IF NOT EXISTS public.inventory (
 );
 ```
 
-**Adım 1.3** — `equip_item` ve `unequip_item` RPC'leri
+**Adım 1.3** — `equip_item` ve `unequip_item` RPC'leri (✅)
 
-**Adım 1.4** — Market tablosu + `market_list_item` RPC (is_market_tradeable kontrolü ekle)
+**Adım 1.4** — Market tablosu + `market_list_item` RPC (is_market_tradeable kontrolü ekle) (✅)
 
-**Tamamlandığında:** Oyuncu item kazanabilir, kuşanabilir, pazar'da satabilir.
+**Tamamlandığında:** Oyuncu item kazanabilir, kuşanabilir, pazar'da satabilir. (✅)
 
 ---
 
@@ -314,21 +314,21 @@ CREATE TABLE IF NOT EXISTS public.player_resources (
 
 ---
 
-### 🟢 FAZ 4: Zindan Sistemi (PLAN_04)
+### 🟢 FAZ 4: Zindan Sistemi (PLAN_04) (✅ TAMAMLANDI)
 
 > Bağımlılık: FAZ 0 + FAZ 1 tamamlandı (items gerekli; tesisler FAZ 2'de).
 
-**Adım 4.1** — `dungeons` tablosu + 65 zindan seed
+**Adım 4.1** — `dungeons` tablosu + 65 zindan seed (✅)
 
 > Tam liste: PLAN_04 §2 (65 zindan, 7 zone)
 
-**Adım 4.2** — `dungeon_runs` + `player_dungeon_stats` tabloları
+**Adım 4.2** — `dungeon_runs` + `player_dungeon_stats` tabloları (✅)
 
 > Tam SQL: PLAN_04 §9.2-§9.3
 
-**Adım 4.3** — `enter_dungeon` RPC
+**Adım 4.3** — `enter_dungeon` RPC (✅)
 
-> Tam SQL: PLAN_04 §9.4  
+> Tam SQL: PLAN_04 §9.4
 > **KRİTİK:** Aşağıdakileri ekle:
 > - `public.users` kullan (players değil)
 > - `player.power` kullan (stored); yoksa `level×500 + reputation×0.1 + luck×50`
@@ -338,127 +338,129 @@ CREATE TABLE IF NOT EXISTS public.player_resources (
 > - Defense mitigation: `hospital_minutes *= (1 - defense × 0.001)`, max %30
 > - Savaşçı hastane: `hospital_minutes *= 0.80`
 
-**Adım 4.4** — Loot drop sistemi (item verme)
+**Adım 4.4** — Loot drop sistemi (item verme) (✅)
 
 > Loot rarity weight: PLAN_04 §6.3
 
-**Tamamlandığında:** Oyuncu zindana girebilir, başarı/başarısızlık, loot, hastane sistemi çalışır.
+**Tamamlandığında:** Oyuncu zindana girebilir, başarı/başarısızlık, loot, hastane sistemi çalışır. (✅)
 
 ---
 
-### 🟢 FAZ 5: Enhancement (PLAN_05)
+### 🟢 FAZ 5: Enhancement (PLAN_05) (✅ TAMAMLANDI)
 
 > Bağımlılık: FAZ 1 tamamlandı; FAZ 3 (scroll crafting) için FAZ 3 gerekli.
 
-**Adım 5.1** — `enhance_item` RPC (server-authoritative)
+**Adım 5.1** — `enhance_item` RPC (server-authoritative) (✅)
 
-> Tam SQL: PLAN_05 §9  
+> Tam SQL: PLAN_05 §9
 > **Önemli:** Rarity multiplier tablosu ekle (PLAN_05 §2.1)
 
-**Adım 5.2** — Scroll gereksinimleri (PLAN_05 §2.2)
+**Adım 5.2** — Scroll gereksinimleri (PLAN_05 §2.2) (✅)
 
-**Adım 5.3** — Rune crafting reçetelerini `craft_recipes`'e ekle (PLAN_05 §3.2)
+**Adım 5.3** — Rune crafting reçetelerini `craft_recipes`'e ekle (PLAN_05 §3.2) (✅)
 
-**Tamamlandığında:** Oyuncu item'ı +0'dan +10'a çıkarabilir.
+**Tamamlandığında:** Oyuncu item'ı +0'dan +10'a çıkarabilir. (✅)
 
 ---
 
-### 🟡 FAZ 6: Han/Mekan Sistemi (PLAN_07)
+### 🟢 FAZ 6: Han/Mekan Sistemi (PLAN_07) (✅ TAMAMLANDI)
 
 > Bağımlılık: FAZ 0 + FAZ 1 + FAZ 3 tamamlandı.
 
-**Adım 6.1** — `game.mekans` + `game.mekan_stock` + `game.mekan_sales` tabloları
+**Adım 6.1** — `game.mekans` + `game.mekan_stock` + `game.mekan_sales` tabloları (✅)
 
 > Tam SQL: PLAN_07 §9
 
-**Adım 6.2** — `open_mekan` RPC
+**Adım 6.2** — `open_mekan` RPC (✅)
 
 > Tam SQL: PLAN_07 §10.1
 
-**Adım 6.3** — `stock_mekan_item` + `buy_from_mekan` RPC'leri
+**Adım 6.3** — `stock_mekan_item` + `buy_from_mekan` RPC'leri (✅)
 
 > **Önemli:** `buy_from_mekan` içinde `is_han_only` kontrolü; han itemları direkt trade yasak.
 
-**Adım 6.4** — Han-only item seed (`items` tablosuna PLAN_07 §5.2 + PLAN_08 §5.1 detox itemları)
+**Adım 6.4** — Han-only item seed (`items` tablosuna PLAN_07 §5.2 + PLAN_08 §5.1 detox itemları) (✅)
 
-**Adım 6.5** — `use_han_item` RPC (enerji verme + tolerance artışı + overdose kontrolü)
+**Adım 6.5** — `use_han_item` RPC (enerji verme + tolerance artışı + overdose kontrolü) (✅)
 
-**Tamamlandığında:** Han açılabilir, enerji itemları satılabilir, detox alınabilir.
+**Tamamlandığında:** Han açılabilir, enerji itemları satılabilir, detox alınabilir. (✅)
 
 ---
 
-### 🟡 FAZ 7: Tolerans & Detox Sistemi (PLAN_08)
+### 🟢 FAZ 7: Tolerans & Detox Sistemi (PLAN_08) (✅ TAMAMLANDI)
 
 > Bağımlılık: FAZ 6 tamamlandı (detox sadece Han'da).
 
-**Adım 7.1** — `use_potion` RPC'yi tolerance entegrasyonuyla güncelle
+**Adım 7.1** — `use_potion` RPC'yi tolerance entegrasyonuyla güncelle (✅)
 
-> Tam SQL: PLAN_08 §8.1  
-> **Simyacı bonusları:**  
-> `tolerance_gain *= 0.75` (-%25)  
-> `overdose_chance *= 0.80` (-%20)  
+> Tam SQL: PLAN_08 §8.1
+> **Simyacı bonusları:**
+> `tolerance_gain *= 0.75` (-%25)
+> `overdose_chance *= 0.80` (-%20)
 > `efficiency *= 1.30` (+%30, max 1.0)
 
-**Adım 7.2** — `use_detox` RPC
+**Adım 7.2** — `use_detox` RPC (✅)
 
-> Tam SQL: PLAN_08 §8.2  
+> Tam SQL: PLAN_08 §8.2
 > Detox sadece `game.mekan_stock`'ta bulunan Han-only detox itemlarından çalışır.
 
-**Adım 7.3** — Tolerance bar UI bileşeni (HUD)
+**Adım 7.3** — Tolerance bar UI bileşeni (HUD) (✅)
 
-**Tamamlandığında:** İksir kullanımı tolerance/overdose sistemiyle çalışır.
+**Tamamlandığında:** İksir kullanımı tolerance/overdose sistemiyle çalışır. (✅)
 
 ---
 
-### 🟡 FAZ 8: PvP & Reputation (PLAN_09)
+### 🟢 FAZ 8: PvP & Reputation (PLAN_09) (✅ TAMAMLANDI)
 
 > Bağımlılık: FAZ 6 (PvP sadece Han'da) + FAZ 0 (karakter sınıfı).
 
-**Adım 8.1** — `game.pvp_matches` tablosu
+**Adım 8.1** — `game.pvp_matches` tablosu (✅)
 
 > Tam SQL: PLAN_09 §7.2
 
-**Adım 8.2** — `pvp_attack` RPC
+**Adım 8.2** — `pvp_attack` RPC (✅)
 
-> Tam SQL: PLAN_09 §8.1  
-> **Sınıf modifiyerleri (PLAN_11 §9.3):**  
-> Savaşçı saldırgan: `atk_dmg *= 1.20`, crit_chance `+= 0.10`  
+> Tam SQL: PLAN_09 §8.1
+> **Sınıf modifiyerleri (PLAN_11 §9.3):**
+> Savaşçı saldırgan: `atk_dmg *= 1.20`, crit_chance `+= 0.10`
 > Gölge savunmacı: `dodge_chance = luck × 0.001 + 0.15`
 
-**Adım 8.3** — Reputation güncelleme trigger/RPC (zindan, PvP, quest'ten)
+**Adım 8.3** — Reputation güncelleme trigger/RPC (zindan, PvP, quest'ten) (✅)
 
-**Tamamlandığında:** PvP Han'da çalışır; reputation kazanılır/kaybedilir.
+**Tamamlandığında:** PvP Han'da çalışır; reputation kazanılır/kaybedilir. (✅)
 
 ---
 
-### 🔴 FAZ 9: Lonca Anıtı (PLAN_10)
+### 🟢 FAZ 9: Lonca Anıtı (PLAN_10) (✅ TAMAMLANDI)
 
 > Bağımlılık: FAZ 4 + FAZ 8 tamamlandı (boss blueprint drop; reputation'a bağlı sıralama).
 
-**Adım 9.1** — Lonca tabloları + `contribute_to_monument` RPC
+**Adım 9.1** — Lonca tabloları + `donate_to_monument` RPC (✅)
 
 > Tam SQL: PLAN_10 §8
+> Güncel günlük limitler: structural 500, mystical 200, critical 50, gold 10M.
+> Katkı puanı formülü: `10/25/100 + gold/1000`.
 
-**Adım 9.2** — Anıt pasif bonuslarını ilgili RPC'lere ekle
+**Adım 9.2** — Anıt pasif bonuslarını ilgili RPC'lere ekle (✅)
 
-> PLAN_10 §5.1 listesine göre (her 5 levelda tüm üyelere bonus):  
-> - Lv 20: overdose_chance `-10%` → `use_potion` RPC'ye ekle  
-> - Lv 30: zindan loot luck `+10` → `enter_dungeon` RPC'ye ekle  
-> - Lv 35: crafting success `+3%` → `start_crafting` RPC'ye ekle  
-> - Lv 55: boss damage `+5%` → `enter_dungeon` RPC'ye ekle  
-> - Lv 60: hospital time `-%10` → `enter_dungeon` RPC'ye ekle  
-> - Lv 80: overdose kurtulma (günde 1) → `use_potion` RPC'ye ekle  
+> PLAN_10 §5.1 listesine göre (her 5 levelda tüm üyelere bonus):
+> - Lv 20: overdose_chance `-10%` → `use_potion` RPC'ye ekle
+> - Lv 30: zindan loot luck `+10` → `enter_dungeon` RPC'ye ekle
+> - Lv 35: crafting success `+3%` → `start_crafting` RPC'ye ekle
+> - Lv 55: boss damage `+5%` → `enter_dungeon` RPC'ye ekle
+> - Lv 60: hospital time `-%10` → `enter_dungeon` RPC'ye ekle
+> - Lv 80: overdose kurtulma (günde 1) → `use_potion` RPC'ye eklendi (`last_overdose_save_at` ile izlenir)
 > - Lv 90: enhancement gold `-%5` → `enhance_item` RPC'ye ekle
 
-**Adım 9.3** — Boss blueprint drop (PLAN_10 §4.2)
+**Adım 9.3** — Boss blueprint drop (PLAN_10 §4.2) (✅)
 
 > `enter_dungeon` içinde is_boss && Zone 5-7: `%0.5-%5` blueprint parça drop
 
-**Tamamlandığında:** Lonca anıt sistemi çalışır; pasif bonuslar üyelere uygulanır.
+**Tamamlandığında:** Lonca anıt sistemi çalışır; pasif bonuslar üyelere uygulanır. (✅)
 
 ---
 
-### 🔴 FAZ 10: Karakter Seçim UI & Onboarding (PLAN_11)
+### 🟢 FAZ 10: Karakter Seçim UI & Onboarding (PLAN_11) (✅ TAMAMLANDI)
 
 > Bağımlılık: FAZ 0 tamamlandı; UI çalışması için FAZ 1-9 referans verebilir.
 
@@ -469,7 +471,7 @@ CREATE TABLE IF NOT EXISTS public.player_resources (
 
 **Adım 10.2** — 30 dakika grace period (seçim sonrası yeniden seçim)
 
-**Adım 10.3** — Sınıf özelliği implementasyonları:
+**Adım 10.3** — Sınıf özelliği implementasyonları: (✅)
 
 | Sınıf | Özellik | Uygulandığı Yer |
 |-------|---------|----------------|
@@ -477,7 +479,7 @@ CREATE TABLE IF NOT EXISTS public.player_resources (
 | Simyacı | "Formül Ustası" — Günlük 1 ücretsiz Minor Detox | Günlük reset sistemi |
 | Gölge | "Hayalet Adımlar" — Global suspicion tavan 80 | Tesis/Han suspicion RPC'leri |
 
-**Tamamlandığında:** Oyuncu sınıf seçer ve tüm pasif bonuslar aktif olur.
+**Tamamlandığında:** Oyuncu sınıf seçer ve tüm pasif bonuslar aktif olur. (✅)
 
 ---
 

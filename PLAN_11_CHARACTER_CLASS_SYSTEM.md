@@ -1,6 +1,6 @@
 # PLAN 11 — Karakter Sınıfı & Stat Sistemi (Character Class & Stat System)
 
-> **Durum:** Tasarım Aşaması  
+> **Durum:** Kısmi Uygulama  
 > **Son Güncelleme:** 2026-03-07  
 > **Bağımlılıklar:** PLAN_01 (item stats), PLAN_04 (dungeon), PLAN_06 (ekonomi/power), PLAN_08 (tolerans), PLAN_09 (PvP), PLAN_02 (tesisler)  
 > **Kapsam:** 3 karakter sınıfı seçimi, sınıfa özgü stat bonusları, stat sistemi (attack/defense/health/luck), tüm sınıflar için evrensel item erişimi  

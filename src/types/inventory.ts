@@ -52,6 +52,9 @@ export interface InventoryItem {
 
   // Trade
   is_tradeable: boolean;
+  is_han_only?: boolean;
+  is_market_tradeable?: boolean;
+  is_direct_tradeable?: boolean;
 
   // Potion
   potion_type: PotionType;

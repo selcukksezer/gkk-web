@@ -106,7 +106,7 @@ export default function TradePage() {
   }, [fetchInventory]);
 
   // Tradeable, non-equipped items for picker
-  const tradeableItems = items.filter((i) => i.is_tradeable && !i.is_equipped);
+  const tradeableItems = items.filter((i) => i.is_tradeable && i.is_direct_tradeable !== false && !i.is_equipped);
 
   // ── Initiate trade — api.rpc("initiate_trade") ─────────────
   const handleSearch = async () => {

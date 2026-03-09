@@ -11,3 +11,4 @@ export { useUIStore, useUiStore } from "./uiStore";
 export { useMarketStore } from "./marketStore";
 export { useAudioStore } from "./audioStore";
 export { useConfigStore } from "./configStore";
+export { useMekanStore } from "./mekanStore";

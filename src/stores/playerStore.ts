@@ -43,6 +43,10 @@ interface PlayerState {
   pvpWins: number;
   pvpLosses: number;
   
+  // Character class (PLAN_11)
+  characterClass: 'warrior' | 'alchemist' | 'shadow' | null;
+  luck: number;
+  
   // Hospital status (Godot: StateStore.gd lines 89-96)
   inHospital: boolean;
   hospitalUntil: string | null;
@@ -103,6 +107,8 @@ const initialState = {
   pvpRating: 1000,
   pvpWins: 0,
   pvpLosses: 0,
+  characterClass: null as 'warrior' | 'alchemist' | 'shadow' | null,
+  luck: 0,
   inHospital: false,
   hospitalUntil: null as string | null,
   hospitalReason: null as string | null,
@@ -165,6 +171,9 @@ export const usePlayerStore = create<PlayerState>()(
 
     const globalSuspicionLevel = ((dbData.global_suspicion_level || dbData.globalSuspicionLevel || data.global_suspicion_level) as number) ?? 0;
     const lastBribeAt = ((dbData.last_bribe_at || data.last_bribe_at) as string) ?? null;
+    
+    const characterClass = ((dbData.character_class || data.character_class) as any) ?? null;
+    const luck = ((dbData.luck || data.luck) as number) ?? 0;
 
     // Godot: StateStore.gd line 141 — in_prison computed at load time from prisonUntil
     const prisonStatus = { inPrison: false, daysRemaining: 0 };
@@ -191,6 +200,8 @@ export const usePlayerStore = create<PlayerState>()(
       gems,
       level,
       xp,
+      characterClass,
+      luck,
       nextLevelXp: calculateNextLevelXp(level),
       tolerance,
       pvpRating,

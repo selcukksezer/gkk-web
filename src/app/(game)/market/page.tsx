@@ -97,7 +97,7 @@ export default function MarketPage() {
 
   // Tradeable items for sell tab
   const tradeableItems = useMemo(() => {
-    return items.filter((i) => i.is_tradeable && !i.is_equipped);
+    return items.filter((i) => i.is_tradeable && i.is_market_tradeable !== false && !i.is_equipped);
   }, [items]);
 
   const handleBuy = async (order: MarketOrder) => {

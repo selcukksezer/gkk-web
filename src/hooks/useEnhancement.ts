@@ -1,7 +1,7 @@
 // ============================================================
 // useEnhancement — Ekipman geliştirme (upgrade) sistemi
-// Kaynak: EnhancementManager.gd (318 satır)
-// Server-authoritative: upgrade_item_enhancement RPC çağrılır
+// Kaynak: PLAN_05_ENHANCEMENT_SYSTEM.md
+// Server-authoritative: enhance_item RPC çağrılır
 // ============================================================
 
 "use client";
@@ -12,9 +12,10 @@ import { usePlayerStore } from "@/stores/playerStore";
 import { useUiStore } from "@/stores/uiStore";
 import { GAME_CONFIG } from "@/data/GameConstants";
 import { trackEnhancement } from "@/lib/telemetry";
+import { supabase } from "@/lib/supabase";
 import type { InventoryItem } from "@/types/inventory";
 
-type RuneType = "none" | "basic" | "advanced" | "superior" | "legendary" | "protection";
+type RuneType = "none" | "basic" | "advanced" | "superior" | "legendary" | "protection" | "blessed";
 
 interface RuneInfo {
   type: RuneType;
@@ -25,14 +26,26 @@ interface RuneInfo {
 
 const RUNES: Record<RuneType, RuneInfo> = {
   none: { type: "none", successBonus: 0, destructionReduction: 0, cost: 0 },
-  basic: { type: "basic", successBonus: 0.05, destructionReduction: 0, cost: 500 },
-  advanced: { type: "advanced", successBonus: 0.1, destructionReduction: 0, cost: 2000 },
-  superior: { type: "superior", successBonus: 0.15, destructionReduction: 0.5, cost: 5000 },
-  legendary: { type: "legendary", successBonus: 0.25, destructionReduction: 0.75, cost: 15000 },
-  protection: { type: "protection", successBonus: 0, destructionReduction: 1.0, cost: 25000 },
+  basic: { type: "basic", successBonus: 0.05, destructionReduction: 0, cost: 50000 },
+  advanced: { type: "advanced", successBonus: 0.1, destructionReduction: 0, cost: 200000 },
+  superior: { type: "superior", successBonus: 0.15, destructionReduction: 0.5, cost: 500000 },
+  legendary: { type: "legendary", successBonus: 0.25, destructionReduction: 0.75, cost: 1500000 },
+  protection: { type: "protection", successBonus: 0, destructionReduction: 1.0, cost: 2500000 },
+  blessed: { type: "blessed", successBonus: 0.2, destructionReduction: 0.5, cost: 5000000 },
 };
 
-const ENHANCEMENT_GOLD_COSTS = [1000, 2000, 3000, 5000, 15000, 35000, 75000, 150000, 500000, 2000000, 10000000];
+const ENHANCEMENT_GOLD_COSTS = [
+  100000, 200000, 300000, 500000, 1500000, 3500000, 7500000, 15000000, 50000000, 200000000, 1000000000
+];
+
+const RARITY_MULTIPLIER: Record<string, number> = {
+  common: 1.0,
+  uncommon: 1.5,
+  rare: 2.5,
+  epic: 4.0,
+  legendary: 7.0,
+  mythic: 12.0,
+};
 
 export function useEnhancement() {
   const [isEnhancing, setIsEnhancing] = useState(false);
@@ -42,13 +55,12 @@ export function useEnhancement() {
     newLevel: number;
   } | null>(null);
 
+  const authId = usePlayerStore((s) => s.profile?.auth_id ?? null);
   const gold = usePlayerStore((s) => s.gold);
   const updateGold = usePlayerStore((s) => s.updateGold);
   const addToast = useUiStore((s) => s.addToast);
   const items = useInventoryStore((s) => s.items);
-  const removeItem = useInventoryStore((s) => s.removeItem);
-  const updateItemEnhancement = useInventoryStore((s) => s.updateItemEnhancement);
-  const removeItemByRowId = useInventoryStore((s) => s.removeItemByRowId);
+  const fetchInventory = useInventoryStore((s) => s.fetchInventory);
 
   const config = GAME_CONFIG.enhancement;
 
@@ -74,11 +86,13 @@ export function useEnhancement() {
 
   /** Calculate total cost (gold + rune) */
   const getCost = useCallback(
-    (currentLevel: number, rune: RuneType = "none") => {
-      const goldCost =
+    (currentLevel: number, rune: RuneType = "none", rarity: string = "common") => {
+      const baseGold =
         ENHANCEMENT_GOLD_COSTS[currentLevel] ?? ENHANCEMENT_GOLD_COSTS[ENHANCEMENT_GOLD_COSTS.length - 1];
+      const rarityMult = RARITY_MULTIPLIER[rarity] || 1.0;
+      const goldCost = Math.floor(baseGold * rarityMult);
       const runeCost = RUNES[rune].cost;
-      return { gold: goldCost, rune: runeCost, total: goldCost + runeCost };
+      return { gold: goldCost, rune: runeCost, total: goldCost };
     },
     []
   );
@@ -86,7 +100,6 @@ export function useEnhancement() {
   /** Get required scroll ID by item rarity */
   const getRequiredScroll = useCallback(
     (rarity: string): string => {
-      // Use same IDs as ItemDatabase (scroll_upgrade_low / scroll_upgrade_middle / scroll_upgrade_high)
       if (["common", "uncommon"].includes(rarity)) return "scroll_upgrade_low";
       if (["rare", "epic"].includes(rarity)) return "scroll_upgrade_middle";
       return "scroll_upgrade_high";
@@ -105,11 +118,11 @@ export function useEnhancement() {
 
   /** Full enhancement info display */
   const getEnhancementInfo = useCallback(
-    (currentLevel: number, rune: RuneType = "none") => {
+    (currentLevel: number, rune: RuneType = "none", rarity: string = "common") => {
       return {
         successRate: getSuccessRate(currentLevel, rune),
         destructionRate: getDestructionRate(currentLevel, rune),
-        cost: getCost(currentLevel, rune),
+        cost: getCost(currentLevel, rune, rarity),
         maxLevel: config.successRates.length - 1,
         statBonusPerLevel: config.statBonusPerLevel,
         currentLevel,
@@ -125,8 +138,13 @@ export function useEnhancement() {
       item: InventoryItem,
       rune: RuneType = "none"
     ): Promise<{ success: boolean; destroyed: boolean; newLevel: number }> => {
+      if (!authId) {
+        addToast("Oturum bulunamadı!", "error");
+        return { success: false, destroyed: false, newLevel: item.enhancement_level ?? 0 };
+      }
+
       const currentLevel = item.enhancement_level ?? 0;
-      const { total } = getCost(currentLevel, rune);
+      const { total } = getCost(currentLevel, rune, item.rarity);
 
       // Gold check
       if (gold < total) {
@@ -141,78 +159,84 @@ export function useEnhancement() {
         addToast("Geliştirme parşömeni gerekli!", "error");
         return { success: false, destroyed: false, newLevel: currentLevel };
       }
+      
+      // Rune check
+      if (rune !== "none") {
+        const runeItem = items.find((i) => i.item_id === "rune_" + rune && (i.quantity ?? 1) > 0);
+        if (!runeItem) {
+          addToast("Seçilen rune envanterde yok!", "error");
+          return { success: false, destroyed: false, newLevel: currentLevel };
+        }
+      }
 
       setIsEnhancing(true);
 
-      // Client-side roll (same logic as Godot — server validates via RPC)
-      const successRate = getSuccessRate(currentLevel, rune);
-      const destroyRate = getDestructionRate(currentLevel, rune);
-      const roll = Math.random();
-      const success = roll <= successRate;
-      let destroyed = false;
-      let newLevel = currentLevel;
+      // Call RPC
+      const { data, error } = await supabase.rpc("enhance_item", {
+        p_player_id: authId,
+        p_row_id: item.row_id,
+        p_rune_type: rune
+      });
 
-      if (success) {
-        newLevel = currentLevel + 1;
-      } else {
-        // From +6 and above: failed attempt destroys the item completely
-        if (currentLevel >= 6) {
-          destroyed = true;
-        } else {
-          // Check destruction by configured rate for lower levels
-          if (Math.random() < destroyRate) {
-            destroyed = true;
-          } else {
-            // Level drops by 1 (minimum 0)
-            newLevel = Math.max(0, currentLevel - 1);
-          }
-        }
+      if (error || !data) {
+        console.error("Enhancement failed:", error);
+        addToast(error?.message || "Geliştirme sırasında sunucu hatası!", "error");
+        setIsEnhancing(false);
+        return { success: false, destroyed: false, newLevel: currentLevel };
       }
 
-      // Consume gold
-      updateGold(gold - total);
+      const result = data as {
+        success: boolean;
+        destroyed: boolean;
+        new_level: number;
+        gold_spent: number;
+        success_rate: number;
+        error?: string;
+      };
 
-      // Consume scroll (1 per attempt)
-      await removeItem(scrollId, 1);
+      if (result.error) {
+        addToast(`Hata: ${result.error}`, "error");
+        setIsEnhancing(false);
+        return { success: false, destroyed: false, newLevel: currentLevel };
+      }
 
-      // Persist to server via RPC
-      if (destroyed) {
-        // Remove the item entirely via server
-        await removeItemByRowId(item.row_id);
+      // Re-fetch inventory
+      await fetchInventory();
+      // Deduct gold locally (or re-fetch player data, but local deduct is fine)
+      updateGold(gold - result.gold_spent);
+
+      if (result.destroyed) {
         addToast("Geliştirme başarısız — eşya yok edildi!", "error");
+      } else if (result.success) {
+        addToast(`Geliştirme başarılı! +${result.new_level}`, "success");
       } else {
-        // Update enhancement level on server
-        const serverOk = await updateItemEnhancement(item.row_id, newLevel);
-        if (!serverOk) {
-          addToast("Sunucu hatası — geliştirme kaydedilemedi", "error");
-          setIsEnhancing(false);
-          return { success: false, destroyed: false, newLevel: currentLevel };
-        }
-
-        if (success) {
-          addToast(`Geliştirme başarılı! +${newLevel}`, "success");
-        } else {
-          addToast(`Geliştirme başarısız! Seviye ${newLevel}'a düştü`, "warning");
-        }
+        addToast(`Geliştirme başarısız! Seviye ${result.new_level}'a düştü`, "warning");
       }
 
-      const result = { success, destroyed, newLevel };
-      setLastResult(result);
+      setLastResult({
+        success: result.success,
+        destroyed: result.destroyed,
+        newLevel: result.new_level
+      });
       setIsEnhancing(false);
 
       trackEnhancement(
         item.item_id,
         currentLevel,
-        destroyed ? "destroy" : success ? "success" : "fail"
+        result.destroyed ? "destroy" : result.success ? "success" : "fail"
       );
 
       // Sync player gold to server
       const playerStore = usePlayerStore.getState();
       playerStore.syncToSupabase?.();
 
-      return result;
+      return {
+        success: result.success,
+        destroyed: result.destroyed,
+        newLevel: result.new_level
+      };
     },
-    [gold, updateGold, getSuccessRate, getDestructionRate, getCost, getRequiredScroll, items, removeItem, removeItemByRowId, updateItemEnhancement, addToast]
+    [authId, gold, updateGold, getCost, getRequiredScroll, items, fetchInventory, addToast]
   );
 
   return {

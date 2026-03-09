@@ -554,16 +554,16 @@ BEGIN
   WHERE guild_id = v_guild_id AND user_id = p_user_id AND donation_date = CURRENT_DATE;
 
   IF v_daily IS NOT NULL THEN
-    IF v_daily.structural_today + p_structural > 200 OR
-       v_daily.mystical_today + p_mystical > 100 OR
-       v_daily.critical_today + p_critical > 30 OR
-       v_daily.gold_today + p_gold > 50000000 THEN
+    IF v_daily.structural_today + p_structural > 500 OR
+       v_daily.mystical_today + p_mystical > 200 OR
+       v_daily.critical_today + p_critical > 50 OR
+       v_daily.gold_today + p_gold > 10000000 THEN
       RETURN json_build_object('success', false, 'error', 'Günlük bağış limiti aşıldı');
     END IF;
   END IF;
 
-  -- Envanter/gold kontrolü (basitleştirilmiş)
-  -- TODO: Monument kaynak envanterini game.users veya ayrı tabloda track et
+  -- Envanter/gold kontrolü
+  -- Kanonik item id'ler: resource_structural, resource_mystical, resource_critical
   IF v_user.gold < p_gold THEN
     RETURN json_build_object('success', false, 'error', 'Gold yetersiz');
   END IF;
@@ -580,7 +580,7 @@ BEGIN
   WHERE id = v_guild_id;
 
   -- Katkı puanı hesapla
-  v_contribution_score := (p_structural * 1) + (p_mystical * 3) + (p_critical * 10) + (p_gold / 100000);
+  v_contribution_score := (p_structural * 10) + (p_mystical * 25) + (p_critical * 100) + (p_gold / 1000);
 
   -- Katkı kaydı güncelle
   INSERT INTO game.guild_contributions (guild_id, user_id, structural_donated, mystical_donated, critical_donated, gold_donated, contribution_score, last_donated_at)
