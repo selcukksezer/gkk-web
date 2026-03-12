@@ -1,9 +1,24 @@
 # PLAN 10 — Lonca Anıtı Sistemi (Guild Monument)
 
-> **Durum:** Tasarım Aşaması  
-> **Son Güncelleme:** 2026-03-07  
-> **Bağımlılıklar:** PLAN_04 (zindan boss — blueprint drop), PLAN_06 (ekonomi), PLAN_02 (tesis kaynakları)  
+> **Durum:** ✅ Kısmen Uygulandı (20260307_080000 + 20260312_020000)  
+> **Son Güncelleme:** 2026-03-12 (Audit v2 — guild oluşturma eksikliği, fragment fix notu)  
+> **Bağımlılıklar:** PLAN_04 (zindan boss — blueprint drop), PLAN_06 (ekonomi), PLAN_02 (tesis kaynakları — ⛔ henüz uygulanmadı)  
 > **Kapsam:** 100 seviyeli lonca anıtı, 3 kaynak tipi, boss blueprint sistemi, lonca sıralaması
+
+> ### ⚠️ Bilinen Sorunlar (Audit v2)
+>
+> **1. `create_guild` / `join_guild` / `leave_guild` RPC'leri Eksik:**  
+> `guilds` tablosu, `donate_to_monument` ve `upgrade_monument` RPC'leri mevcuttur. Ancak oyuncuların lonca oluşturmasını veya katılmasını sağlayan RPC'ler **hiç yazılmamıştır**. `users.guild_id` kolonu her zaman NULL kalır; tüm monument sistemi işlevsizdir.  
+> **Minimum gereksinim:**  
+> - `create_guild(p_user_id UUID, p_name TEXT, p_description TEXT)` — Lonca oluştur, creator'ı leader yap  
+> - `join_guild(p_user_id UUID, p_guild_id UUID)` — Lonca'ya katıl  
+> - `leave_guild(p_user_id UUID)` — Lonca'dan ayrıl  
+>
+> **2. `guild_blueprints.fragments_required` Kolonu Eksikti:**  
+> `20260312_020000_fix_guild_blueprints_fragments_required.sql` bu kolonu ekledi ve varsayılan değeri 100 olarak ayarladı. Düzeltildi.
+>
+> **3. RPC Adı Farklılığı:**  
+> MASTER_GAMEPLAN'da `contribute_to_monument` olarak geçen RPC, migration'da `donate_to_monument` adını kullanıyor. **Kanonik ad:** `donate_to_monument`.
 
 ---
 

@@ -1,9 +1,30 @@
 # PLAN 08 — Tolerans & Detox Sistemi
 
-> **Durum:** Tasarım Aşaması  
-> **Son Güncelleme:** 2026-03-07  
+> **Durum:** ✅ Uygulandı (20260307_060000 + 20260307_090000)  
+> **Son Güncelleme:** 2026-03-12 (Audit v2 — şema ve RPC imza düzeltmeleri)  
 > **Bağımlılıklar:** PLAN_01 (iksir verileri), PLAN_04 (hastane), PLAN_07 (Mekan — detox satışı), PLAN_11 (Simyacı sınıfı tolerans bonusları)  
 > **Kapsam:** Tolerance bar, overdose mekanizması, addiction, detox içecekleri
+
+> ### ⚠️ KRİTİK ŞEMA DÜZELTMELERİ (Audit v2)
+>
+> **1. `game.users` YOKTUR — `public.users` kullan:**  
+> Bu belgedeki tüm `game.users` ve `game.inventory` referansları hatalıdır. Tüm migration'lar `public.users` ve `public.inventory` tablolarını kullanır. §7 ve §8 güncellenmiştir.
+>
+> **2. `use_potion` RPC İmzası Değişti:**  
+> Bu belgedeki §8.1 örneği: `use_potion(p_user_id uuid, p_item_id text)`  
+> **Kanonik (migration) imzası:** `use_potion(p_user_id UUID, p_row_id UUID)`  
+> `p_row_id` = `inventory.row_id` (item_id text değil). İstemci kodu buna göre güncellenmeli.
+>
+> **3. `use_detox` RPC İmzası Değişti:**  
+> Bu belgedeki §8.2 örneği: `use_detox(p_user_id uuid, p_detox_type text)`  
+> **Kanonik (migration) imzası:** `use_detox(p_user_id UUID, p_row_id UUID)`  
+> `p_row_id` = `inventory.row_id`. Detox türü item metadata'dan okunur.
+>
+> **4. Addiction Withdrawal Debuff'ları Uygulanmadı:**  
+> §4.3 Çekme Belirtileri, zindan ve PvP RPCs'lerinde stat debuff uygulaması gerektiriyor. `use_potion`, `enter_dungeon` ve `pvp_attack` bu kontrolü henüz yapmıyor.
+>
+> **5. `tolerance_log` Tablosu `public` Şemasında:**  
+> §7.3'teki `game.tolerance_log` referansı hatalı; migration `public.tolerance_log` oluşturur.
 
 ---
 
@@ -11,11 +32,11 @@
 
 Tolerans sistemi, iksir kullanımının **bir maliyeti** olmasını sağlar. Oyuncular iksir kullanarak güçlenir ama vücutları zamanla dayanıklılık geliştirir (tolerance) ve aşırı kullanımda **overdose** riski oluşur.
 
-**Mevcut DB sütunları (game.users):**
+**Mevcut DB sütunları (`public.users` — düzeltildi):**
 - `tolerance` — int, 0-100 arası
 - `addiction_level` — int, bağımlılık seviyesi
 
-**Mevcut DB sütunları (public.items):**
+**Mevcut DB sütunları (`public.items`):**
 - `tolerance_increase` — int, bu iksirin tolerans artışı (1-25)
 - `overdose_risk` — numeric, baz overdose olasılığı (0.0-0.2)
 
@@ -236,7 +257,7 @@ Tolerance sistemi önemli bir **gold sink** oluşturur:
 ### 7.1 Mevcut Sütunlar (Güncelleme Gerekmez)
 
 ```sql
--- game.users tablosunda zaten var:
+-- public.users tablosunda zaten var:  ← game.users DEĞİL
 -- tolerance int DEFAULT 0        -- 0-100
 -- addiction_level int DEFAULT 0   -- 0-10
 
@@ -245,25 +266,27 @@ Tolerance sistemi önemli bir **gold sink** oluşturur:
 -- overdose_risk numeric           -- baz overdose olasılığı
 ```
 
-### 7.2 Yeni Sütunlar (Önerilen)
+### 7.2 Yeni Sütunlar (✅ 20260307_060000 Migration ile Eklendi)
 
 ```sql
-ALTER TABLE game.users ADD COLUMN IF NOT EXISTS
+-- public.users tablosuna eklendi:  ← game.users DEĞİL
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS
   last_potion_used_at timestamptz;  -- çekme belirtisi hesaplama
 
-ALTER TABLE game.users ADD COLUMN IF NOT EXISTS
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS
   last_detox_used_at timestamptz;   -- detox cooldown
 
-ALTER TABLE game.users ADD COLUMN IF NOT EXISTS
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS
   detox_type_last text;             -- son kullanılan detox tipi (cooldown tracking)
 ```
 
-### 7.3 `game.tolerance_log` Tablosu (Analitik)
+### 7.3 `public.tolerance_log` Tablosu (Analitik — Düzeltildi)
 
 ```sql
-CREATE TABLE game.tolerance_log (
+-- ⚠️ Tablo public şemasında oluşturuldu, game şemasında değil
+CREATE TABLE public.tolerance_log (   -- ← game.tolerance_log DEĞİL
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid REFERENCES game.users(id) NOT NULL,
+  user_id uuid REFERENCES public.users(id) NOT NULL,  -- ← public.users
   event_type text NOT NULL CHECK (event_type IN ('potion_use', 'overdose', 'detox')),
   item_id text,
   tolerance_before int NOT NULL,
@@ -276,14 +299,21 @@ CREATE TABLE game.tolerance_log (
 
 ---
 
-## 8. RPC Fonksiyonları (Önerilen)
+## 8. RPC Fonksiyonları
 
-### 8.1 İksir Kullanımı (Tolerance Entegrasyonu)
+> **⚠️ İMZA UYARISI:** Aşağıdaki §8.1 ve §8.2 örnekleri **referans amaçlıdır**; kanonik imzalar migration'da farklıdır.  
+> - `use_potion`: kanonik `(p_user_id UUID, p_row_id UUID)` — `p_row_id` = `inventory.row_id`  
+> - `use_detox`: kanonik `(p_user_id UUID, p_row_id UUID)` — `p_row_id` = `inventory.row_id`  
+> Tüm `game.*` şema referansları `public.*` olarak düzeltilmeli.
+
+### 8.1 İksir Kullanımı (Tolerance Entegrasyonu) — Referans
 
 ```sql
-CREATE FUNCTION public.use_potion(p_user_id uuid, p_item_id text)
-RETURNS json AS $$
+-- ⚠️ UYARI: Kanonik imza (p_user_id UUID, p_row_id UUID) — migration dosyasına bak
+CREATE OR REPLACE FUNCTION public.use_potion(p_user_id uuid, p_row_id uuid)
+RETURNS jsonb AS $$
 DECLARE
+  v_inv record;
   v_item record;
   v_user record;
   v_new_tolerance int;
@@ -292,14 +322,19 @@ DECLARE
   v_overdose_chance numeric;
   v_roll numeric;
 BEGIN
-  -- Item bilgisi
-  SELECT * INTO v_item FROM public.items WHERE item_id = p_item_id;
-  IF NOT FOUND OR v_item.item_type != 'potion' THEN
-    RETURN json_build_object('success', false, 'error', 'Geçersiz iksir');
+  -- Envanter kaydını bul (row_id ile)
+  SELECT inv.*, i.tolerance_increase, i.overdose_risk, i.item_type, i.heal_amount
+  INTO v_inv
+  FROM public.inventory inv
+  JOIN public.items i ON i.id = inv.item_id
+  WHERE inv.row_id = p_row_id AND inv.player_id = p_user_id;
+
+  IF NOT FOUND OR v_inv.item_type != 'potion' THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Geçersiz iksir');
   END IF;
 
-  -- Kullanıcı bilgisi
-  SELECT * INTO v_user FROM game.users WHERE id = p_user_id;
+  -- Kullanıcı bilgisi (public.users)
+  SELECT * INTO v_user FROM public.users WHERE auth_id = p_user_id;
 
   -- Envanterde var mı?
   IF NOT EXISTS (

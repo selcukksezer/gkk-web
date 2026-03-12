@@ -1,8 +1,50 @@
 # MASTER GAMEPLAN — GKK Web Oyunu
 
 > **Amaç:** Bu dosya, yapay zekanın bütün PLAN_01–11 belgelerine bakmadan oyunu eksiksiz uygulayabilmesi için **tek referans kaynak** olarak tasarlanmıştır.  
-> **Güncelleme:** 2026-03-07  
-> **Kapsam:** Tutarsızlık düzeltmeleri, kanonik değerler, uygulama sırası, bağımlılık zinciri
+> **Güncelleme:** 2026-03-12 (Mimari Audit v2 — kritik düzeltmeler eklendi)  
+> **Kapsam:** Tutarsızlık düzeltmeleri, kanonik değerler, uygulama sırası, bağımlılık zinciri, bilinen hatalar ve ölü sistemler
+
+---
+
+## 🚨 KRİTİK NOTLAR (Audit v2 — 2026-03-12)
+
+Aşağıdaki sorunlar tam mimari denetimde tespit edilmiştir. Yeni RPC veya migration yazmadan önce okuyunuz.
+
+### ⛔ A. Çakışan Migration Zaman Damgaları
+`20260312_010000_dungeon_fixes.sql` ve `20260312_010000_fix_dungeon_get_and_loot.sql` **aynı zaman damgasına** sahiptir. Supabase CLI yalnızca birini uygular. **Doğru ve yetkili versiyon:** `20260312_010000_dungeon_fixes.sql` (loot mantığı + pvp_attack patch dahil). `fix_dungeon_get_and_loot.sql` hâlâ uygulanmamışsa manuel SQL Editor ile zone/zone_name/dungeon_order alanlarını get_dungeons() döndürmesine dikkat et.
+
+### ⛔ B. RPC İmza Çelişkileri (Migration vs. PLAN Belgeleri)
+Aşağıdaki RPC'lerin migrasyondaki imzası PLAN belgelerindekinden farklıdır; **migration imzası kanonik kabul edilir**:
+
+| RPC | PLAN Belgesi İmzası | Migration İmzası (Kanonik) |
+|-----|--------------------|-----------------------------|
+| `use_potion` | `(p_user_id uuid, p_item_id text)` | `(p_user_id UUID, p_row_id UUID)` |
+| `use_detox` | `(p_user_id uuid, p_detox_type text)` | `(p_user_id UUID, p_row_id UUID)` |
+| `start_crafting` | `(p_player_id UUID, p_recipe_id TEXT)` | `(p_user_id UUID, p_recipe_id UUID, p_quantity INT)` |
+| `donate_to_monument` | `contribute_to_monument(...)` | `donate_to_monument(UUID, INT, INT, INT, BIGINT)` |
+
+PLAN_03 §8.3, PLAN_08 §8.1 ve §8.2'deki RPC örnekleri **eski/yanlış imzalara** sahiptir; bu belgeler güncellenmelidir.
+
+### ⛔ C. Eksik Migration'lar (FAZ 2 Hiç Uygulanmadı)
+`resources` ve `player_resources` tabloları **hiçbir migration'da oluşturulmamıştır**. PLAN_02 ve PLAN_03 (kaynakları tüketen crafting) bu tablolara bağımlıdır. Crafting sistemi `player_resources` olmadan çalışmaz.
+
+### ⛔ D. `craft_recipes` Tablosu Boş
+20260301 migration'ı tablo yapısını oluşturdu ancak 212 reçete **hiç seed edilmedi**. `start_crafting` RPC her zaman `recipe_not_found` hatası döndürür.
+
+### ⛔ E. `loot_rarity_weights` Boş Seeded
+65 zindan'ın tamamı `loot_rarity_weights = '{}'` ile seeded. Bu durumda loot her zaman `common` rarity düşer. Her zindan zonu için doğru ağırlıklar güncellenmeli.
+
+### ⛔ F. `public.users` vs `game.users` Çelişkisi
+PLAN_08 §7 ve §8, `game.users` ve `game.inventory` tablolarını referans alır. **Tüm migration'lar `public.users` kullanır.** `game.*` şema referansları hatalıdır; PLAN_08 güncellenmiştir.
+
+### ⚠️ G. `warrior_bloodlust_until` Orphan Kolonu
+`20260307_090000` migration'ı `warrior_bloodlust_until TIMESTAMPTZ` kolonunu ekler. `20260312_030000_fix_pvp_attack_null_safety.sql` ise pvp_attack'ı yeniden yazar ama bu kolonu kullanmaz. Kan Hırsı bonusu kaybolmuştur. **Düzeltme:** pvp_attack son versiyonuna Warrior win sonrası `warrior_bloodlust_until = now() + interval '30 minutes'` eklenmeli.
+
+### ⚠️ H. Eksik Guild Oluşturma RPC'si
+`guilds` tablosu ve monument RPC'leri mevcuttur fakat `create_guild` ve `join_guild` RPC'leri **hiç yazılmamıştır**. Oyuncular lonca oluşturamaz.
+
+### ⚠️ I. `users.power` Kolonu Stale (Güncel Değil)
+`enter_dungeon` RPC, `v_player.power` değerini kullanır. Bu kolon sadece `calculate_user_total_power()` çağrıldığında güncellenir. `equip_item` / `unequip_item` RPC'leri power'ı otomatik güncellemiyorsa zindan başarı hesabı yanlış olur. **Düzeltme:** `equip_item` ve `unequip_item` sonunda `calculate_user_total_power()` çağrılmalıdır.
 
 ---
 
@@ -24,11 +66,20 @@ Aşağıdaki değerler PLAN dosyalarında tutarsız bulunmuştur; bunlar için t
 | ❌ Yanlış (bazı PLAN'larda) | ✅ Doğru |
 |-----------------------------|----------|
 | `players` | `public.users` |
+| `game.users` | `public.users` |
+| `game.inventory` | `public.inventory` |
+| `game.tolerance_log` | `public.tolerance_log` |
 | `inventory` (player_id ile) | `public.inventory` (player_id UUID) |
 | `dungeon_runs` (player_id ile) | `public.dungeon_runs` (player_id UUID) |
 | `public.items(item_id)` FK | `public.items(id)` |
+| `crafting_recipes` | `public.crafting_recipes` (migration adı) veya `craft_recipes` (PLAN belgeleri) — migration tablosunu kullan |
 
-**Kural:** Tüm RPC'lerde `public.users` kullan; auth bağlantısı `auth_id` sütunuyla yapılır.
+**Kural:** Tüm RPC'lerde `public.users` kullan; auth bağlantısı `auth_id` sütunuyla yapılır. `game.*` şema YOKTUR.
+
+**RPC'lerde auth.uid() kullanımı:**
+- `enter_dungeon`: `p_player_id` = `auth.uid()`, sorgu `WHERE auth_id = p_player_id`
+- `pvp_attack`: `p_attacker_id` = `auth.uid()`, sorgu `WHERE auth_id = p_attacker_id`
+- Tüm kullanıcı sorguları: `WHERE auth_id = auth.uid()` kullan, `WHERE id = ...` değil
 
 ### 1.2 Power (Güç) Formülü — Kanonik
 
@@ -119,7 +170,8 @@ IF character_class = 'alchemist': final_success_rate += 0.15
 | Supreme | `detox_supreme` | -60 | -2 | 12 saat |
 | Full Cleanse | `detox_full_cleanse` | -100 (sıfırla) | -10 (sıfırla) | 24 saat |
 
-> **Kaynak:** PLAN_08 §5.1, §8.2
+> **Kaynak:** PLAN_08 §5.1, §8.2  
+> **⚠️ DİKKAT:** `use_detox` RPC imzası `(p_user_id UUID, p_row_id UUID)` şeklindedir; `p_detox_type text` değil. `p_row_id` envanterdeki detox item'ının `inventory.row_id` değeridir.
 
 ### 1.8 Han-Only Item ID'leri — Kanonik
 
@@ -156,7 +208,7 @@ Bir sistemi uygulamadan önce bağımlı olduğu sistemlerin **uygulama fazı** 
 ```
 PLAN_01 (Items/Ekipman)
   └── PLAN_03 (Crafting)
-        └── PLAN_02 (Tesisler)  ←── Kaynaklar burada üretilir
+        └── PLAN_02 (Tesisler) [⛔ HENÜZ UYGULANMADI — resources/player_resources tabloları yok]
         └── PLAN_05 (Enhancement)  ←── Itemlar bu sistemle geliştirilir
         └── PLAN_07 (Han — han_item craft reçeteleri)
 
@@ -167,14 +219,28 @@ PLAN_01 + PLAN_11 (Karakter Sınıfı)
 
 PLAN_07 (Han/Mekan)
   └── PLAN_09 (PvP arena — sadece Han'da)
-  └── PLAN_08 (Tolerans — detox sadece Han'da)
+  └── PLAN_08 (Tolerans — detox sadece Han'da) [⚠️ Han açık değilse detox alınamaz]
 
 PLAN_04 (Zindan) + PLAN_06 (Ekonomi)
   └── PLAN_10 (Lonca Anıtı)  ←── Blueprint boss drop'lardan gelir
+        └── [⚠️ create_guild / join_guild RPC eksik — lonca oluşturulamaz]
 
 PLAN_09 (PvP/Reputation)
   └── PLAN_06 (Ekonomi)  ←── Reputation power'a katkı yapar
 ```
+
+### Bağlantısız / Kısmen Uygulanan Sistemler (Ölü Sistemler)
+
+| Sistem | Durum | Sorun |
+|--------|-------|-------|
+| Tesis Suspicion | ❌ Tasarlandı, uygulanmadı | Gölge sınıfı `facility_suspicion_reduction` bonusu işlevsiz |
+| Kara Pazar | ❌ Tasarlandı, uygulanmadı | Gölge sınıfı `black_market_risk_reduction` bonusu işlevsiz |
+| Hapishane Gönderme | ⚠️ Kolon var, RPC yok | `prison_until` kolonu var; hiçbir RPC set etmiyor |
+| Bağımlılık Çekme Belirtileri | ⚠️ Belgelendi, uygulanmadı | Addiction 3+'da stat debuff'lar PLAN_08'de tanımlı ama `use_potion` RPC'ye eklenmedi |
+| PvP Turnuvası | ❌ Tasarlandı, uygulanmadı | PLAN_09'da bahsediliyor, migration yok |
+| `craft_recipes` Seed | ❌ Tablo var, veri yok | 212 reçete tasarlandı, hiçbiri seed edilmedi |
+| Tesis Sistemi (FAZ 2) | ❌ Tasarlandı, uygulanmadı | `resources` + `player_resources` tabloları yok |
+| Warrior Kan Hırsı | ⚠️ Kolon var, kullanılmıyor | `warrior_bloodlust_until` eklendi ama son pvp_attack'ta eksik |
 
 ---
 
@@ -264,11 +330,13 @@ CREATE TABLE IF NOT EXISTS public.inventory (
 
 ### 🟢 FAZ 2: Tesisler & Kaynaklar (PLAN_02)
 
-> Bağımlılık: FAZ 0 tamamlandı.
+> Bağımlılık: FAZ 0 tamamlandı.  
+> **⛔ DURUM: HİÇ UYGULANMADI — Bu faz için sıfırdan migration yazılmalı.**
 
 **Adım 2.1** — `resources` tablosu (90 kaynak) seed
 
-> Tam liste: PLAN_02 §3
+> Tam liste: PLAN_02 §3  
+> **Gerekli migration:** `CREATE TABLE IF NOT EXISTS public.resources (...)` + 90 INSERT
 
 **Adım 2.2** — `player_resources` tablosu
 
@@ -282,31 +350,40 @@ CREATE TABLE IF NOT EXISTS public.player_resources (
 );
 ```
 
-**Adım 2.3** — Tesis üretim sistemi + `collect_resources` RPC
+**Adım 2.3** — `player_facilities` tablosu + `collect_resources` RPC
 
 > Üretim hızı: `base_rate × (1 + (facility_level - 1) × 0.15)`  
-> Depolama: `storage_capacity = 50 × facility_level`
+> Depolama: `storage_capacity = 50 × facility_level`  
+> `player_facilities` tablosu: player_id, facility_type, level, last_collected_at
 
-**Adım 2.4** — Gölge sınıfı şüphe modifiyeri (suspicion artışında `× 0.70` uygula)
+**Adım 2.4** — Gölge sınıfı şüphe modifiyeri  
+> **⚠️ NOT:** Suspicion sistemi için ayrıca `facility_suspicion_events` tablosu gerekir; bu FAZ 2 bağlantısı tutarsız bırakılmamalı.
 
-**Tamamlandığında:** Oyuncu kaynak üretebilir, toplayabilir.
+**Adım 2.5** — NPC Satış Fiyatı Sınırlayıcı  
+> **EKONOMİ RİSKİ:** PLAN_02 §7.3'te Mythic kaynak NPC değeri 500,000g olarak tanımlı. Lv10 tesisle günlük ~11M gold/tesis elde edilebilir; bu PLAN_06 gelir bandını aşar. `collect_resources` RPC'de günlük NPC satış limitini (örneğin: 5M gold/gün) zorunlu kıl veya kaynakları envantere ekleyip NPC satışını ayrıca kısıtla.
+
+**Tamamlandığında:** Oyuncu kaynak üretebilir, toplayabilir; crafting sistemi gerçek kaynak tüketebilir.
 
 ---
 
 ### 🟢 FAZ 3: Crafting (PLAN_03)
 
-> Bağımlılık: FAZ 1 + FAZ 2 tamamlandı.
+> Bağımlılık: FAZ 1 + FAZ 2 tamamlandı.  
+> **⛔ DURUM: TABLO MEVCUT AMA SEED VERİSİ YOK — 212 reçete eklenmeli.**
 
 **Adım 3.1** — `craft_recipes` tablosu + 212 reçete seed
 
 > Tam reçete listesi: PLAN_03 §3.1-§5.5  
-> Özellikle: Han-only reçeteler `recipe_type = 'han_only'`
+> Özellikle: Han-only reçeteler `recipe_type = 'han_only'`  
+> **Tablo adı:** `public.crafting_recipes` (migration) veya `craft_recipes` (PLAN) — migration'daki adı kullan  
+> **⛔ KRİTİK:** `output_item_id` kolonu `TEXT` mi `UUID` mi olduğunu migration'dan kontrol et; `craft_recipes.id` de TEXT PRIMARY KEY olmalı (UUID değil)
 
 **Adım 3.2** — `craft_queue` tablosu + `start_crafting` RPC
 
-> Tam SQL: PLAN_03 §8.3  
+> **Kanonik İmza:** `start_crafting(p_user_id UUID, p_recipe_id UUID, p_quantity INT)`  
+> PLAN_03 §8.3'teki `(p_player_id UUID, p_recipe_id TEXT)` imzası hatalıdır; migration imzası kullanılır  
 > **Önemli:** `start_crafting` içinde Simyacı bonusu ekle:  
-> `IF character_class = 'alchemist': success_rate += 0.15; time *= 0.80`
+> `IF character_class = 'alchemist': success_rate += 0.15`
 
 **Adım 3.3** — `claim_crafting` RPC (tamamlanmış craft'ı toplama)
 
@@ -328,19 +405,29 @@ CREATE TABLE IF NOT EXISTS public.player_resources (
 
 **Adım 4.3** — `enter_dungeon` RPC (✅)
 
-> Tam SQL: PLAN_04 §9.4
+> Kanonik versiyon: `20260312_010000_dungeon_fixes.sql`  
 > **KRİTİK:** Aşağıdakileri ekle:
-> - `public.users` kullan (players değil)
+> - `public.users` kullan (players değil), auth_id = auth.uid()
 > - `player.power` kullan (stored); yoksa `level×500 + reputation×0.1 + luck×50`
+> - `equip_item`/`unequip_item` her çağrıldığında `calculate_user_total_power()` çağrılmalı
 > - Savaşçı: `success_rate += 0.05`
 > - Savaşçı boss: `v_gold *= 1.15`
 > - Gölge: `v_luck_for_loot = luck × 1.40; v_gold *= (1 + v_luck_for_loot × 0.002)`
 > - Defense mitigation: `hospital_minutes *= (1 - defense × 0.001)`, max %30
 > - Savaşçı hastane: `hospital_minutes *= 0.80`
+> - Hospital/prison kontrolleri NULL-safe: `IS NOT NULL AND > now()`
 
 **Adım 4.4** — Loot drop sistemi (item verme) (✅)
 
-> Loot rarity weight: PLAN_04 §6.3
+> **⚠️ KRİTİK:** `loot_rarity_weights` tüm zindanlarda `'{}'` olarak seeded.  
+> Boş weights → tüm loot `common` rarity düşüyor. Zindan zone'larına göre aşağıdaki ağırlıklar güncellenmeli:
+
+| Zone | common | uncommon | rare | epic | legendary |
+|------|--------|----------|------|------|-----------|
+| 1-2 | 0.65 | 0.25 | 0.08 | 0.02 | 0.00 |
+| 3-4 | 0.40 | 0.30 | 0.20 | 0.08 | 0.02 |
+| 5-6 | 0.20 | 0.25 | 0.30 | 0.18 | 0.07 |
+| 7 (Boss) | 0.05 | 0.15 | 0.30 | 0.30 | 0.20 |
 
 **Tamamlandığında:** Oyuncu zindana girebilir, başarı/başarısızlık, loot, hastane sistemi çalışır. (✅)
 
@@ -367,9 +454,10 @@ CREATE TABLE IF NOT EXISTS public.player_resources (
 
 > Bağımlılık: FAZ 0 + FAZ 1 + FAZ 3 tamamlandı.
 
-**Adım 6.1** — `game.mekans` + `game.mekan_stock` + `game.mekan_sales` tabloları (✅)
+**Adım 6.1** — `public.mekans` + `public.mekan_stock` + `public.mekan_sales` tabloları (✅)
 
-> Tam SQL: PLAN_07 §9
+> Tam SQL: PLAN_07 §9  
+> **NOT:** Tablo şeması `game.*` değil `public.*` şemasındadır.
 
 **Adım 6.2** — `open_mekan` RPC (✅)
 
@@ -383,6 +471,8 @@ CREATE TABLE IF NOT EXISTS public.player_resources (
 
 **Adım 6.5** — `use_han_item` RPC (enerji verme + tolerance artışı + overdose kontrolü) (✅)
 
+**⚠️ EKSİK:** `create_guild` ve `join_guild` RPC'leri uygulanmadı. Guild monument sistemi çalışıyor ama oyuncular lonca oluşturamaz/katılamaz. Bu RPC'ler FAZ 6 veya FAZ 9 olarak eklenmeli.
+
 **Tamamlandığında:** Han açılabilir, enerji itemları satılabilir, detox alınabilir. (✅)
 
 ---
@@ -393,16 +483,21 @@ CREATE TABLE IF NOT EXISTS public.player_resources (
 
 **Adım 7.1** — `use_potion` RPC'yi tolerance entegrasyonuyla güncelle (✅)
 
-> Tam SQL: PLAN_08 §8.1
+> **Kanonik İmza:** `use_potion(p_user_id UUID, p_row_id UUID)`  
+> `p_row_id` = `inventory.row_id` (item_id text değil)  
+> PLAN_08 §8.1'deki `use_potion(p_user_id uuid, p_item_id text)` imzası hatalıdır.  
 > **Simyacı bonusları:**
 > `tolerance_gain *= 0.75` (-%25)
 > `overdose_chance *= 0.80` (-%20)
-> `efficiency *= 1.30` (+%30, max 1.0)
+> `efficiency *= 1.30` (+%30, max 1.0)  
+> **⚠️ EKSİK:** Addiction 3+ withdrawal debuff'ları (ATK/DEF/tüm stat azalması) bu RPC'de uygulanmıyor.
 
 **Adım 7.2** — `use_detox` RPC (✅)
 
-> Tam SQL: PLAN_08 §8.2
-> Detox sadece `game.mekan_stock`'ta bulunan Han-only detox itemlarından çalışır.
+> **Kanonik İmza:** `use_detox(p_user_id UUID, p_row_id UUID)`  
+> `p_row_id` = `inventory.row_id` (p_detox_type text değil)  
+> PLAN_08 §8.2'deki `use_detox(p_user_id uuid, p_detox_type text)` imzası hatalıdır.  
+> Detox sadece `public.mekan_stock`'ta bulunan Han-only detox itemlarından çalışır.
 
 **Adım 7.3** — Tolerance bar UI bileşeni (HUD) (✅)
 
@@ -414,18 +509,20 @@ CREATE TABLE IF NOT EXISTS public.player_resources (
 
 > Bağımlılık: FAZ 6 (PvP sadece Han'da) + FAZ 0 (karakter sınıfı).
 
-**Adım 8.1** — `game.pvp_matches` tablosu (✅)
+**Adım 8.1** — `public.pvp_matches` tablosu (✅)
 
 > Tam SQL: PLAN_09 §7.2
 
 **Adım 8.2** — `pvp_attack` RPC (✅)
 
-> Tam SQL: PLAN_09 §8.1
-> **Sınıf modifiyerleri (PLAN_11 §9.3):**
-> Savaşçı saldırgan: `atk_dmg *= 1.20`, crit_chance `+= 0.10`
-> Gölge savunmacı: `dodge_chance = luck × 0.001 + 0.15`
+> **Kanonik versiyon:** `20260312_030000_fix_pvp_attack_null_safety.sql`  
+> Bu versiyon NULL-safe, tam Elo sistemi içeriyor.  
+> **⚠️ BOZUK:** Warrior "Kan Hırsı" bonusu (`warrior_bloodlust_until`) bu versiyonda yok.  
+> **Düzeltme gerekiyor:** Kazanan Warrior için `UPDATE users SET warrior_bloodlust_until = now() + interval '30 minutes'` eklenmeli.
 
 **Adım 8.3** — Reputation güncelleme trigger/RPC (zindan, PvP, quest'ten) (✅)
+
+**⚠️ EKSİK:** PvP Turnuva sistemi PLAN_09'da tasarlandı ama hiç uygulanmadı.
 
 **Tamamlandığında:** PvP Han'da çalışır; reputation kazanılır/kaybedilir. (✅)
 
@@ -435,11 +532,21 @@ CREATE TABLE IF NOT EXISTS public.player_resources (
 
 > Bağımlılık: FAZ 4 + FAZ 8 tamamlandı (boss blueprint drop; reputation'a bağlı sıralama).
 
+**⚠️ ÖN KOŞUL EKSİK:** Guild oluşturma RPC'si yok. Aşağıdaki adım 9.0 tamamlanmadan diğerleri işlevsizdir.
+
+**Adım 9.0** — `create_guild` + `join_guild` + `leave_guild` RPC'leri ⛔ EKSİK
+
+```sql
+-- Bu RPC'ler henüz yazılmadı. Minimum şema:
+CREATE OR REPLACE FUNCTION public.create_guild(p_user_id UUID, p_name TEXT) RETURNS JSONB ...
+CREATE OR REPLACE FUNCTION public.join_guild(p_user_id UUID, p_guild_id UUID) RETURNS JSONB ...
+```
+
 **Adım 9.1** — Lonca tabloları + `donate_to_monument` RPC (✅)
 
-> Tam SQL: PLAN_10 §8
+> Tam SQL: PLAN_10 §8  
+> **RPC adı:** `donate_to_monument(UUID, INT, INT, INT, BIGINT)` — MASTER'daki `contribute_to_monument` değil  
 > Güncel günlük limitler: structural 500, mystical 200, critical 50, gold 10M.
-> Katkı puanı formülü: `10/25/100 + gold/1000`.
 
 **Adım 9.2** — Anıt pasif bonuslarını ilgili RPC'lere ekle (✅)
 
@@ -471,15 +578,15 @@ CREATE TABLE IF NOT EXISTS public.player_resources (
 
 **Adım 10.2** — 30 dakika grace period (seçim sonrası yeniden seçim)
 
-**Adım 10.3** — Sınıf özelliği implementasyonları: (✅)
+**Adım 10.3** — Sınıf özelliği implementasyonları: (⚠️ KISMİ)
 
-| Sınıf | Özellik | Uygulandığı Yer |
-|-------|---------|----------------|
-| Savaşçı | "Kan Hırsı" — PvP kazanım sonrası 30dk ATK +%10 | `pvp_attack` RPC sonucu |
-| Simyacı | "Formül Ustası" — Günlük 1 ücretsiz Minor Detox | Günlük reset sistemi |
-| Gölge | "Hayalet Adımlar" — Global suspicion tavan 80 | Tesis/Han suspicion RPC'leri |
+| Sınıf | Özellik | Uygulandığı Yer | Durum |
+|-------|---------|----------------|-------|
+| Savaşçı | "Kan Hırsı" — PvP kazanım sonrası 30dk ATK +%10 | `pvp_attack` RPC | ⚠️ Kolon var, son pvp_attack'ta eksik |
+| Simyacı | "Formül Ustası" — Günlük 1 ücretsiz Minor Detox | Günlük reset sistemi | ❌ Henüz uygulanmadı |
+| Gölge | "Hayalet Adımlar" — Global suspicion tavan 80 | Tesis/Han suspicion RPC'leri | ❌ Suspicion sistemi yok |
 
-**Tamamlandığında:** Oyuncu sınıf seçer ve tüm pasif bonuslar aktif olur. (✅)
+**Tamamlandığında:** Oyuncu sınıf seçer ve mevcut pasif bonuslar aktif olur. (✅ kısmi)
 
 ---
 
@@ -655,25 +762,30 @@ net_to_attacker = defender_dmg × dodge_check - attacker.defense × 0.3
 
 ## 7. API / RPC Özet Listesi
 
-| RPC | Faz | Açıklama |
-|-----|-----|---------|
-| `select_character_class(p_class_id)` | FAZ 0 | Karakter sınıfı seç |
-| `get_character_classes()` | FAZ 0 | 3 sınıf listesi |
-| `apply_level_up_stats(p_user_id, p_new_level)` | FAZ 0 | Level atlama stat artışı |
-| `get_current_user()` | FAZ 0 | Oyuncu profili (luck, class dahil) |
-| `equip_item(p_row_id, p_slot)` | FAZ 1 | Item kuşanma |
-| `market_list_item(...)` | FAZ 1 | Markete item ekle |
-| `start_crafting(p_player_id, p_recipe_id)` | FAZ 3 | Craft başlat |
-| `claim_crafting(p_queue_id)` | FAZ 3 | Tamamlanan craft'ı al |
-| `enter_dungeon(p_player_id, p_dungeon_id)` | FAZ 4 | Zindana gir |
-| `enhance_item(p_player_id, p_row_id, p_rune_type)` | FAZ 5 | Enhancement |
-| `open_mekan(p_user_id, p_mekan_type, p_name)` | FAZ 6 | Han/Mekan aç |
-| `buy_from_mekan(p_mekan_id, p_item_id, p_quantity)` | FAZ 6 | Han'dan satın al |
-| `use_han_item(p_user_id, p_item_id)` | FAZ 6 | Han item kullan |
-| `use_potion(p_user_id, p_item_id)` | FAZ 7 | İksir kullan (tolerance) |
-| `use_detox(p_user_id, p_detox_type)` | FAZ 7 | Detox kullan |
-| `pvp_attack(p_attacker_id, p_defender_id, p_mekan_id)` | FAZ 8 | PvP dövüş |
-| `contribute_to_monument(p_user_id, p_resources, p_gold)` | FAZ 9 | Anıta kaynak bağışla |
+| RPC | Faz | Açıklama | Kanonik İmza |
+|-----|-----|---------|--------------|
+| `select_character_class(p_class_id)` | FAZ 0 | Karakter sınıfı seç | `(text) → jsonb` |
+| `get_character_classes()` | FAZ 0 | 3 sınıf listesi | `() → jsonb` |
+| `apply_level_up_stats(p_user_id, p_new_level)` | FAZ 0 | Level atlama stat artışı | `(uuid, int) → jsonb` |
+| `get_current_user()` | FAZ 0 | Oyuncu profili (luck, class dahil) | `() → jsonb` |
+| `equip_item(p_row_id, p_slot)` | FAZ 1 | Item kuşanma | `(uuid, text) → jsonb` |
+| `market_list_item(...)` | FAZ 1 | Markete item ekle | Mevcut imzayı koru |
+| `collect_resources(p_player_id, p_facility_type)` | FAZ 2 | ⛔ Henüz yazılmadı | `(uuid, text) → jsonb` |
+| `start_crafting(p_user_id, p_recipe_id, p_quantity)` | FAZ 3 | Craft başlat | `(uuid, uuid, int) → jsonb` |
+| `claim_crafting(p_queue_id)` | FAZ 3 | Tamamlanan craft'ı al | `(uuid) → jsonb` |
+| `enter_dungeon(p_player_id, p_dungeon_id)` | FAZ 4 | Zindana gir | `(uuid, text) → jsonb` |
+| `get_dungeons()` | FAZ 4 | Zindan listesi | `() → jsonb` |
+| `enhance_item(p_player_id, p_row_id, p_rune_type)` | FAZ 5 | Enhancement | `(uuid, uuid, text) → jsonb` |
+| `open_mekan(p_user_id, p_mekan_type, p_name)` | FAZ 6 | Han/Mekan aç | `(uuid, text, text) → jsonb` |
+| `buy_from_mekan(p_mekan_id, p_item_id, p_quantity)` | FAZ 6 | Han'dan satın al | `(uuid, uuid, text, int) → jsonb` |
+| `use_han_item(p_user_id, p_item_id)` | FAZ 6 | Han item kullan | `(uuid, uuid) → jsonb` |
+| `create_guild(p_user_id, p_name)` | FAZ 6 | ⛔ Henüz yazılmadı | `(uuid, text) → jsonb` |
+| `join_guild(p_user_id, p_guild_id)` | FAZ 6 | ⛔ Henüz yazılmadı | `(uuid, uuid) → jsonb` |
+| `use_potion(p_user_id, p_row_id)` | FAZ 7 | İksir kullan (tolerance) | `(uuid, uuid) → jsonb` |
+| `use_detox(p_user_id, p_row_id)` | FAZ 7 | Detox kullan | `(uuid, uuid) → jsonb` |
+| `pvp_attack(p_attacker_id, p_defender_id, p_mekan_id)` | FAZ 8 | PvP dövüş | `(uuid, uuid, uuid) → jsonb` |
+| `donate_to_monument(p_user_id, ...)` | FAZ 9 | Anıta kaynak bağışla | `(uuid, int, int, int, bigint) → jsonb` |
+| `upgrade_monument(p_user_id)` | FAZ 9 | Anıtı yükselt | `(uuid) → jsonb` |
 
 ---
 
@@ -695,4 +807,37 @@ net_to_attacker = defender_dmg × dodge_check - attacker.defense × 0.3
 
 ---
 
-*Bu belge PLAN_01–11 arası tüm tasarım belgelerinin tutarlılık merkezi ve yapay zeka uygulama rehberidir. Çelişki durumunda bu belge geçerlidir. Her faz tamamlandıkça ilgili PLAN belgesi de aynı yönde güncellenir.*
+## 9. Bilinen Sorunlar & Çözüm Yol Haritası (Audit v2)
+
+### 9.1 Kritik Düzeltmeler (Oyun Bozucu)
+
+| # | Sorun | Etkilenen Sistem | Çözüm |
+|---|-------|-----------------|-------|
+| 1 | Duplicate migration timestamp `20260312_010000_*` | Zindan | `fix_dungeon_get_and_loot.sql`'ü `20260312_015000_` timestamp ile yeniden adlandır |
+| 2 | `resources` + `player_resources` tabloları yok | Crafting, Tesis | FAZ 2 migration'ı sıfırdan yaz |
+| 3 | `craft_recipes` boş | Crafting | 212 reçete seed migration'ı yaz |
+| 4 | `loot_rarity_weights = '{}'` tüm zindanlarda | Zindan Loot | Zone'a göre ağırlıkları UPDATE et |
+| 5 | `create_guild` / `join_guild` RPC yok | Guild Monument | İki RPC yaz, guilds tablosunu kullan |
+| 6 | `start_crafting` imzası çelişiyor | Crafting | PLAN_03 §8.3'ü migration imzasıyla güncelle |
+| 7 | `use_potion` / `use_detox` imzası çelişiyor | Tolerans | PLAN_08 §8.1-§8.2'yi migration imzasıyla güncelle |
+
+### 9.2 Önemli Düzeltmeler (Özellik Kaybı)
+
+| # | Sorun | Çözüm |
+|---|-------|-------|
+| 8 | Warrior "Kan Hırsı" son pvp_attack'ta yok | `pvp_attack` winner kontrolüne `warrior_bloodlust_until` set et |
+| 9 | Simyacı ücretsiz günlük detox uygulanmadı | Günlük reset cron + claim_daily_detox RPC |
+| 10 | Addiction withdrawal debuff'ları yok | `use_potion` / `enter_dungeon` başında addiction stat check ekle |
+| 11 | `users.power` stale kalıyor | `equip_item` / `unequip_item` sonunda `calculate_user_total_power()` çağır |
+
+### 9.3 Ekonomi Dengeleme Notları
+
+| Risk | Açıklama | Önerilen Kısıtlama |
+|------|----------|-------------------|
+| Tesis → NPC altın döngüsü | Lv10 tesisler günlük ~11M gold/tesis üretir; PLAN_06 bandını aşar | `collect_resources` RPC'de günlük 5M NPC satış limiti |
+| First-clear bonusu büyük | 5× gold + 10× XP, hızlı ilerlemeye yol açar | Zone 5+ için first-clear gold bonusunu 2× ile sınırla |
+| Non-boss zindan limiti yok | Sonsuz enerji + sonsuz koşu = erken oyun farm | Non-boss günlük koşu limiti: 20-30 |
+
+---
+
+*Bu belge PLAN_01–11 arası tüm tasarım belgelerinin tutarlılık merkezi ve yapay zeka uygulama rehberidir. Çelişki durumunda bu belge geçerlidir. Son güncelleme: Mimari Audit v2 — 2026-03-12.*

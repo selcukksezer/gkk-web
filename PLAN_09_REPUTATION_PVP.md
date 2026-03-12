@@ -1,9 +1,20 @@
 # PLAN 09 — Reputation & PvP Sistemi
 
-> **Durum:** Tasarım Aşaması  
-> **Son Güncelleme:** 2026-03-07  
+> **Durum:** ✅ Uygulandı (20260307_070000 + 20260312_030000_fix_pvp_attack_null_safety.sql)  
+> **Son Güncelleme:** 2026-03-12 (Audit v2 — Warrior Bloodlust kaybı, tournament eksikliği, şema düzeltmesi)  
 > **Bağımlılıklar:** PLAN_07 (Mekan — PvP arenası), PLAN_04 (hastane), PLAN_06 (ekonomi), PLAN_11 (Savaşçı PvP bonusu, Gölge dodge bonusu)  
 > **Kapsam:** Reputation puanı, PvP mekanikleri, PvP rating, ganimet, sıralama
+
+> ### ⚠️ Bilinen Sorunlar (Audit v2)
+>
+> **1. Warrior "Kan Hırsı" Bonusu Kayboldu:**  
+> `20260307_090000` migration'ı `warrior_bloodlust_until` kolonunu ekledi ve kazanan Warrior için 30dk ATK boost sağladı. Ancak `20260312_030000_fix_pvp_attack_null_safety.sql` pvp_attack'ı sıfırdan yeniden yazdı ve bu bonusu **dahil etmedi**. Warrior PvP kazandığında `warrior_bloodlust_until = now() + interval '30 minutes'` set edilmeli; bu sonra `enter_dungeon` ve PvP'de ATK × 1.10 çarpanı olarak kullanılmalı.
+>
+> **2. PvP Turnuva Sistemi Uygulanmadı:**  
+> Bu belgede tanımlanan turnuva sistemi **hiçbir migration'da uygulanmamıştır**. Ölü sistem olarak işaretlendi.
+>
+> **3. `game.users` Referansları Hatalı:**  
+> Aşağıdaki tüm `game.users` referansları `public.users` olarak okunmalıdır.
 
 ---
 
@@ -11,7 +22,7 @@
 
 Reputation, oyuncunun **toplumsal statüsünü** ve güç sıralamasını temsil eder. PvP ise Mekan'larda gerçekleşen, kontrollü ve ödüllü bir dövüş sistemidir.
 
-**Mevcut DB sütunları (game.users):**
+**Mevcut DB sütunları (`public.users` — düzeltildi):**
 - `reputation` — int, toplam itibar puanı
 - `pvp_wins` — int, kazanılan PvP sayısı
 - `pvp_losses` — int, kaybedilen PvP sayısı

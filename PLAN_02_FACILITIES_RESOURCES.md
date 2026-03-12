@@ -1,8 +1,19 @@
 # PLAN 02 — Tesis & Kaynak Sistemi
 
-> **Durum:** Tasarım Aşaması  
-> **Son Güncelleme:** 2026-03-07  
+> **Durum:** Tasarım Aşaması — ⛔ **HENÜZ UYGULANMADI**  
+> **Son Güncelleme:** 2026-03-12 (Audit v2 — uygulama durumu eklendi)  
 > **Bağımlılıklar:** Crafting sistemi (kaynak tüketimi), Item sistemi (üretilen ekipmanlar), PLAN_11 (Gölge sınıfı tesis şüphe azalması)
+
+> ### ⛔ KRİTİK: Bu Plan Hiç Uygulanmadı
+> `resources` ve `player_resources` tabloları **hiçbir migration'da oluşturulmamıştır**.  
+> `player_facilities` tablosu da bulunmamaktadır.  
+> PLAN_03 (Crafting) bu tablolara bağımlıdır; `start_crafting` RPC kaynak tüketimi yapamaz.  
+> **Çözüm:** Bu planın §7 veritabanı şemasına göre sıfırdan bir migration yazılmalıdır.
+>
+> ### ⚠️ EKONOMİ RİSKİ: NPC Satış Fiyatları
+> §7.3'teki NPC değerleri (Mythic kaynak: 500,000g) üretim hızlarıyla birleştiğinde  
+> **günlük 50M-100M gold** (15 tesis, karma seviye) üretilmesine yol açar.  
+> Bu PLAN_06 gelir bandını aşar. `collect_resources` RPC'de **günlük NPC satış limiti** (5M gold/gün/oyuncu) uygulanmalı.
 
 ---
 
@@ -406,6 +417,8 @@ gerektirir. Bu, Mythic itemleri son derece nadir ve değerli yapar.
 
 ## 7. Veritabanı Şeması
 
+> **⛔ UYGULAMA NOTU:** Aşağıdaki tablolar hiçbir migration'da oluşturulmamıştır. Yeni bir migration dosyası (`supabase/migrations/YYYYMMDD_XXXXXX_plan_02_facilities_resources.sql`) yazılmalıdır.
+
 ### 7.1 `resources` Tablosu (Catalog)
 
 ```sql
@@ -417,13 +430,12 @@ CREATE TABLE IF NOT EXISTS public.resources (
   icon TEXT DEFAULT 'default_resource',
   facility_type TEXT NOT NULL,             -- mining, quarry, lumber_mill...
   rarity TEXT NOT NULL DEFAULT 'common',   -- common..mythic
-  base_value INTEGER DEFAULT 10,           -- NPC satış fiyatı
+  base_value INTEGER DEFAULT 10,           -- NPC satış fiyatı (UYARI: §8 ekonomi riskine bak)
   is_stackable BOOLEAN DEFAULT true,
   max_stack INTEGER DEFAULT 999,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Index
 CREATE INDEX idx_resources_facility ON public.resources(facility_type);
 CREATE INDEX idx_resources_rarity ON public.resources(rarity);
 ```
@@ -433,8 +445,8 @@ CREATE INDEX idx_resources_rarity ON public.resources(rarity);
 ```sql
 CREATE TABLE IF NOT EXISTS public.player_resources (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  player_id UUID NOT NULL REFERENCES players(id),
-  resource_id TEXT NOT NULL REFERENCES resources(id),
+  player_id UUID NOT NULL REFERENCES public.users(id),  -- public.users, players değil
+  resource_id TEXT NOT NULL REFERENCES public.resources(id),
   quantity INTEGER NOT NULL DEFAULT 0,
   UNIQUE(player_id, resource_id)
 );
@@ -442,7 +454,23 @@ CREATE TABLE IF NOT EXISTS public.player_resources (
 CREATE INDEX idx_player_resources_player ON public.player_resources(player_id);
 ```
 
-### 7.3 Kaynak Fiyatları (NPC Sell)
+### 7.3 `player_facilities` Tablosu (Yeni — Tesis Seviyesi Takibi)
+
+```sql
+CREATE TABLE IF NOT EXISTS public.player_facilities (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  player_id UUID NOT NULL REFERENCES public.users(id),
+  facility_type TEXT NOT NULL,             -- mining, quarry, lumber_mill ...
+  level INTEGER NOT NULL DEFAULT 1 CHECK (level >= 1 AND level <= 10),
+  last_collected_at TIMESTAMPTZ DEFAULT now(),
+  opened_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(player_id, facility_type)
+);
+
+CREATE INDEX idx_player_facilities_player ON public.player_facilities(player_id);
+```
+
+### 7.4 Kaynak Fiyatları (NPC Sell)
 
 | Rarity | Base Value (Gold) |
 |--------|------------------|
@@ -452,6 +480,8 @@ CREATE INDEX idx_player_resources_player ON public.player_resources(player_id);
 | Epic | 30,000 |
 | Legendary | 120,000 |
 | Mythic | 500,000 |
+
+> **⚠️ EKONOMİ UYARISI:** Bu fiyatlarla Mythic kaynaklar NPC'ye satıldığında günlük yüz milyonlarca gold üretimi mümkündür (§8.2). `collect_resources` RPC'de oyuncu başına **günlük NPC satış limiti 5,000,000 gold** uygulanmalıdır. Alternatif: Kaynaklar yalnızca crafting için kullanılabilir ve NPC satışı tamamen devre dışı bırakılır.
 
 ---
 
@@ -478,9 +508,11 @@ Dolum süresi: 250 / 16 = ~15.6 saat
 
 ### 8.2 Tam Tesis Parkı (15 tesis, karışık seviyeler)
 
-Erken oyun (hepsi Lv 1-3): ~1,500,000-3,000,000 gold/gün
+Erken oyun (hepsi Lv 1-3): ~1,500,000-3,000,000 gold/gün  
 Orta oyun (hepsi Lv 5-7): ~10,000,000-20,000,000 gold/gün  
 Son oyun (hepsi Lv 8-10): ~50,000,000-100,000,000 gold/gün
+
+> **⚠️ EKONOMİ ÇATIŞMASI:** Son oyun tesis geliri (50M-100M/gün) PLAN_06'nın Ay 9-12 günlük gelir bandıyla (80M-265M/gün) **örtüşmektedir**. Bu band tüm gelir kaynaklarının toplamını temsil etmeli, tesis tek başına bu bandı doldurmamalı. NPC satış limiti veya kaynak-crafting-only kısıtı **zorunludur**. bkz. MASTER_GAMEPLAN.md §9.3.
 
 ---
 

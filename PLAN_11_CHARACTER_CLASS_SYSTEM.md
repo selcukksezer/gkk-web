@@ -1,10 +1,28 @@
 # PLAN 11 — Karakter Sınıfı & Stat Sistemi (Character Class & Stat System)
 
-> **Durum:** Kısmi Uygulama  
-> **Son Güncelleme:** 2026-03-07  
+> **Durum:** ✅ Temel sistem uygulandı (20260307_010000); kısmen eksikler var  
+> **Son Güncelleme:** 2026-03-12 (Audit v2 — uygulanmamış özellikler netleştirildi)  
 > **Bağımlılıklar:** PLAN_01 (item stats), PLAN_04 (dungeon), PLAN_06 (ekonomi/power), PLAN_08 (tolerans), PLAN_09 (PvP), PLAN_02 (tesisler)  
 > **Kapsam:** 3 karakter sınıfı seçimi, sınıfa özgü stat bonusları, stat sistemi (attack/defense/health/luck), tüm sınıflar için evrensel item erişimi  
 > **Önemli:** Karakter statları **hem PvP hem zindan** sisteminde geçerlidir (bkz. §3.1 ve §9.1). MASTER_GAMEPLAN.md §1.4 kanonik stat etki tablosuna başvurun.
+
+> ### ⚠️ Kısmen Uygulanmış Özellikler (Audit v2)
+>
+> | Sınıf | Özellik | Durum | Notlar |
+> |-------|---------|-------|--------|
+> | Savaşçı | Zindan success +5%, boss gold +15%, hospital -20% | ✅ Uygulandı | `enter_dungeon` RPC |
+> | Savaşçı | PvP damage ×1.20, crit +10% | ✅ Uygulandı | `pvp_attack` RPC |
+> | Savaşçı | "Kan Hırsı" PvP win sonrası 30dk ATK +10% | ⚠️ Eksik | `warrior_bloodlust_until` kolonu var, son pvp_attack kullanmıyor |
+> | Simyacı | Crafting success +15% | ✅ Uygulandı | `start_crafting` |
+> | Simyacı | Tolerance +25% azalma, overdose -%20, iksir etkinliği +30% | ✅ Uygulandı | `use_potion` |
+> | Simyacı | Günlük 1 ücretsiz Minor Detox | ❌ Eksik | Günlük reset sistemi yok |
+> | Simyacı | Han craft süresi -%20 | ✅ Uygulandı | `start_han_crafting` |
+> | Gölge | Loot luck ×1.40, PvP dodge +15% | ✅ Uygulandı | `enter_dungeon`, `pvp_attack` |
+> | Gölge | Tesis suspicion -%30 | ❌ Eksik | Suspicion sistemi yok |
+> | Gölge | Prison escape +20% | ❌ Eksik | Prison sistemi yok |
+> | Gölge | Black market risk -%20 | ❌ Eksik | Black market sistemi yok |
+> | Gölge | Rüşvet maliyeti -%25 | ❌ Eksik | Bribe sistemi yok |
+> | Tüm | Stat level growth | ✅ Uygulandı | `apply_level_up_stats` RPC |
 
 ---
 

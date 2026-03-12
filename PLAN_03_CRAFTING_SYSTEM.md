@@ -1,8 +1,18 @@
 # PLAN 03 — Crafting (Üretim) Sistemi
 
-> **Durum:** Tasarım Aşaması  
-> **Son Güncelleme:** 2026-03-07  
-> **Bağımlılıklar:** Tesis sistemi (kaynak temini), Item sistemi (üretilen ekipmanlar), PLAN_11 (Simyacı sınıfı crafting bonusu)
+> **Durum:** Tasarım Aşaması — ⚠️ **Tablo mevcut, seed verisi eksik; FAZ 2 tamamlanmadan çalışmaz**  
+> **Son Güncelleme:** 2026-03-12 (Audit v2 — RPC imza düzeltmesi, seed uyarısı)  
+> **Bağımlılıklar:** Tesis sistemi (kaynak temini — ⛔ henüz uygulanmadı), Item sistemi (üretilen ekipmanlar), PLAN_11 (Simyacı sınıfı crafting bonusu)
+
+> ### ⛔ KRİTİK: 212 Reçete Seed Edilmedi
+> `crafting_recipes` (veya `craft_recipes`) tablosu migration tarafından oluşturulmuş ancak reçeteler eklenmemiştir.  
+> `start_crafting` RPC her zaman `recipe_not_found` hatası döndürür.  
+> **Çözüm:** §3.1–§5.5 reçete listesini içeren bir seed migration yazılmalıdır.
+>
+> ### ⚠️ RPC İMZA DÜZELTMESİ
+> §8.3'teki `start_crafting(p_player_id UUID, p_recipe_id TEXT)` örneği **eski/hatalıdır**.  
+> **Kanonik imza (migration'daki):** `start_crafting(p_user_id UUID, p_recipe_id UUID, p_quantity INT)`  
+> TypeScript istemci kodu bu imzayı kullanmalıdır.
 
 ---
 
