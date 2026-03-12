@@ -115,7 +115,7 @@ export const GAME_CONFIG = {
   },
 
   guild: {
-    creationCost: 10000,
+    creationCost: 10_000_000,
     maxMembers: {
       level_1: 30,
       level_2: 40,

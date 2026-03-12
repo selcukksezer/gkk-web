@@ -10,6 +10,7 @@ interface CardProps {
   className?: string;
   variant?: "default" | "elevated" | "bordered";
   onClick?: () => void;
+  style?: React.CSSProperties;
 }
 
 export function Card({
@@ -17,6 +18,7 @@ export function Card({
   className,
   variant = "default",
   onClick,
+  style,
 }: CardProps) {
   const variants = {
     default: "bg-[var(--bg-card)]",
@@ -33,6 +35,7 @@ export function Card({
         className
       )}
       onClick={onClick}
+      style={style}
     >
       {children}
     </div>

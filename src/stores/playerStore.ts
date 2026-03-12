@@ -39,6 +39,9 @@ interface PlayerState {
   xp: number;
   nextLevelXp: number;
   tolerance: number;
+  addictionLevel: number;
+  lastPotionUsedAt: string | null;
+  warriorBloodlustUntil: string | null;
   pvpRating: number;
   pvpWins: number;
   pvpLosses: number;
@@ -104,6 +107,9 @@ const initialState = {
   xp: 0,
   nextLevelXp: 1000,
   tolerance: 0,
+  addictionLevel: 0,
+  lastPotionUsedAt: null as string | null,
+  warriorBloodlustUntil: null as string | null,
   pvpRating: 1000,
   pvpWins: 0,
   pvpLosses: 0,
@@ -159,7 +165,8 @@ export const usePlayerStore = create<PlayerState>()(
     const gems = ((dbData.gems || data.gems) as number) ?? 0;
     const level = ((dbData.level || data.level) as number) ?? 1;
     const xp = ((dbData.xp || data.xp) as number) ?? 0;
-    const tolerance = ((dbData.addiction_level || dbData.tolerance || data.addiction_level) as number) ?? 0;
+    const tolerance = ((dbData.tolerance || data.tolerance) as number) ?? 0;
+    const addictionLevel = ((dbData.addiction_level || dbData.addictionLevel || data.addiction_level) as number) ?? 0;
     const pvpRating = ((dbData.pvp_rating || dbData.pvpRating || data.pvp_rating) as number) ?? 1000;
     const pvpWins = ((dbData.pvp_wins || dbData.pvpWins || data.pvp_wins) as number) ?? 0;
     const pvpLosses = ((dbData.pvp_losses || dbData.pvpLosses || data.pvp_losses) as number) ?? 0;
@@ -204,6 +211,9 @@ export const usePlayerStore = create<PlayerState>()(
       luck,
       nextLevelXp: calculateNextLevelXp(level),
       tolerance,
+      addictionLevel,
+      lastPotionUsedAt: ((dbData.last_potion_used_at || data.last_potion_used_at) as string) ?? null,
+      warriorBloodlustUntil: ((dbData.warrior_bloodlust_until || data.warrior_bloodlust_until) as string) ?? null,
       pvpRating,
       pvpWins,
       pvpLosses,
@@ -234,6 +244,18 @@ export const usePlayerStore = create<PlayerState>()(
 
         if (dbData && !error) {
           console.log("[PlayerStore] profile payload from public.users:", dbData);
+          // If user belongs to a guild, include the guild name for UI (Profile page expects `guild_name`)
+          if (dbData.guild_id) {
+            try {
+              const { data: guildRow } = await supabase.from("guilds").select("name").eq("id", dbData.guild_id).single();
+              if (guildRow && guildRow.name) {
+                (dbData as any).guild_name = guildRow.name;
+              }
+            } catch (e) {
+              console.warn("[PlayerStore] Failed to fetch guild name:", e);
+            }
+          }
+
           get().loadPlayerData(dbData);
 
           // Also sync to authStore so it stays updated
@@ -417,6 +439,9 @@ export const usePlayerStore = create<PlayerState>()(
         xp: state.xp,
         nextLevelXp: state.nextLevelXp,
         tolerance: state.tolerance,
+        addictionLevel: state.addictionLevel,
+        lastPotionUsedAt: state.lastPotionUsedAt,
+        warriorBloodlustUntil: state.warriorBloodlustUntil,
         pvpRating: state.pvpRating,
         pvpWins: state.pvpWins,
         pvpLosses: state.pvpLosses,

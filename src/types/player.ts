@@ -30,7 +30,10 @@ export interface PlayerProfile {
   pvp_rating: number;
   pvp_wins: number;
   pvp_losses: number;
-  addiction_level: number; // tolerance
+  addiction_level: number;
+  tolerance: number;
+  last_potion_used_at: string | null;
+  warrior_bloodlust_until: string | null;
   hospital_until: string | null;
   prison_until: string | null;
   prison_reason: string | null;
@@ -50,7 +53,6 @@ export interface PlayerProfile {
   intelligence?: number;
   luck?: number;
   character_class?: 'warrior' | 'alchemist' | 'shadow' | null;
-  class_selected_at?: string | null;
   hp?: number;
 }
 

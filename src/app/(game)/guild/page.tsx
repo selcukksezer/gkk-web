@@ -7,6 +7,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 import { usePlayerStore } from "@/stores/playerStore";
 import { useUiStore } from "@/stores/uiStore";
 import { Card } from "@/components/ui/Card";
@@ -14,6 +15,7 @@ import { Button } from "@/components/ui/Button";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Modal } from "@/components/ui/Modal";
 import { api } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 import { formatGold, formatCompact } from "@/lib/utils/string";
 import type { GuildData, GuildMemberData, GuildRole } from "@/types/guild";
 
@@ -30,6 +32,7 @@ const roleLabel: Record<GuildRole, string> = {
 };
 
 export default function GuildPage() {
+  const router = useRouter();
   const player = usePlayerStore((s) => s.player);
   const gold = usePlayerStore((s) => s.gold);
   const addToast = useUiStore((s) => s.addToast);
@@ -56,22 +59,93 @@ export default function GuildPage() {
   const loadGuild = async () => {
     setIsLoading(true);
     try {
-      const res = await api.rpc<{ guild: GuildData; members: GuildMemberData[] }>(
+      const res = await api.rpc<GuildData & { members?: GuildMemberData[] }>(
         "get_my_guild",
         {}
       );
       const guildData = res.data;
-      if (guildData?.guild) {
-        setGuild(guildData.guild);
+      if (res.success && guildData && (guildData as GuildData).guild_id) {
+        setGuild(guildData as GuildData);
         setMembers(
-          (guildData.members || []).sort((a, b) => {
+          ((guildData.members || []) as GuildMemberData[]).sort((a, b) => {
             const order: Record<GuildRole, number> = { leader: 0, officer: 1, member: 2 };
             return (order[a.role] ?? 2) - (order[b.role] ?? 2) || b.level - a.level;
           })
         );
+      } else {
+        // Fallback for environments where get_my_guild RPC is outdated/missing
+        // but users table already has a valid guild_id.
+        if (player?.guild_id) {
+          const [guildRes, membersRes] = await Promise.all([
+            supabase
+              .from("guilds")
+              .select("id,name,description,level,leader_id,max_members,monument_level,monument_structural,monument_mystical,monument_critical,monument_gold_pool")
+              .eq("id", player.guild_id)
+              .single(),
+            supabase
+              .from("users")
+              .select("id,auth_id,username,level,guild_role,power,is_online")
+              .eq("guild_id", player.guild_id),
+          ]);
+
+          if (guildRes.data) {
+            const rawMembers = (membersRes.data || []) as Array<{
+              id: string;
+              auth_id: string;
+              username: string;
+              level: number;
+              guild_role: GuildRole;
+              power: number;
+              is_online?: boolean;
+            }>;
+
+            const mappedMembers = rawMembers
+              .map((m) => ({
+                player_id: m.id,
+                user_id: m.auth_id,
+                username: m.username,
+                level: m.level,
+                role: m.guild_role,
+                power: m.power || 0,
+                is_online: !!m.is_online,
+              }))
+              .sort((a, b) => {
+                const order: Record<GuildRole, number> = { leader: 0, officer: 1, member: 2 };
+                return (order[a.role] ?? 2) - (order[b.role] ?? 2) || b.level - a.level;
+              });
+
+            const fallbackGuild: GuildData = {
+              guild_id: guildRes.data.id,
+              name: guildRes.data.name,
+              description: guildRes.data.description || "",
+              level: guildRes.data.level || 1,
+              leader_id: guildRes.data.leader_id,
+              member_count: mappedMembers.length,
+              max_members: guildRes.data.max_members || 50,
+              total_power: mappedMembers.reduce((sum, m) => sum + (m.power || 0), 0),
+              monument_level: guildRes.data.monument_level || 0,
+              monument_structural: guildRes.data.monument_structural || 0,
+              monument_mystical: guildRes.data.monument_mystical || 0,
+              monument_critical: guildRes.data.monument_critical || 0,
+              monument_gold_pool: guildRes.data.monument_gold_pool || 0,
+              members: mappedMembers as GuildMemberData[],
+            };
+
+            setGuild(fallbackGuild);
+            setMembers(mappedMembers as GuildMemberData[]);
+          } else {
+            setGuild(null);
+            setMembers([]);
+          }
+        } else {
+          setGuild(null);
+          setMembers([]);
+        }
       }
     } catch {
       // No guild
+      setGuild(null);
+      setMembers([]);
     } finally {
       setIsLoading(false);
     }
@@ -94,7 +168,11 @@ export default function GuildPage() {
 
   const handleJoin = async (guildId: string) => {
     try {
-      await api.rpc("join_guild", { p_guild_id: guildId });
+      const res = await api.rpc("join_guild", { p_guild_id: guildId });
+      if (!res.success) {
+        addToast(res.error || "Katılma başarısız", "error");
+        return;
+      }
       addToast("Loncaya katıldın!", "success");
       await loadGuild();
     } catch {
@@ -104,7 +182,11 @@ export default function GuildPage() {
 
   const handleLeave = async () => {
     try {
-      await api.rpc("leave_guild", {});
+      const res = await api.rpc("leave_guild", {});
+      if (!res.success) {
+        addToast(res.error || "Ayrılma başarısız", "error");
+        return;
+      }
       addToast("Loncadan ayrıldın", "info");
       setGuild(null);
       setMembers([]);
@@ -118,21 +200,40 @@ export default function GuildPage() {
       addToast("Lonca adı gerekli", "warning");
       return;
     }
-    if (gold < 10000) {
-      addToast("Lonca kurmak 10.000 altın gerektirir", "warning");
+    if (gold < 10_000_000) {
+      addToast("Lonca kurmak 10.000.000 altın gerektirir", "warning");
       return;
     }
-    try {
-      await api.rpc("create_guild", {
-        p_name: guildName,
-        p_description: guildDesc,
-      });
+    const res = await api.rpc("create_guild", {
+      p_name: guildName,
+      p_description: guildDesc,
+    });
+
+    if (res.success) {
       addToast("Lonca kuruldu!", "success");
       setCreateModal(false);
+      // Update local player gold immediately so TopBar updates without a full refresh
+      try {
+        usePlayerStore.getState().updateGold(-10000000, true);
+      } catch (e) {
+        // fallback: refresh profile from server
+        await usePlayerStore.getState().fetchProfile();
+      }
       await loadGuild();
-    } catch {
-      addToast("Lonca kurulamadı", "error");
+      return;
     }
+
+    // Show RPC error message when provided
+    const err = res.error || "Lonca kurulamadı";
+    // If user is already in a guild, redirect/show guild page instead
+    if (err.includes("Zaten bir lonca")) {
+      addToast(err, "warning");
+      setCreateModal(false);
+      await loadGuild();
+      return;
+    }
+
+    addToast(err, "error");
   };
 
   // Member management — Godot: GuildScreen._promote_member/_demote_member/_kick_member
@@ -243,8 +344,32 @@ export default function GuildPage() {
           </div>
         </div>
 
-        <Button variant="danger" size="sm" fullWidth onClick={handleLeave}>
-          Loncadan Ayrıl
+        {playerRole === "leader" ? (
+          <Button variant="danger" size="sm" fullWidth onClick={async () => {
+            if (!window.confirm("Loncayı tamamen dağıtmak istediğinize emin misiniz? Bu işlem geri alınamaz!")) return;
+            try {
+              const res = await api.rpc("disband_guild", {});
+              if (!res.success) {
+                addToast(res.error || "Dağıtma başarısız", "error");
+                return;
+              }
+              addToast("Lonca dağıtıldı", "info");
+              setGuild(null);
+              setMembers([]);
+            } catch {
+              addToast("Dağıtma başarısız", "error");
+            }
+          }}>
+            Loncayı Dağıt
+          </Button>
+        ) : (
+          <Button variant="danger" size="sm" fullWidth onClick={handleLeave}>
+            Loncadan Ayrıl
+          </Button>
+        )}
+
+        <Button variant="secondary" size="sm" fullWidth onClick={() => router.push("/guild/monument")}>
+          🏛️ Lonca Anıtı
         </Button>
 
         {/* Member Action Modal */}
@@ -272,11 +397,13 @@ export default function GuildPage() {
                 ⬇️ Rütbeyi Düşür
               </Button>
             )}
-            <Button variant="danger" size="sm" fullWidth
-              isLoading={isActionLoading}
-              onClick={() => handleMemberAction("kick")}>
-              🚪 Loncadan At
-            </Button>
+            {(playerRole === "leader" || (playerRole === "officer" && memberActionModal?.role === "member")) && (
+              <Button variant="danger" size="sm" fullWidth
+                isLoading={isActionLoading}
+                onClick={() => handleMemberAction("kick")}>
+                🚪 Loncadan At
+              </Button>
+            )}
             <Button variant="secondary" size="sm" fullWidth onClick={() => setMemberActionModal(null)}>
               Vazgeç
             </Button>
@@ -301,7 +428,7 @@ export default function GuildPage() {
             size="sm"
             onClick={() => setCreateModal(true)}
           >
-            🏗️ Lonca Kur (10.000 🪙)
+            🏗️ Lonca Kur (10.000.000 🪙)
           </Button>
         </div>
       </Card>
@@ -328,27 +455,30 @@ export default function GuildPage() {
       {/* Search results */}
       {searchResults.length > 0 && (
         <div className="space-y-2">
-          {searchResults.map((g) => (
-            <Card key={g.guild_id}>
-              <div className="p-3 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">
-                    {g.name}
-                  </p>
-                  <p className="text-xs text-[var(--text-muted)]">
-                    Lv.{g.level} • {g.member_count}/{g.max_members} üye
-                  </p>
+          {searchResults.map((g: any) => {
+            const currentGuildId = g.guild_id || g.id;
+            return (
+              <Card key={currentGuildId}>
+                <div className="p-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">
+                      {g.name}
+                    </p>
+                    <p className="text-xs text-[var(--text-muted)]">
+                      Lv.{g.level} • {g.member_count}/{g.max_members} üye
+                    </p>
+                  </div>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => handleJoin(currentGuildId)}
+                  >
+                    Katıl
+                  </Button>
                 </div>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => handleJoin(g.guild_id)}
-                >
-                  Katıl
-                </Button>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       )}
 

@@ -155,6 +155,11 @@ export function CraftPreview({
               <div className="flex-1">
                 <div className={`text-sm font-bold ${getRarityColor(outputRarity)}`}>
                   {recipe.output_name || outputItem?.name || "Bilinmiyor"}
+                  {outputItem?.is_han_only && (
+                    <span className="ml-2 inline-block px-1.5 py-0.5 rounded bg-orange-500/20 text-[10px] text-orange-400 font-semibold align-middle">
+                      🏪 Sadece Han
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs text-cyan-300 mt-1">
                   Miktar: <span className="font-semibold">x{recipe.output_quantity * batchCount}</span>

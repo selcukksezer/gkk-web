@@ -102,6 +102,9 @@ async function request<T = unknown>(
     endpoint.startsWith("/auth/v1/") ||
     endpoint.startsWith("/rest/v1/");
 
+  // Mark auth routes so we can handle 401 responses from login/register
+  const isAuthRoute = endpoint.includes("auth-login") || endpoint.includes("auth-register");
+
   const baseUrl = isInternalApi ? "" : (isSupabaseEndpoint ? supabaseUrl : getBaseUrl());
   const url = (baseUrl || "") + endpoint;
   const headers = await getAuthHeaders(endpoint);
@@ -138,8 +141,23 @@ async function request<T = unknown>(
       return request<T>(method, endpoint, body, retryCount, rateLimitRetries + 1);
     }
 
-    // 401 Unauthorized — attempt token refresh only when we have a refresh token
+    // 401 Unauthorized — special-case auth routes (login/register) so we surface
+    // the backend's authentication error message instead of a generic session timeout.
     if (res.status === 401 && retryCount < 1) {
+      if (isAuthRoute) {
+        try {
+          const text = await res.text();
+          let parsed = null as any;
+          try {
+            parsed = JSON.parse(text);
+          } catch {}
+          const errMsg = parsed?.error || parsed?.message || text || "Kimlik doğrulama başarısız";
+          return { success: false, error: errMsg, code: 401 };
+        } catch (e) {
+          return { success: false, error: "Kimlik doğrulama başarısız", code: 401 };
+        }
+      }
+
       console.warn("[API] 401 - checking for refresh token before attempting refresh");
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -212,6 +230,26 @@ export const api = {
     if (error) {
       return { success: false, error: error.message, code: error.code ? parseInt(error.code) : undefined };
     }
+
+    // Supabase RPCs may return a JSONB payload with its own 'success' flag.
+    // Normalize so that if the RPC returns { success: false, error: '...' },
+    // we propagate that as an API-level failure.
+    try {
+      const payload = data as unknown;
+      let candidate: any = payload;
+      if (Array.isArray(payload) && payload.length > 0) {
+        candidate = payload[0];
+      }
+
+      if (candidate && typeof candidate === "object" && Object.prototype.hasOwnProperty.call(candidate, "success")) {
+        if (candidate.success === false) {
+          return { success: false, error: candidate.error || candidate.message || "RPC error", data: undefined };
+        }
+      }
+    } catch (e) {
+      // non-fatal: fall through and return success
+    }
+
     return { success: true, data: data as T };
   },
 };

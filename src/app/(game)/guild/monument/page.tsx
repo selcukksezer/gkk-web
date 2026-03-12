@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { usePlayerStore } from "@/stores/playerStore";
 import { useUiStore } from "@/stores/uiStore";
+import { useInventoryStore } from "@/stores/inventoryStore";
 import { supabase } from "@/lib/supabase";
 
 interface GuildContributionRow {
@@ -53,6 +54,9 @@ export default function GuildMonumentPage() {
   const router = useRouter();
   const profile = usePlayerStore((s) => s.profile);
   const addToast = useUiStore((s) => s.addToast);
+  const inventoryItems = useInventoryStore((s) => s.items);
+  const fetchInventory = useInventoryStore((s) => s.fetchInventory);
+  
   const [guild, setGuild] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
@@ -234,11 +238,13 @@ export default function GuildMonumentPage() {
         </Card>
 
         <Card className="p-6 bg-slate-900 border-emerald-900">
-          <h3 className="text-lg font-bold text-emerald-400 mb-4">🧩 Blueprint İlerlemesi</h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-bold text-emerald-400">🧩 Blueprint İlerlemesi</h3>
+          </div>
           {blueprints.length === 0 ? (
-            <p className="text-sm text-slate-400">Henüz blueprint ilerlemesi yok.</p>
+            <p className="text-sm text-slate-400 mb-4">Henüz blueprint ilerlemesi yok.</p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 mb-6">
               {blueprints.map((blueprint) => (
                 <div key={blueprint.blueprint_type} className="rounded bg-slate-800 p-3 text-sm">
                   <div className="flex items-center justify-between">
@@ -251,6 +257,45 @@ export default function GuildMonumentPage() {
               ))}
             </div>
           )}
+          
+          <div className="mt-4 pt-4 border-t border-slate-700">
+            <h4 className="text-sm font-semibold text-amber-400 mb-2">♻️ Fazla Blueprint Parçalama</h4>
+            <p className="text-xs text-slate-400 mb-3">
+              Tamamlanmış veya fazla olan blueprintlerinizi parçalayarak loncaya 3-10 arası Critical Kaynak ekleyebilirsiniz.
+            </p>
+            <div className="space-y-2 max-h-32 overflow-y-auto pr-1">
+              {blueprints.filter(b => b.fragments > 0).length === 0 ? (
+                <p className="text-xs text-slate-500 italic">Parçalanabilecek blueprint parçası bulunmuyor.</p>
+              ) : (
+                blueprints.filter(b => b.fragments > 0).map(blueprint => (
+                  <div key={blueprint.blueprint_type} className="flex justify-between items-center bg-slate-800 p-2 rounded">
+                    <span className="text-xs text-white">{blueprint.blueprint_type} <span className="text-slate-400">(x{blueprint.fragments})</span></span>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={async () => {
+                        try {
+                          const { api } = await import("@/lib/api");
+                          const res = await api.rpc("dismantle_blueprint", { p_blueprint_type: blueprint.blueprint_type });
+                          if (res.success && (res.data as any)?.success) {
+                            addToast((res.data as any)?.message, "success");
+                            // refresh page or reload guild data
+                            window.location.reload();
+                          } else {
+                            addToast((res.data as any)?.message || "Parçalama başarısız", "error");
+                          }
+                        } catch(err) {
+                          addToast("Parçalama işlemi sırasında bir hata oluştu", "error");
+                        }
+                      }}
+                    >
+                      Parçala
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </Card>
       </div>
     </div>

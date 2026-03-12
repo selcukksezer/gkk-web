@@ -5,13 +5,14 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePlayerStore } from "@/stores/playerStore";
 import { useAuthStore } from "@/stores/authStore";
 import { formatCompact } from "@/lib/utils/string";
 import { xpProgress } from "@/lib/utils/math";
+import { supabase } from "@/lib/supabase";
 
 const MENU_ITEMS = [
   { path: "/profile", label: "Profil", icon: "👤" },
@@ -53,6 +54,38 @@ export function TopBar() {
   const xp = usePlayerStore((s) => s.xp);
   const logout = useAuthStore((s) => s.logout);
   const progress = xpProgress(xp, level);
+
+  useEffect(() => {
+    if (!player) return;
+
+    // Set online to true when component mounts/player loads
+    supabase.rpc("set_online_status", { p_is_online: true }).then();
+
+    // Set online to false before window unloads
+    const handleBeforeUnload = () => {
+      // Use keepalive fetch via supabase if possible, or just standard beacon
+      supabase.rpc("set_online_status", { p_is_online: false }).then();
+    };
+    
+    // Set online to false when visibility changes to hidden (optional, but good for mobile)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        supabase.rpc("set_online_status", { p_is_online: false }).then();
+      } else if (document.visibilityState === "visible") {
+        supabase.rpc("set_online_status", { p_is_online: true }).then();
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // Set online to false when unmounting
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      supabase.rpc("set_online_status", { p_is_online: false }).then();
+    };
+  }, [player?.id]);
 
   const handleNav = (path: string) => {
     setMenuOpen(false);

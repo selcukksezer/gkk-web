@@ -16,6 +16,7 @@ import { Card } from "@/components/ui/Card";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Button } from "@/components/ui/Button";
 import { formatGold, formatCompact } from "@/lib/utils/string";
+import { ToleranceBar } from "@/components/game/ToleranceBar";
 
 // Character class data (PLAN_11 — Karakter Sınıfı & Stat Sistemi)
 const CLASS_DATA: Record<'warrior' | 'alchemist' | 'shadow', {
@@ -169,6 +170,9 @@ export default function CharacterPage() {
   const energy = usePlayerStore((s) => s.energy);
   const maxEnergy = usePlayerStore((s) => s.maxEnergy);
   const tolerance = usePlayerStore((s) => s.tolerance);
+  const addictionLevel = usePlayerStore((s) => s.addictionLevel);
+  const lastPotionUsedAt = usePlayerStore((s) => s.lastPotionUsedAt);
+  const warriorBloodlustUntil = usePlayerStore((s) => s.warriorBloodlustUntil);
   const globalSuspicionLevel = usePlayerStore((s) => s.globalSuspicionLevel);
   const characterClass = usePlayerStore((s) => s.characterClass);
   const luck = usePlayerStore((s) => s.luck);
@@ -221,6 +225,12 @@ export default function CharacterPage() {
   const xpPercent = nextLevelXp > 0 ? Math.round((xp / nextLevelXp) * 100) : 0;
   const energyPercent = maxEnergy > 0 ? Math.round((energy / maxEnergy) * 100) : 0;
 
+  // Active Buffs/Debuffs calculation
+  const isBloodlustActive = characterClass === 'warrior' && warriorBloodlustUntil && new Date(warriorBloodlustUntil) > new Date();
+  
+  // Withdrawal: Addiction >= 3 and no potion in 24 hours
+  const isWithdrawal = addictionLevel >= 3 && (!lastPotionUsedAt || (new Date().getTime() - new Date(lastPotionUsedAt).getTime()) > 24 * 60 * 60 * 1000);
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 space-y-4 pb-24">
       {/* Header */}
@@ -253,6 +263,52 @@ export default function CharacterPage() {
               <p className="text-xs text-[var(--text-secondary)] mt-1">
                 {CLASS_DATA[characterClass].class_feature}
               </p>
+              {characterClass === 'alchemist' && (
+                <div className="mt-2 text-right">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const { api } = await import("@/lib/api");
+                        const res = await api.rpc("claim_alchemist_detox");
+                        if (res.success && (res.data as any)?.success) {
+                          useUiStore.getState().addToast("✅ Minor Detox başarıyla alındı!", "success");
+                        } else {
+                          useUiStore.getState().addToast(`❌ ${(res.data as any)?.message || "Bir hata oluştu. Belki süresi dolmamıştır."}`, "error");
+                        }
+                      } catch (err) {
+                        useUiStore.getState().addToast("❌ İşlem başarısız", "error");
+                      }
+                    }}
+                  >
+                    🧪 Günlük Minor Detox Al
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Active Buffs/Debuffs */}
+      {(isBloodlustActive || isWithdrawal) && (
+        <Card variant="elevated" className="border-l-4 border-[var(--color-warning)]">
+          <div className="p-4 space-y-2">
+            <h3 className="text-sm font-semibold text-[var(--text-primary)]">✨ Aktif Etkiler</h3>
+            <div className="space-y-1.5">
+              {isBloodlustActive && (
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-[var(--color-error)]">🩸 Kan Hırsı:</span>
+                  <span className="text-[var(--text-secondary)]">+10/20% ATK (Aktif)</span>
+                </div>
+              )}
+              {isWithdrawal && (
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-purple-400">🌀 Yoksunluk (Bağımlılık Lvl {addictionLevel}):</span>
+                  <span className="text-[var(--text-secondary)]">-20% HP, -15% ATK/DEF, Titreme aktif</span>
+                </div>
+              )}
             </div>
           </div>
         </Card>
@@ -519,26 +575,8 @@ export default function CharacterPage() {
                     </div>
                   </div>
                   {/* Tolerance bar */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-[var(--text-muted)]">☠️ Tolerans</span>
-                      <span
-                        className="text-xs font-semibold"
-                        style={{ color: toleranceColor(tolerance) }}
-                      >
-                        {tolerance}/100
-                      </span>
-                    </div>
-                    <div className="w-full h-2 bg-[var(--bg-card)] rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${Math.min(tolerance, 100)}%`,
-                          backgroundColor: toleranceColor(tolerance),
-                        }}
-                      />
-                    </div>
-                  </div>
+                  <ToleranceBar />
+
                   {/* Suspicion meter */}
                   <div>
                     <div className="flex items-center justify-between mb-1">

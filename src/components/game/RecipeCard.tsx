@@ -69,9 +69,16 @@ export function RecipeCard({ recipe, isSelected, onClick, index }: RecipeCardPro
         <div className="flex-1 min-w-0">
           {/* Header: Name + Output Count */}
           <div className="flex justify-between items-start gap-2 mb-2">
-            <h3 className={`font-bold text-sm ${getRarityColor(outputRarity)} truncate`}>
-              {outputName}
-            </h3>
+            <div className="flex flex-col">
+              <h3 className={`font-bold text-sm ${getRarityColor(outputRarity)} truncate`}>
+                {outputName}
+              </h3>
+              {outputItem?.is_han_only && (
+                <span className="text-[10px] text-orange-400 font-semibold mt-0.5">
+                  🏪 Sadece Han
+                </span>
+              )}
+            </div>
             <span className="text-xs font-bold text-cyan-300 bg-cyan-500/20 px-2 py-0.5 rounded flex-shrink-0">
               x{recipe.output_quantity}
             </span>

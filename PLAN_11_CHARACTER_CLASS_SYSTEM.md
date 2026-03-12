@@ -192,17 +192,11 @@ Oyun başlangıcı
 
 ### 4.2 Seçim Sonrası Kısıtlamalar
 
-- Seçim **bir kez** yapılır; sezon başında sıfırlanabilir
-- Seçim sonrası `class_selected_at` zaman damgası kaydedilir
-- Yanlış seçim için grace period: **kayıt sonrası 30 dakika** (yeniden seçim yapılabilir)
+ Seçim sonrası değişikliklere izin verilmez; seçim **bir kez** yapılır ve sadece sezon sıfırlamasıyla yeniden seçilebilir.
 
 ---
 
 ## 5. Veritabanı Şeması
-
-### 5.1 `users` Tablosuna Eklenen Alanlar
-
-```sql
 -- Karakter sınıfı ve luck stat eklentileri
 -- Not: luck DEFAULT 0 → sınıf seçmemiş kullanıcılar için 0 kalır.
 -- character_class NULL ise oyuncu henüz sınıf seçmemiştir.
@@ -211,7 +205,7 @@ ALTER TABLE public.users
   ADD COLUMN IF NOT EXISTS character_class text
     CHECK (character_class IN ('warrior', 'alchemist', 'shadow')),
   ADD COLUMN IF NOT EXISTS luck integer NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS class_selected_at timestamptz;
+  -- `class_selected_at` alanı kullanılmamaktadır; sınıf seçimi sonrası değişime izin verilmez
 
 -- items tablosuna luck eklentisi
 ALTER TABLE public.items
@@ -329,22 +323,18 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'Kullanıcı bulunamadı');
   END IF;
 
-  -- Sınıf zaten seçilmiş mi ve grace period geçti mi?
-  IF v_user.character_class IS NOT NULL
-     AND v_user.class_selected_at IS NOT NULL
-     AND v_user.class_selected_at < (now() - (v_grace_minutes || ' minutes')::interval) THEN
+  -- Eğer kullanıcı daha önce sınıf seçtiyse, yeniden seçim yapılamaz
+  IF v_user.character_class IS NOT NULL THEN
     RETURN jsonb_build_object(
       'success', false,
-      'error', 'Sınıf değiştirilemez. Grace period (' || v_grace_minutes || ' dk) dolmuş.',
-      'selected_class', v_user.character_class,
-      'selected_at', v_user.class_selected_at
+      'error', 'Sınıf zaten seçilmiş; değişiklik yapılamaz.',
+      'selected_class', v_user.character_class
     );
   END IF;
 
   -- Kullanıcıyı güncelle: sınıf statlarını uygula
   UPDATE public.users SET
     character_class     = p_class_id,
-    class_selected_at   = now(),
     attack              = v_class.base_attack,
     defense             = v_class.base_defense,
     health              = v_class.base_health,
@@ -522,7 +512,7 @@ export interface UserWithClass {
   // Yeni alanlar
   luck: number;
   character_class: CharacterClassId | null;
-  class_selected_at: string | null;
+  -- `class_selected_at` removed: sınıf seçimi sonrasında değişime izin verilmez
 }
 
 // Pasif bonus sabitleri — modül seviyesinde tanımlanır (her çağrıda yeniden oluşturulmasın)
@@ -611,7 +601,7 @@ Her sınıfa tıklandığında açılan detay sayfası:
 ```
 "Savaşçı sınıfını seçmek üzeresin.
 Bu seçim sezon boyunca geçerli olacak.
-İlk 30 dakika içinde değiştirebilirsin.
+Seçim yapıldıktan sonra değişiklik yapılamaz.
 
 [Onayla]  [Geri Dön]"
 ```
@@ -626,7 +616,11 @@ Bu seçim sezon boyunca geçerli olacak.
 -- get_current_user fonksiyonuna eklenen alanlar:
 'luck',             luck,
 'character_class',  character_class,
-'class_selected_at', class_selected_at,
+'class_passive_bonuses', (
+  SELECT cc.passive_bonuses
+  FROM public.character_classes cc
+  WHERE cc.id = u.character_class
+),
 'class_passive_bonuses', (
   SELECT cc.passive_bonuses
   FROM public.character_classes cc

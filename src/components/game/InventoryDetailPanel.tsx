@@ -48,6 +48,7 @@ export function InventoryDetailPanel({
   };
 
   const rarityClass = rarityColors[item.rarity] || "text-gray-400";
+  const isMarketLocked = item.is_market_tradeable === false || item.is_han_only === true;
 
   return (
     <AnimatePresence>
@@ -220,12 +221,26 @@ export function InventoryDetailPanel({
 
           {/* Sell */}
           {item.is_tradeable && (
-            <button
-              onClick={onSellClick}
-              className="w-full px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded font-medium transition"
-            >
-              Sat
-            </button>
+            <div className="space-y-1">
+              <button
+                onClick={onSellClick}
+                disabled={isMarketLocked}
+                className={cn(
+                  "w-full px-4 py-2 text-white rounded font-medium transition",
+                  isMarketLocked
+                    ? "bg-amber-900/40 cursor-not-allowed opacity-70"
+                    : "bg-amber-600 hover:bg-amber-700"
+                )}
+                title={isMarketLocked ? "Bu eşya pazarda satılamaz (Han-only)" : undefined}
+              >
+                Sat
+              </button>
+              {isMarketLocked && (
+                <p className="text-[10px] text-[var(--color-warning)]">
+                  Bu eşya pazarda satılamaz (Han-only)
+                </p>
+              )}
+            </div>
           )}
 
           {/* Split Stack */}

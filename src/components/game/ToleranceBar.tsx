@@ -1,42 +1,42 @@
-// ============================================================
-// ToleranceBar — İksir bağımlılık/tolerans çubuğu
-// ============================================================
-
 "use client";
 
-const TIER_COLORS = [
-  { max: 20, color: "#22c55e", label: "Normal" },
-  { max: 40, color: "#84cc16", label: "Hafif" },
-  { max: 60, color: "#eab308", label: "Orta" },
-  { max: 80, color: "#f97316", label: "Yüksek" },
-  { max: 100, color: "#ef4444", label: "Kritik" },
-];
+import { usePlayerStore } from "@/stores/playerStore";
+import { cn } from "@/lib/utils/cn";
 
-interface ToleranceBarProps {
-  value: number; // 0-100
-  showLabel?: boolean;
-}
+export function ToleranceBar() {
+  const tolerance = usePlayerStore((s) => s.tolerance);
+  const addictionLevel = usePlayerStore((s) => s.addictionLevel);
 
-export function ToleranceBar({ value, showLabel = true }: ToleranceBarProps) {
-  const clamped = Math.max(0, Math.min(100, value));
-  const tier = TIER_COLORS.find((t) => clamped <= t.max) ?? TIER_COLORS[4];
+  // Determine bar color based on tolerance
+  let barColor = "bg-green-500";
+  if (tolerance > 80) barColor = "bg-red-600";
+  else if (tolerance > 50) barColor = "bg-orange-500";
+  else if (tolerance > 20) barColor = "bg-yellow-500";
 
   return (
-    <div className="w-full">
-      {showLabel && (
-        <div className="flex items-center justify-between mb-0.5">
-          <span className="text-[10px] text-[var(--text-secondary)]">🧪 Tolerans</span>
-          <span className="text-[10px]" style={{ color: tier.color }}>
-            {tier.label} ({Math.round(clamped)}%)
-          </span>
-        </div>
-      )}
-      <div className="h-1.5 bg-[var(--surface)] rounded-full overflow-hidden">
+    <div className="flex flex-col gap-1 w-full" title="İksir Toleransı ve Bağımlılık">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs text-[var(--text-muted)]">☠️ Tolerans</span>
+        <span className={cn(
+          "text-xs font-semibold",
+          tolerance > 80 ? "text-red-400" :
+          tolerance > 50 ? "text-orange-400" : "text-white"
+        )}>
+          {tolerance}/100
+        </span>
+      </div>
+      <div className="h-2 w-full bg-[var(--bg-card)] rounded-full overflow-hidden">
         <div
-          className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${clamped}%`, backgroundColor: tier.color }}
+          className={cn("h-full transition-all duration-500 rounded-full", barColor)}
+          style={{ width: `${Math.min(100, Math.max(0, tolerance))}%` }}
         />
       </div>
+      {addictionLevel > 0 && (
+        <div className="flex justify-between text-[10px] px-1 mt-0.5">
+          <span className="text-[var(--color-error)] opacity-80">Bağımlılık (Yoksunluk: {addictionLevel >= 3 ? "Aktif" : "Pasif"})</span>
+          <span className="text-purple-400 font-bold">Seviye {addictionLevel}</span>
+        </div>
+      )}
     </div>
   );
 }

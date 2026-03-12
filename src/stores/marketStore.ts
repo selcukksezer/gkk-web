@@ -1,6 +1,6 @@
 // ============================================================
 // Market Store — Kaynak: PazarScreen.gd + APIEndpoints
-// DB RPCs: place_sell_order, cancel_sell_order, purchase_market_listing
+// DB RPCs: market_list_item, cancel_sell_order, purchase_market_listing
 // DB Tables: market_orders (REST), market_history (REST)
 // ============================================================
 
@@ -122,8 +122,13 @@ export const useMarketStore = create<MarketState>()((set, get) => ({
     price: number,
     _region?: MarketRegion
   ) => {
-    // DB RPC: place_sell_order(p_item_row_id uuid, p_quantity int, p_price int)
-    const res = await api.rpc("place_sell_order", {
+    if (side !== "sell") {
+      set({ error: "Sadece satış emri destekleniyor" });
+      return false;
+    }
+
+    // DB RPC: market_list_item(p_item_row_id uuid, p_quantity int, p_price int)
+    const res = await api.rpc("market_list_item", {
       p_item_row_id: itemId,
       p_quantity: quantity,
       p_price: price,

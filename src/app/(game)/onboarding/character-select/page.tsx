@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/Button";
 import { usePlayerStore } from "@/stores/playerStore";
+import { useUiStore } from "@/stores/uiStore";
 import { Card } from "@/components/ui/Card";
 
 type ClassType = 'warrior' | 'alchemist' | 'shadow';
@@ -39,11 +40,11 @@ const GAME_HOME_ROUTE = "/home";
 export default function CharacterSelectPage() {
   const router = useRouter();
   const { profile, fetchProfile } = usePlayerStore();
+  const addToast = useUiStore((s) => s.addToast);
   const [selectedClass, setSelectedClass] = useState<ClassType | null>(null);
   const [classes, setClasses] = useState<CharacterClass[]>([]);
   const [classesLoading, setClassesLoading] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (profile?.character_class) {
@@ -76,20 +77,22 @@ export default function CharacterSelectPage() {
         );
       } catch (loadError) {
         console.error(loadError);
-        setError("Sınıflar yüklenemedi");
+        addToast("Sınıflar yüklenemedi", "error");
       } finally {
         setClassesLoading(false);
       }
     };
 
     void loadClasses();
-  }, []);
+  }, [addToast]);
 
   const handleSelectClass = async () => {
-    if (!selectedClass) return;
+    if (!selectedClass) {
+      addToast("Devam etmek için bir sınıf seçin", "warning");
+      return;
+    }
     
     setLoading(true);
-    setError(null);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Oturum bulunamadı");
@@ -103,14 +106,13 @@ export default function CharacterSelectPage() {
 
       await fetchProfile();
       
-      // Show success message with grace period info
       const className = classes.find((characterClass) => characterClass.id === selectedClass)?.name || "Sınıf";
-      alert(`${className} sınıfını seçtiniz!\n\nİlk 30 dakika içinde sınıfınızı değiştirebilirsiniz.`);
+      addToast(`${className} sınıfını seçtiniz.`, "success", 5000);
       
       router.push(GAME_HOME_ROUTE);
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : "Sınıf seçimi başarısız");
+      addToast(err instanceof Error ? err.message : "Sınıf seçimi başarısız", "error");
     } finally {
       setLoading(false);
     }
@@ -121,8 +123,6 @@ export default function CharacterSelectPage() {
       <Card className="w-full max-w-3xl p-8 bg-slate-900 border-slate-800">
         <h1 className="text-3xl font-bold text-center text-amber-500 mb-2">Sınıfını Seç</h1>
         <p className="text-center text-slate-400 mb-8">Kaderini belirleyecek yolu seç. Bu karar oyun tarzını kökten değiştirecek.</p>
-        
-        {error && <div className="bg-red-900/50 text-red-200 p-3 rounded mb-6 text-center">{error}</div>}
 
         {classesLoading ? (
           <div className="py-8 text-center text-slate-400">Sınıflar yükleniyor...</div>

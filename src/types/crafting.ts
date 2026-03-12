@@ -23,6 +23,7 @@ export interface CraftRecipe {
   ingredients: CraftIngredient[];
   gem_cost: number;
   gold_cost: number;
+  xp_reward?: number;
 }
 
 export interface CraftIngredient {

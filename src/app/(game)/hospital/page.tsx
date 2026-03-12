@@ -53,12 +53,11 @@ export default function HospitalPage() {
     return `${h}h ${m}m ${s}s`;
   }, [secondsLeft]);
 
-  // Gem cost formula matching Godot: hours + ceil(remaining_minutes)
+  // Gem cost formula matching PLAN_04: 3 Gem / Minute
   const gemCost = useMemo(() => {
     if (!inHospital || isComplete) return 0;
-    const gemHours = Math.floor(secondsLeft / 3600);
-    const gemMinutes = Math.ceil((secondsLeft % 3600) / 60);
-    return gemHours + gemMinutes;
+    const totalMinutes = Math.ceil(secondsLeft / 60);
+    return totalMinutes * 3;
   }, [secondsLeft, inHospital, isComplete]);
 
   // Release time formatted as datetime
@@ -84,11 +83,8 @@ export default function HospitalPage() {
     }
     setIsReleasing(true);
     try {
-      // Actual Supabase RPC: release_from_hospital(p_auth_id, p_method, p_cost)
-      const result = await api.rpc("release_from_hospital", {
-        p_method: "gems",
-        p_cost: gemCost,
-      });
+      // New Supabase RPC: heal_with_gems calculates and deducts
+      const result = await api.rpc("heal_with_gems", {});
       if (result.success) {
         setReleased(true);
         addToast("Başarılı! Hastaneden çıktınız!", "success");

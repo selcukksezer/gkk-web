@@ -32,6 +32,8 @@ interface InventoryState {
   batchUpdatePositions: (updates: Array<{ row_id: string; slot_position: number }>) => Promise<boolean>;
   updateItemEnhancement: (rowId: string, newLevel: number) => Promise<boolean>;
   useItem: (itemId: string) => Promise<boolean>;
+  usePotion: (rowId: string) => Promise<{ success: boolean; overdose?: boolean; error?: string }>;
+  useDetox: (rowId: string) => Promise<{ success: boolean; error?: string }>;
   splitStack: (rowId: string, splitQuantity: number) => Promise<boolean>;
   sellItemByRow: (rowId: string, quantity?: number) => Promise<{ success: boolean; goldEarned?: number; error?: string }>;
   trashItem: (rowId: string) => Promise<boolean>;
@@ -242,6 +244,17 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
   // ── Equip item ─────────────────────────────────────────────
   equipItem: async (rowId: string, slot: string) => {
     console.log("[InventoryStore] equipItem:", { rowId, slot });
+    const slotKey = String(slot).toLowerCase();
+
+    // Defensive pre-unequip to prevent duplicate slot conflicts on environments
+    // where equip_item RPC hasn't been patched yet.
+    const currentlyEquipped = get().equippedItems[slotKey];
+    if (currentlyEquipped && currentlyEquipped.row_id !== rowId) {
+      const preUnequipRes = await api.rpc("unequip_item", { p_slot: slotKey });
+      if (!preUnequipRes.success) {
+        console.warn("[InventoryStore] pre-unequip failed before equip:", preUnequipRes.error);
+      }
+    }
 
     // Optimistic update: remove item from items list and add to equippedItems map
     let optimisticItem: InventoryItem | null = null;
@@ -255,7 +268,7 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
       });
       const equipped = { ...s.equippedItems };
       if (optimisticItem) {
-        equipped[String(slot).toLowerCase()] = { ...optimisticItem, is_equipped: true, equip_slot: slot } as InventoryItem;
+        equipped[slotKey] = { ...optimisticItem, is_equipped: true, equip_slot: slotKey } as InventoryItem;
       }
       return { items, equippedItems: equipped };
     });
@@ -263,10 +276,20 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
     // Send to server
     const res = await api.rpc("equip_item", {
       p_row_id: rowId,
-      p_slot: slot,
+      p_slot: slotKey,
     });
 
     if (!res.success) {
+      // Retry once after explicit slot cleanup for stale server-side states.
+      if ((res.error || "").includes("idx_inventory_user_slot_unique")) {
+        await api.rpc("unequip_item", { p_slot: slotKey });
+        const retryRes = await api.rpc("equip_item", { p_row_id: rowId, p_slot: slotKey });
+        if (retryRes.success) {
+          await get().fetchInventory(true);
+          return true;
+        }
+      }
+
       console.warn("[InventoryStore] equipItem failed:", res.error);
       set({ error: res.error || "Kuşanma başarısız" });
       // Revert by re-fetching authoritative state
@@ -355,49 +378,7 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
 
   // ── Unequip item ───────────────────────────────────────────
   unequipItem: async (slot: string) => {
-    console.log("[InventoryStore] unequipItem (optimistic):", { slot });
-
-    // CAPACITY CHECK: Envanter 20/20 dolu ise pure unequip engellensin
-    const state = get();
-    const key = String(slot).toLowerCase();
-    const equipped = state.equippedItems[key];
-    const occupiedSlots = new Set(state.items.map((i) => i.slot_position));
-    const isInventoryFull = occupiedSlots.size >= INVENTORY_CAPACITY;
-    
-    // Pure unequip yapmaya çalışırken envanter full olursa reddet
-    if (isInventoryFull && equipped) {
-      set({ error: "Envanter dolu! Sadece item swapı yapılabilir (kuşanılı ↔ envanter)." });
-      return false;
-    }
-
-    // If we have an equipped item locally, perform optimistic state update
-    if (equipped) {
-      // Remove from equipped map and add to items with tentative slot_position
-      const tentativeSlot = state.findFirstEmptySlot();
-      
-      // SAFETY: Eğer boş slot yoksa (-1) işlemi iptal et
-      if (tentativeSlot < 0) {
-        set({ error: "İç hata: Envanterde boş slot bulunamadı." });
-        return false;
-      }
-      
-      set((s) => {
-        const newEquipped = { ...s.equippedItems };
-        delete newEquipped[key];
-
-        const restored: typeof equipped = {
-          ...equipped,
-          is_equipped: false,
-          equip_slot: null,
-          slot_position: tentativeSlot,
-        } as any;
-
-        return {
-          equippedItems: newEquipped,
-          items: [...s.items, restored],
-        };
-      });
-    }
+    console.log("[InventoryStore] unequipItem:", { slot });
 
     // Call server RPC
     try {
@@ -406,7 +387,6 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
       if (!res.success) {
         console.warn("[InventoryStore] unequipItem RPC failed:", res.error);
         set({ error: res.error || "Kuşanma çıkarma başarısız" });
-        // Re-fetch authoritative state to revert optimistic change
         await get().fetchInventory(true);
         return false;
       }
@@ -479,6 +459,24 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
     return false;
   },
 
+  // ── Swap equipped slot with inventory slot atomically ─────────────────────────
+  swapEquipWithSlot: async (equipSlot: string, targetSlot: number) => {
+    try {
+      const res = await api.rpc('swap_equip_with_slot', { p_equip_slot: equipSlot, p_target_slot: targetSlot });
+      if (res.success) {
+        // Prefer authoritative refresh to ensure consistent state
+        await get().fetchInventory(true);
+        return true;
+      }
+      set({ error: res.error || 'Equip swap failed' });
+      return false;
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : String(err) });
+      await get().fetchInventory(true);
+      return false;
+    }
+  },
+
   // ── Batch update positions ─────────────────────────────────
   batchUpdatePositions: async (updates: Array<{ row_id: string; slot_position: number }>) => {
     const res = await api.rpc("update_item_positions", {
@@ -519,6 +517,7 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
 
   // ── Use item (potion / consumable dispatch) ────────────────
   useItem: async (itemId: string) => {
+    // Keep for backwards compatibility
     const item = get().items.find((i) => i.item_id === itemId);
     if (!item) return false;
 
@@ -538,6 +537,30 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
       return true;
     }
     return false;
+  },
+
+  usePotion: async (rowId: string) => {
+    const res = await api.rpc<any>("use_potion", { p_row_id: rowId });
+    if (res.success) {
+      await get().fetchInventory(true);
+      // Fetch profile to update stats (energy, health, tolerance, hospital)
+      const { usePlayerStore } = await import("@/stores/playerStore");
+      await usePlayerStore.getState().fetchProfile();
+      return { success: true, overdose: res.data?.overdose };
+    }
+    return { success: false, error: res.error || "İksir kullanılamadı." };
+  },
+
+  useDetox: async (rowId: string) => {
+    const res = await api.rpc<any>("use_detox", { p_row_id: rowId });
+    if (res.success) {
+      await get().fetchInventory(true);
+      // Fetch profile to update tolerance & addiction
+      const { usePlayerStore } = await import("@/stores/playerStore");
+      await usePlayerStore.getState().fetchProfile();
+      return { success: true };
+    }
+    return { success: false, error: res.error || "Detox kullanılamadı." };
   },
 
   // ── Move item to specific slot (drag-drop) ─────────────────
@@ -787,6 +810,8 @@ function ensureSlotPositions(items: InventoryItem[]): InventoryItem[] {
 
   for (const item of items) {
     if (
+      typeof item.slot_position === "number" &&
+      Number.isInteger(item.slot_position) &&
       item.slot_position >= 0 &&
       item.slot_position < INVENTORY_CAPACITY &&
       !occupied.has(item.slot_position)
@@ -794,15 +819,10 @@ function ensureSlotPositions(items: InventoryItem[]): InventoryItem[] {
       occupied.add(item.slot_position);
       result.push(item);
     } else {
+      // Server-authoritative mode: do not auto-pick a new empty slot client-side.
       result.push({ ...item, slot_position: -1 });
     }
   }
 
-  let nextSlot = 0;
-  return result.map((item) => {
-    if (item.slot_position >= 0) return item;
-    while (occupied.has(nextSlot)) nextSlot++;
-    occupied.add(nextSlot);
-    return { ...item, slot_position: nextSlot };
-  });
+  return result;
 }

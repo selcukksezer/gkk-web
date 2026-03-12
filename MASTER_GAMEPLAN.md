@@ -201,7 +201,7 @@ ALTER TABLE public.users
   ADD COLUMN IF NOT EXISTS luck integer NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS character_class text
     CHECK (character_class IN ('warrior', 'alchemist', 'shadow')),
-  ADD COLUMN IF NOT EXISTS class_selected_at timestamptz;
+  -- `class_selected_at` column is not used; class selection is immutable after set
 
 ALTER TABLE public.items
   ADD COLUMN IF NOT EXISTS luck integer NOT NULL DEFAULT 0,
@@ -469,7 +469,7 @@ CREATE TABLE IF NOT EXISTS public.player_resources (
 > UI taslağı: PLAN_11 §7  
 > RPC: `select_character_class(p_class_id text)` — PLAN_11 §5.3
 
-**Adım 10.2** — 30 dakika grace period (seçim sonrası yeniden seçim)
+**Adım 10.2** — Seçim sonrası değişiklik yapılamaz (sezon başında sıfırlanır)
 
 **Adım 10.3** — Sınıf özelliği implementasyonları: (✅)
 

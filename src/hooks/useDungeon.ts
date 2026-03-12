@@ -22,10 +22,13 @@ import type {
 } from "@/types/dungeon";
 
 interface SuccessRateBreakdown {
-  base: number;
-  gearBonus: number;
-  levelBonus: number;
-  difficultyPenalty: number;
+  baseFromPower: number;
+  luckBonus: number;
+  warriorBonus: number;
+  reputationBonus: number;
+  ratio: number;
+  playerPower: number;
+  powerRequirement: number;
   final: number;
 }
 
@@ -65,35 +68,47 @@ export function useDungeon() {
   /** Client-side success rate preview */
   const previewSuccessRate = useCallback(
     (dungeon: DungeonData): SuccessRateBreakdown => {
-      const base =
-        (config.baseSuccessRates as Record<string, number>)[dungeon.difficulty] ?? 0.5;
+      const player = usePlayerStore.getState().player;
 
-      // Gear bonus — use equipped items power
-      const equippedItems = useInventoryStore.getState().equippedItems;
-      const gearPower = Object.values(equippedItems).reduce((sum, item) => {
-        if (!item) return sum;
-        return sum + (item.attack ?? 0) + (item.defense ?? 0) + (item.power ?? 0);
-      }, 0);
-      const gearBonus = gearPower * 0.001 * config.successRateWeights.gear;
+      const playerPower = (player?.power ?? 0) > 0
+        ? Number(player?.power ?? 0)
+        : Math.floor(
+            level * 500 +
+            Math.floor((player?.reputation ?? 0) * 0.1) +
+            Math.floor((player?.luck ?? 0) * 50)
+          );
 
-      // Level bonus: +2% per level above min_level
-      const levelDiff = Math.max(0, level - dungeon.required_level);
-      const levelBonus = levelDiff * 0.02 * config.successRateWeights.level;
+      const inferredPowerReq = dungeon.dungeon_order === 1 ? 0 : Math.max(1, dungeon.required_level * 500);
+      const powerRequirement = typeof dungeon.power_requirement === "number"
+        ? dungeon.power_requirement
+        : inferredPowerReq;
 
-      // Difficulty penalty
-      const difficultyPenalty =
-        dungeon.difficulty === "dungeon_solo" || dungeon.difficulty === "dungeon_group"
-          ? 0.1
-          : 0;
+      const ratio = powerRequirement > 0 ? playerPower / powerRequirement : 999;
 
-      const final = Math.max(
-        config.minSuccessRate,
-        Math.min(config.maxSuccessRate, base + gearBonus + levelBonus - difficultyPenalty)
-      );
+      let baseFromPower = 0;
+      if (powerRequirement === 0) {
+        baseFromPower = 1.0;
+      } else if (ratio >= 1.5) {
+        baseFromPower = 0.95;
+      } else if (ratio >= 1.0) {
+        baseFromPower = 0.70 + (ratio - 1.0) * 0.50;
+      } else if (ratio >= 0.5) {
+        baseFromPower = 0.25 + (ratio - 0.5) * 0.90;
+      } else if (ratio >= 0.25) {
+        baseFromPower = 0.10 + (ratio - 0.25) * 0.60;
+      } else {
+        baseFromPower = Math.max(0.05, ratio * 0.40);
+      }
 
-      return { base, gearBonus, levelBonus, difficultyPenalty, final };
+      const luckBonus = Math.max(0, Math.min(0.05, (player?.luck ?? 0) * 0.001));
+      const warriorBonus = (player?.character_class ?? null) === "warrior" ? 0.05 : 0;
+      const reputationBonus = Math.max(0, Math.min(0.025, (player?.reputation ?? 0) * 0.0005));
+
+      const final = Math.max(0.05, Math.min(0.95, baseFromPower + luckBonus + warriorBonus + reputationBonus));
+
+      return { baseFromPower, luckBonus, warriorBonus, reputationBonus, ratio, playerPower, powerRequirement, final };
     },
-    [level, config]
+    [level]
   );
 
   /** Estimate reward range for a dungeon */

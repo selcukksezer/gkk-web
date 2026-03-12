@@ -10,6 +10,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { usePlayerStore } from "@/stores/playerStore";
+import { useInventoryStore } from "@/stores/inventoryStore";
 import { useUiStore } from "@/stores/uiStore";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -46,22 +47,85 @@ const difficultyLabels: Record<string, string> = {
   DUNGEON: "Zindan", dungeon: "Zindan",
 };
 
-// Success rate breakdown calculator (mirrors DungeonManager.preview_success_rate)
-function previewSuccessRate(dungeon: DungeonData, playerLevel: number) {
-  const baseRate = dungeon.success_rate;
-  const levelDiff = playerLevel - dungeon.required_level;
-  const gearEffect = 0; // Would come from equipped items
-  const levelEffect = Math.min(levelDiff * 0.02, 0.15); // +2% per level above, max +15%
-  const difficultyPenalty = (dungeon.difficulty as string) === "dungeon" || (dungeon.difficulty as string) === "DUNGEON" ? 0.1 : 0;
-  const levelPenalty = levelDiff < 0 ? Math.abs(levelDiff) * 0.05 : 0;
-  const calculated = Math.max(0.05, Math.min(0.95, baseRate + gearEffect + levelEffect - difficultyPenalty - levelPenalty));
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function estimateEquipmentPower(equippedItems: Record<string, { attack?: number; defense?: number; health?: number; enhancement_level?: number } | null>): number {
+  return Math.floor(
+    Object.values(equippedItems).reduce((sum, item) => {
+      if (!item) return sum;
+      const enh = 1 + ((item.enhancement_level ?? 0) * 0.15);
+      const part = ((item.attack ?? 0) + (item.defense ?? 0) + ((item.health ?? 0) / 10)) * enh;
+      return sum + part;
+    }, 0)
+  );
+}
+
+// PLAN_04 parity: power_ratio tabanli zindan basari preview'i
+function previewSuccessRate(
+  dungeon: DungeonData,
+  player: { power?: number; luck?: number; reputation?: number; character_class?: string | null } | null,
+  fallbackLevel: number,
+  equippedItems: Record<string, { attack?: number; defense?: number; health?: number; enhancement_level?: number } | null>
+) {
+  const gearPowerEstimate = estimateEquipmentPower(equippedItems);
+
+  const playerPower = (player?.power ?? 0) > 0
+    ? Number(player?.power ?? 0)
+    : Math.floor(
+        fallbackLevel * 500 +
+        Math.floor((player?.reputation ?? 0) * 0.1) +
+        Math.floor((player?.luck ?? 0) * 50)
+      );
+
+  // Prefer server-provided power requirement when available.
+  const inferredPowerReq = dungeon.dungeon_order === 1 ? 0 : Math.max(1, dungeon.required_level * 500);
+  const powerRequirement = typeof dungeon.power_requirement === "number"
+    ? dungeon.power_requirement
+    : inferredPowerReq;
+
+  const ratio = powerRequirement > 0 ? playerPower / powerRequirement : 999;
+
+  let baseFromPower = 0;
+  if (powerRequirement === 0) {
+    baseFromPower = 1.0;
+  } else if (ratio >= 1.5) {
+    baseFromPower = 0.95;
+  } else if (ratio >= 1.0) {
+    baseFromPower = 0.70 + (ratio - 1.0) * 0.50;
+  } else if (ratio >= 0.5) {
+    baseFromPower = 0.25 + (ratio - 0.5) * 0.90;
+  } else if (ratio >= 0.25) {
+    baseFromPower = 0.10 + (ratio - 0.25) * 0.60;
+  } else {
+    baseFromPower = Math.max(0.05, ratio * 0.40);
+  }
+
+  const luckBonus = clamp((player?.luck ?? 0) * 0.001, 0, 0.05);
+  const warriorBonus = (player?.character_class ?? null) === "warrior" ? 0.05 : 0;
+  const reputationBonus = clamp((player?.reputation ?? 0) * 0.0005, 0, 0.025);
+  const guildBonus = 0;
+  const seasonBonus = 0;
+
+  const calculated = clamp(
+    baseFromPower + luckBonus + warriorBonus + reputationBonus + guildBonus + seasonBonus,
+    0.05,
+    0.95
+  );
+
   return {
     calculated,
-    base: baseRate,
-    gear: gearEffect,
-    level: levelEffect,
-    difficulty: difficultyPenalty,
-    penalty: levelPenalty,
+    baseFromPower,
+    luckBonus,
+    warriorBonus,
+    reputationBonus,
+    guildBonus,
+    seasonBonus,
+    ratio,
+    playerPower,
+    powerRequirement,
+    gearPowerEstimate,
   };
 }
 
@@ -70,8 +134,10 @@ const EMPTY_DUNGEONS: DungeonData[] = [];
 export default function DungeonPage() {
   const energy = usePlayerStore((s) => s.energy);
   const level = usePlayerStore((s) => s.level);
+  const player = usePlayerStore((s) => s.player);
   const hospitalUntil = usePlayerStore((s) => s.hospitalUntil);
   const consumeEnergy = usePlayerStore((s) => s.consumeEnergy);
+  const equippedItems = useInventoryStore((s) => s.equippedItems);
   const addToast = useUiStore((s) => s.addToast);
 
   const [mode, setMode] = useState<DungeonMode>("solo");
@@ -82,6 +148,7 @@ export default function DungeonPage() {
   const [infoOpen, setInfoOpen] = useState(false);
   const [infoDungeon, setInfoDungeon] = useState<DungeonData | null>(null);
   const [isEntering, setIsEntering] = useState(false);
+  const [entryPhase, setEntryPhase] = useState<string | null>(null);
   const [battleResult, setBattleResult] = useState<{
     success: boolean;
     rewards?: { gold: number; xp: number; items: string[] };
@@ -123,16 +190,30 @@ export default function DungeonPage() {
   const handleEnterDungeon = async () => {
     if (!selectedDungeon) return;
     setIsEntering(true);
+    setConfirmOpen(false);
+    setEntryPhase("Zindana giriliyor...");
+    
     try {
-      const res = await api.rpc<{
+      await new Promise(r => setTimeout(r, 1000));
+      setEntryPhase("Düşmanla karşılaşıldı...");
+      
+      await new Promise(r => setTimeout(r, 1000));
+      setEntryPhase("Savaşılıyor...");
+      
+      const resPromise = api.rpc<{
         success: boolean;
         gold_earned: number;
         xp_earned: number;
         items: string[];
         hospital_duration?: number;
       }>("enter_dungeon", { p_dungeon_id: selectedDungeon.dungeon_id });
+      
+      await new Promise(r => setTimeout(r, 1500));
+      const res = await resPromise;
+
       const result = res.data;
       consumeEnergy(selectedDungeon.energy_cost);
+      setEntryPhase(null);
       setBattleResult({
         success: result?.success ?? false,
         rewards: result?.success
@@ -141,10 +222,10 @@ export default function DungeonPage() {
         hospitalDuration: result?.hospital_duration,
       });
     } catch {
+      setEntryPhase(null);
       addToast("Zindana girilemedi", "error");
     } finally {
       setIsEntering(false);
-      setConfirmOpen(false);
     }
   };
 
@@ -187,16 +268,18 @@ export default function DungeonPage() {
         <div className="space-y-3">
           {dungeons.map((d) => {
             const canEnter = d.required_level <= level && d.energy_cost <= energy && !inHospital;
-            const preview = previewSuccessRate(d, level);
+            const preview = previewSuccessRate(d, player, level, equippedItems as Record<string, { attack?: number; defense?: number; health?: number; enhancement_level?: number } | null>);
             const multiplier = 1.0; // Would come from season events
 
-            // Breakdown parts — Godot format: "Base X%, Gear +Y%, Level +Z%, Diff -W%, Penalty -V%"
+            // Breakdown parts — PLAN_04 format (power_ratio + modifierler)
             const breakdownParts: string[] = [];
-            breakdownParts.push(`Base ${Math.round(preview.base * 100)}%`);
-            if (Math.abs(preview.gear * 100) > 0.5) breakdownParts.push(`Gear ${preview.gear > 0 ? "+" : ""}${Math.round(preview.gear * 100)}%`);
-            if (Math.abs(preview.level * 100) > 0.5) breakdownParts.push(`Level +${Math.round(preview.level * 100)}%`);
-            if (Math.abs(preview.difficulty * 100) > 0.5) breakdownParts.push(`Diff -${Math.round(preview.difficulty * 100)}%`);
-            if (Math.abs(preview.penalty * 100) > 0.5) breakdownParts.push(`Penalty -${Math.round(preview.penalty * 100)}%`);
+            breakdownParts.push(`Power ${Math.round(preview.playerPower).toLocaleString()}/${Math.round(preview.powerRequirement).toLocaleString()}`);
+            breakdownParts.push(`Ratio x${preview.ratio.toFixed(2)}`);
+            breakdownParts.push(`Base ${Math.round(preview.baseFromPower * 100)}%`);
+            if (preview.luckBonus > 0) breakdownParts.push(`Luck +${Math.round(preview.luckBonus * 100)}%`);
+            if (preview.warriorBonus > 0) breakdownParts.push(`Savaşçı +${Math.round(preview.warriorBonus * 100)}%`);
+            if (preview.reputationBonus > 0) breakdownParts.push(`Rep +${Math.round(preview.reputationBonus * 100)}%`);
+            if (preview.gearPowerEstimate > 0) breakdownParts.push(`Ekipman Gücü~${preview.gearPowerEstimate.toLocaleString()}`);
 
             return (
               <Card key={d.dungeon_id} variant="elevated">
@@ -313,6 +396,22 @@ export default function DungeonPage() {
             <Button variant="secondary" size="sm" fullWidth onClick={() => setInfoOpen(false)}>Kapat</Button>
           </div>
         )}
+      </Modal>
+
+      {/* Entry Animation Modal */}
+      <Modal isOpen={entryPhase !== null} onClose={() => {}} title="Savaş" size="sm">
+        <div className="flex flex-col items-center justify-center p-8 space-y-6">
+          <motion.div
+            animate={{ rotate: 360, scale: [1, 1.2, 1] }}
+            transition={{ duration: 1, repeat: Infinity }}
+            className="text-5xl"
+          >
+            ⚔️
+          </motion.div>
+          <p className="text-lg font-semibold text-[var(--text-primary)] text-center animate-pulse">
+            {entryPhase}
+          </p>
+        </div>
       </Modal>
 
       {/* Battle Result Modal */}

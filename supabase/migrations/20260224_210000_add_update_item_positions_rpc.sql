@@ -11,7 +11,9 @@ SECURITY DEFINER
 AS $$
 DECLARE
     v_user_id uuid := auth.uid();
-    v_update record;
+    v_update jsonb;
+    v_row_id uuid;
+    v_new_position int;
     v_updated_count int := 0;
 BEGIN
     IF v_user_id IS NULL THEN
@@ -22,20 +24,31 @@ BEGIN
         RETURN jsonb_build_object('success', true, 'updated', 0);
     END IF;
 
-    -- Iterate through updates and apply each one
-    FOR v_update IN SELECT * FROM jsonb_to_recordset(p_updates) AS x(row_id uuid, slot_position int)
+    -- Old canonical behavior from yedek: iterate raw json and validate each slot.
+    FOR v_update IN SELECT * FROM jsonb_array_elements(p_updates)
     LOOP
+        v_row_id := (v_update->>'row_id')::uuid;
+        v_new_position := (v_update->>'slot_position')::int;
+
+        -- Validate position (0-19). Prevent NULL / invalid writes that can orphan items.
+        IF v_new_position IS NULL OR v_new_position < 0 OR v_new_position > 19 THEN
+            RETURN jsonb_build_object(
+                'success', false,
+                'error', format('Invalid slot_position: %s (must be 0-19)', COALESCE(v_update->>'slot_position', 'NULL'))
+            );
+        END IF;
+
         -- Only allow updates to items owned by the authenticated user
         UPDATE public.inventory
-        SET slot_position = v_update.slot_position, updated_at = NOW()
-        WHERE row_id = v_update.row_id AND user_id = v_user_id;
+        SET slot_position = v_new_position, updated_at = NOW()
+        WHERE row_id = v_row_id AND user_id = v_user_id;
 
         IF FOUND THEN
             v_updated_count := v_updated_count + 1;
         END IF;
     END LOOP;
 
-    RETURN jsonb_build_object('success', true, 'updated', v_updated_count);
+    RETURN jsonb_build_object('success', true, 'updated_count', v_updated_count);
 EXCEPTION WHEN others THEN
     RETURN jsonb_build_object('success', false, 'error', SQLERRM);
 END;

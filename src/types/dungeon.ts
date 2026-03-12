@@ -29,6 +29,11 @@ export interface DungeonData {
   is_group: boolean;
   loot_table: string[];
   boss_name: string | null;
+  power_requirement?: number;
+  dungeon_order?: number;
+  zone?: number;
+  zone_name?: string;
+  is_boss?: boolean;
 }
 
 export interface DungeonInstance {

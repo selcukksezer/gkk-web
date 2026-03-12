@@ -41,7 +41,7 @@ export const supabase = isBuildTime
       // Development: disable TLS rejection for self-signed certs (local Supabase or proxy)
       // In production, this should never be set (defaults to true)
       global: {
-        fetch: (url: string, options: RequestInit & { signal?: AbortSignal }) => {
+        fetch: (url: any, options?: any) => {
           const isHttps = String(url).startsWith('https');
           if (isHttps && process.env.NODE_ENV !== 'production') {
             // Add Node.js https agent that ignores cert errors for dev

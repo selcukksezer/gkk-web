@@ -44,6 +44,8 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'error', 'Item not found or not owned or already equipped');
     END IF;
 
+    p_slot := lower(trim(p_slot));
+
     -- Consumables cannot be equipped
     IF lower(COALESCE(v_item_record.type, '')) IN ('potion', 'food', 'buff', 'consumable', 'resource', 'quest_item', 'misc') THEN
         RETURN jsonb_build_object('success', false, 'error', 'Bu esya kusanilamaz (consumable)');
@@ -57,17 +59,19 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'error', 'Yanlis slot. Bu esya suraya gidemez: ' || p_slot);
     END IF;
 
-    -- Unequip any item currently in this slot
+        -- Unequip any item currently in this slot.
+        -- IMPORTANT: clear slot_position as well; otherwise setting is_equipped=false can
+        -- activate idx_inventory_user_slot_unique and collide with an existing inventory row.
     UPDATE public.inventory
-    SET is_equipped = FALSE, equip_slot = NULL, updated_at = NOW()
+        SET is_equipped = FALSE, equip_slot = NULL, slot_position = NULL, updated_at = NOW()
     WHERE user_id   = v_user_id
-      AND equip_slot = p_slot
+            AND lower(COALESCE(equip_slot, '')) = lower(COALESCE(p_slot, ''))
       AND is_equipped = TRUE
       AND row_id != p_row_id;
 
-    -- Equip the new item
+        -- Equip the new item and remove it from grid slots.
     UPDATE public.inventory
-    SET is_equipped = TRUE, equip_slot = p_slot, updated_at = NOW()
+        SET is_equipped = TRUE, equip_slot = p_slot, slot_position = NULL, updated_at = NOW()
     WHERE row_id = p_row_id;
 
     -- Refresh cached power so dungeon/pvp calculations are accurate.

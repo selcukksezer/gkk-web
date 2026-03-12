@@ -79,12 +79,41 @@ export default function MyMekanPage() {
 
   return (
     <div className="p-4 max-w-4xl mx-auto flex flex-col gap-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-start">
         <div>
           <h1 className="text-2xl font-bold text-amber-500">{myMekan.name}</h1>
-          <span className="text-gray-400 text-sm capitalize">Tür: {myMekan.mekan_type.replace('_', ' ')} | Seviye: {myMekan.level}</span>
+          <div className="flex flex-col gap-2 mt-1">
+            <span className="text-gray-400 text-sm capitalize">Tür: {myMekan.mekan_type.replace('_', ' ')} | Seviye: {myMekan.level}</span>
+            
+            <div className="flex flex-col gap-1 mt-2">
+              <div className="flex justify-between text-xs w-48">
+                <span className="text-amber-400">Ün (Fame)</span>
+                <span className="text-amber-400 font-bold">{myMekan.fame}</span>
+              </div>
+              <div className="w-48 bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                <div className="bg-amber-400 h-full" style={{ width: `${Math.min(100, (myMekan.fame / 1000) * 100)}%` }} />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <div className="flex justify-between text-xs w-48">
+                <span className={myMekan.suspicion > 60 ? "text-red-500 font-bold" : "text-gray-400"}>
+                  Şüphe (Suspicion)
+                </span>
+                <span className={myMekan.suspicion > 60 ? "text-red-500 font-bold" : "text-gray-400"}>
+                  {myMekan.suspicion}%
+                </span>
+              </div>
+              <div className="w-48 bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                <div className={`h-full ${myMekan.suspicion > 60 ? 'bg-red-500' : 'bg-orange-500'}`} style={{ width: `${Math.min(100, myMekan.suspicion)}%` }} />
+              </div>
+              {myMekan.mekan_type === 'yeralti' && myMekan.suspicion > 60 && (
+                <span className="text-red-500 text-xs animate-pulse font-bold mt-1">(! YÜKSEK BASKIN RİSKİ !)</span>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 mt-2">
           <Button 
             variant={myMekan.is_open ? "danger" : "primary"}
             onClick={() => toggleMekanStatus(!myMekan.is_open)}

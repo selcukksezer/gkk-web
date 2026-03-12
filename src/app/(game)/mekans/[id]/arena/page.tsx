@@ -44,6 +44,7 @@ export default function ArenaPage({ params }: { params: Promise<{ id: string }> 
     won: boolean;
     goldStolen: number;
     ratingChange: number;
+    isCritical?: boolean;
   } | null>(null);
 
   const energyCost = GAME_CONFIG.pvp.energyCost;
@@ -110,6 +111,7 @@ export default function ArenaPage({ params }: { params: Promise<{ id: string }> 
         rep_change_loser: number;
         rating_change_attacker: number;
         hospital_triggered: boolean;
+        is_critical_success?: boolean;
       };
 
       const won = result.winner_id === profile.auth_id;
@@ -118,10 +120,15 @@ export default function ArenaPage({ params }: { params: Promise<{ id: string }> 
         won,
         goldStolen: result.gold_stolen,
         ratingChange: result.rating_change_attacker,
+        isCritical: result.is_critical_success,
       });
 
       if (won) {
-        addToast(`Zafer! +${result.gold_stolen} altın, +${result.rating_change_attacker} rating`, "success");
+        if (result.is_critical_success) {
+          addToast(`💥 KRİTİK ZAFER! +${result.gold_stolen} altın`, "success");
+        } else {
+          addToast(`Zafer! +${result.gold_stolen} altın, +${result.rating_change_attacker} rating`, "success");
+        }
       } else {
         addToast(`Yenilgi! ${result.rating_change_attacker} rating`, "error");
       }
@@ -157,9 +164,12 @@ export default function ArenaPage({ params }: { params: Promise<{ id: string }> 
 
       {/* Battle Result Banner */}
       {battleResult && (
-        <Card className={`p-4 text-center border-2 ${battleResult.won ? "border-green-400 bg-green-900/20" : "border-red-400 bg-red-900/20"}`}>
-          <p className={`text-lg font-bold ${battleResult.won ? "text-green-300" : "text-red-300"}`}>
-            {battleResult.won ? "🏆 ZAFER!" : "💀 YENİLGİ!"}
+        <Card className={`p-4 text-center border-2 ${battleResult.won ? (battleResult.isCritical ? "border-amber-400 bg-amber-900/40 animate-pulse scale-105" : "border-green-400 bg-green-900/20") : "border-red-400 bg-red-900/20"}`}>
+          {battleResult.won && battleResult.isCritical && (
+            <div className="text-5xl mb-2 animate-bounce">💥</div>
+          )}
+          <p className={`text-lg font-bold ${battleResult.won ? (battleResult.isCritical ? "text-amber-400 text-2xl" : "text-green-300") : "text-red-300"}`}>
+            {battleResult.won ? (battleResult.isCritical ? "💥 ŞAHLANMA! EZİCİ ZAFER!" : "🏆 ZAFER!") : "💀 YENİLGİ!"}
           </p>
           <p className="text-sm text-gray-300 mt-1">
             {battleResult.won

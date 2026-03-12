@@ -29,6 +29,7 @@ interface CraftingState {
   craftItem: (recipeId: string, batchCount: number) => Promise<boolean>;
   loadQueue: () => Promise<void>;
   claimItem: (queueItemId: string) => Promise<{ success: boolean; message?: string; xp_awarded?: number }>;
+  acknowledgeItem: (queueItemId: string) => Promise<boolean>;
   cancelItem: (queueItemId: string) => Promise<boolean>;
   hasMaterials: (recipe: CraftRecipe, batchCount?: number) => boolean;
   isQueueFull: () => boolean;
@@ -119,9 +120,17 @@ export const useCraftingStore = create<CraftingState>()((set, get) => ({
     set({ isCrafting: true, error: null });
 
     try {
-      const res = await api.rpc("craft_item_async", {
+      const player = usePlayerStore.getState().player;
+      const authId = player?.auth_id;
+      if (!authId) {
+        set({ isCrafting: false, error: "Kullanıcı kimliği bulunamadı" });
+        return false;
+      }
+
+      const res = await api.rpc("start_crafting", {
+        p_user_id: authId,
         p_recipe_id: recipeId,
-        p_batch_count: batchCount,
+        p_quantity: batchCount,
       });
 
       if (res.success) {

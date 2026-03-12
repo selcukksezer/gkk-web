@@ -15,12 +15,13 @@
 
 DROP FUNCTION IF EXISTS public.create_guild(TEXT);
 
-CREATE OR REPLACE FUNCTION public.create_guild(p_name TEXT)
+CREATE OR REPLACE FUNCTION public.create_guild(p_name TEXT, p_description TEXT DEFAULT NULL)
 RETURNS JSONB AS $$
 DECLARE
   v_auth_id UUID;
   v_user    RECORD;
   v_guild   RECORD;
+  v_tag     TEXT;
 BEGIN
   v_auth_id := auth.uid();
   IF v_auth_id IS NULL THEN
@@ -41,14 +42,22 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'Lonca adi 3-30 karakter arasinda olmali');
   END IF;
 
+  -- Generate a non-null tag for the guild (remove non-alnum, uppercase, max 30 chars).
+  v_tag := left(upper(regexp_replace(p_name, '[^A-Z0-9]', '', 'g')), 30);
+  IF v_tag = '' THEN
+    v_tag := left(md5(random()::text), 8);
+  END IF;
+
   -- Uniqueness is enforced by the UNIQUE constraint on guilds.name
-  INSERT INTO public.guilds (name, leader_id)
-  VALUES (p_name, v_auth_id)
+  INSERT INTO public.guilds (name, tag, leader_id, description)
+  VALUES (p_name, v_tag, v_auth_id, p_description)
   RETURNING * INTO v_guild;
 
+  -- Deduct creation cost from user's gold
   UPDATE public.users
   SET guild_id   = v_guild.id,
-      guild_role = 'leader'
+      guild_role = 'leader',
+      gold = gold - 10000000
   WHERE auth_id = v_auth_id;
 
   -- Initialise empty contribution row for the leader
@@ -68,7 +77,7 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-GRANT EXECUTE ON FUNCTION public.create_guild(TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_guild(TEXT, TEXT) TO authenticated;
 
 
 -- ── 2. join_guild ────────────────────────────────────────────────────────────────────────
@@ -206,6 +215,7 @@ BEGIN
 
   SELECT jsonb_agg(
     jsonb_build_object(
+      'player_id', u.id,
       'user_id',   u.auth_id,
       'username',  u.username,
       'level',     u.level,
@@ -221,6 +231,8 @@ BEGIN
     'success',            true,
     'guild_id',           v_guild.id,
     'name',               v_guild.name,
+    'description',        v_guild.description,
+    'level',              v_guild.level,
     'leader_id',          v_guild.leader_id,
     'monument_level',     v_guild.monument_level,
     'monument_structural',v_guild.monument_structural,
@@ -228,9 +240,195 @@ BEGIN
     'monument_critical',  v_guild.monument_critical,
     'monument_gold_pool', v_guild.monument_gold_pool,
     'members',            COALESCE(v_members, '[]'::jsonb),
-    'member_count',       (SELECT COUNT(*) FROM public.users WHERE guild_id = v_guild.id)
+    'member_count',       (SELECT COUNT(*) FROM public.users WHERE guild_id = v_guild.id),
+    'max_members',        v_guild.max_members,
+    'total_power',        (SELECT COALESCE(SUM(power), 0) FROM public.users WHERE guild_id = v_guild.id)
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION public.get_guild_info() TO authenticated;
+
+
+-- Compatibility wrapper: allow calls to create_guild(p_name TEXT) for older clients
+DROP FUNCTION IF EXISTS public.create_guild(TEXT);
+
+CREATE OR REPLACE FUNCTION public.create_guild(p_name TEXT)
+RETURNS JSONB AS $$
+BEGIN
+  RETURN public.create_guild(p_name, NULL);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.create_guild(TEXT) TO authenticated;
+
+
+-- ── 5. get_my_guild ─────────────────────────────────────────────────────────────────────
+-- Returns guild details for the caller's guild (alias for get_guild_info).
+
+DROP FUNCTION IF EXISTS public.get_my_guild();
+
+CREATE OR REPLACE FUNCTION public.get_my_guild()
+RETURNS JSONB AS $$
+BEGIN
+  RETURN public.get_guild_info();
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.get_my_guild() TO authenticated;
+
+
+-- ── 6. search_guilds ────────────────────────────────────────────────────────────────────
+-- Search for guilds by name.
+
+DROP FUNCTION IF EXISTS public.search_guilds(TEXT);
+
+CREATE OR REPLACE FUNCTION public.search_guilds(p_query TEXT)
+RETURNS JSONB AS $$
+DECLARE
+  v_results JSONB;
+BEGIN
+  SELECT jsonb_agg(
+    jsonb_build_object(
+      'id',            g.id,
+      'name',          g.name,
+      'level',         g.level,
+      'description',   g.description,
+      'member_count',  (SELECT COUNT(*) FROM public.users WHERE guild_id = g.id),
+      'max_members',   g.max_members,
+      'total_power',   COALESCE((SELECT SUM(power) FROM public.users WHERE guild_id = g.id), 0)
+    )
+  )
+  INTO v_results
+  FROM public.guilds g
+  WHERE g.name ILIKE '%' || p_query || '%'
+  LIMIT 20;
+
+  RETURN COALESCE(v_results, '[]'::jsonb);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.search_guilds(TEXT) TO authenticated;
+
+
+-- ── 7. promote_guild_member ─────────────────────────────────────────────────────────────
+-- Promote member to officer (leader only).
+
+DROP FUNCTION IF EXISTS public.promote_guild_member(UUID);
+
+CREATE OR REPLACE FUNCTION public.promote_guild_member(p_member_id UUID)
+RETURNS JSONB AS $$
+DECLARE
+  v_auth_id     UUID;
+  v_caller      RECORD;
+  v_member      RECORD;
+BEGIN
+  v_auth_id := auth.uid();
+  IF v_auth_id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Kimlik dogrulama gerekli');
+  END IF;
+
+  SELECT id, guild_id, guild_role FROM public.users WHERE auth_id = v_auth_id INTO v_caller;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Kullanici bulunamadi');
+  END IF;
+
+  IF COALESCE(v_caller.guild_role, '') != 'leader' THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Sadece lider yukseltebilir');
+  END IF;
+
+  SELECT id, guild_id, username FROM public.users WHERE id = p_member_id INTO v_member;
+  IF NOT FOUND OR v_member.guild_id != v_caller.guild_id THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Uye bulunamadi');
+  END IF;
+
+  UPDATE public.users SET guild_role = 'officer' WHERE id = p_member_id;
+
+  RETURN jsonb_build_object('success', true, 'username', v_member.username);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.promote_guild_member(UUID) TO authenticated;
+
+
+-- ── 8. demote_guild_member ──────────────────────────────────────────────────────────────
+-- Demote officer to member (leader only).
+
+DROP FUNCTION IF EXISTS public.demote_guild_member(UUID);
+
+CREATE OR REPLACE FUNCTION public.demote_guild_member(p_member_id UUID)
+RETURNS JSONB AS $$
+DECLARE
+  v_auth_id     UUID;
+  v_caller      RECORD;
+  v_member      RECORD;
+BEGIN
+  v_auth_id := auth.uid();
+  IF v_auth_id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Kimlik dogrulama gerekli');
+  END IF;
+
+  SELECT id, guild_id, guild_role FROM public.users WHERE auth_id = v_auth_id INTO v_caller;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Kullanici bulunamadi');
+  END IF;
+
+  IF COALESCE(v_caller.guild_role, '') != 'leader' THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Sadece lider dusurebilir');
+  END IF;
+
+  SELECT id, guild_id, username FROM public.users WHERE id = p_member_id INTO v_member;
+  IF NOT FOUND OR v_member.guild_id != v_caller.guild_id THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Uye bulunamadi');
+  END IF;
+
+  UPDATE public.users SET guild_role = 'member' WHERE id = p_member_id;
+
+  RETURN jsonb_build_object('success', true, 'username', v_member.username);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.demote_guild_member(UUID) TO authenticated;
+
+
+-- ── 9. kick_guild_member ────────────────────────────────────────────────────────────────
+-- Remove member from guild (leader only).
+
+DROP FUNCTION IF EXISTS public.kick_guild_member(UUID);
+
+CREATE OR REPLACE FUNCTION public.kick_guild_member(p_member_id UUID)
+RETURNS JSONB AS $$
+DECLARE
+  v_auth_id     UUID;
+  v_caller      RECORD;
+  v_member      RECORD;
+BEGIN
+  v_auth_id := auth.uid();
+  IF v_auth_id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Kimlik dogrulama gerekli');
+  END IF;
+
+  SELECT id, guild_id, guild_role FROM public.users WHERE auth_id = v_auth_id INTO v_caller;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Kullanici bulunamadi');
+  END IF;
+
+  IF COALESCE(v_caller.guild_role, '') != 'leader' THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Sadece lider atabilir');
+  END IF;
+
+  SELECT id, guild_id, username FROM public.users WHERE id = p_member_id INTO v_member;
+  IF NOT FOUND OR v_member.guild_id != v_caller.guild_id THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Uye bulunamadi');
+  END IF;
+
+  UPDATE public.users
+  SET guild_id   = NULL,
+      guild_role = 'member'
+  WHERE id = p_member_id;
+
+  RETURN jsonb_build_object('success', true, 'username', v_member.username);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.kick_guild_member(UUID) TO authenticated;

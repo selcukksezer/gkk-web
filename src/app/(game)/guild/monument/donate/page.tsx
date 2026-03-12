@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -18,6 +18,38 @@ export default function MonumentDonatePage() {
   const [mystical, setMystical] = useState(0);
   const [critical, setCritical] = useState(0);
   const [gold, setGold] = useState(0);
+
+  const [donatedToday, setDonatedToday] = useState({
+    structural: 0,
+    mystical: 0,
+    critical: 0,
+    gold: 0,
+  });
+  
+  useEffect(() => {
+    async function fetchDailyDonations() {
+      if (!profile?.auth_id || !profile?.guild_id) return;
+      
+      const today = new Date().toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from('guild_daily_donations')
+        .select('structural_today, mystical_today, critical_today, gold_today')
+        .eq('user_id', profile.auth_id)
+        .eq('guild_id', profile.guild_id)
+        .eq('donation_date', today)
+        .single();
+        
+      if (!error && data) {
+        setDonatedToday({
+          structural: data.structural_today || 0,
+          mystical: data.mystical_today || 0,
+          critical: data.critical_today || 0,
+          gold: data.gold_today || 0,
+        });
+      }
+    }
+    fetchDailyDonations();
+  }, [profile?.auth_id, profile?.guild_id]);
 
   const handleDonate = async () => {
     if (structural === 0 && mystical === 0 && critical === 0 && gold === 0) {
@@ -67,20 +99,36 @@ export default function MonumentDonatePage() {
         
         <div className="flex flex-col gap-4 mb-6">
           <div>
-            <label className="block text-sm mb-1 text-slate-300">Yapısal Kaynak (Max: 500/gün)</label>
-            <input className="w-full bg-slate-800 p-2 rounded border border-slate-700" type="number" min={0} value={structural} onChange={(e: any) => setStructural(Number(e.target.value))} />
+            <label className="flex justify-between text-sm mb-1 text-slate-300">
+              <span>Yapısal Kaynak</span>
+              <span className="text-slate-500">Bugün: {donatedToday.structural}/500</span>
+            </label>
+            <input className="w-full bg-slate-800 p-2 rounded border border-slate-700" type="number" min={0} max={Math.max(0, 500 - donatedToday.structural)} value={structural} onChange={(e: any) => setStructural(Math.min(Math.max(0, 500 - donatedToday.structural), Number(e.target.value)))} />
+            <div className="h-1 w-full bg-slate-800 mt-1 rounded"><div className="h-full bg-blue-500 rounded" style={{width: `${(donatedToday.structural/500)*100}%`}}></div></div>
           </div>
           <div>
-            <label className="block text-sm mb-1 text-slate-300">Mistik Kaynak (Max: 200/gün)</label>
-            <input className="w-full bg-slate-800 p-2 rounded border border-slate-700" type="number" min={0} value={mystical} onChange={(e: any) => setMystical(Number(e.target.value))} />
+            <label className="flex justify-between text-sm mb-1 text-slate-300">
+              <span>Mistik Kaynak</span>
+              <span className="text-slate-500">Bugün: {donatedToday.mystical}/200</span>
+            </label>
+            <input className="w-full bg-slate-800 p-2 rounded border border-slate-700" type="number" min={0} max={Math.max(0, 200 - donatedToday.mystical)} value={mystical} onChange={(e: any) => setMystical(Math.min(Math.max(0, 200 - donatedToday.mystical), Number(e.target.value)))} />
+            <div className="h-1 w-full bg-slate-800 mt-1 rounded"><div className="h-full bg-purple-500 rounded" style={{width: `${(donatedToday.mystical/200)*100}%`}}></div></div>
           </div>
           <div>
-            <label className="block text-sm mb-1 text-slate-300">Kritik Kaynak (Max: 50/gün)</label>
-            <input className="w-full bg-slate-800 p-2 rounded border border-slate-700" type="number" min={0} value={critical} onChange={(e: any) => setCritical(Number(e.target.value))} />
+            <label className="flex justify-between text-sm mb-1 text-slate-300">
+              <span>Kritik Kaynak</span>
+              <span className="text-slate-500">Bugün: {donatedToday.critical}/50</span>
+            </label>
+            <input className="w-full bg-slate-800 p-2 rounded border border-slate-700" type="number" min={0} max={Math.max(0, 50 - donatedToday.critical)} value={critical} onChange={(e: any) => setCritical(Math.min(Math.max(0, 50 - donatedToday.critical), Number(e.target.value)))} />
+            <div className="h-1 w-full bg-slate-800 mt-1 rounded"><div className="h-full bg-red-500 rounded" style={{width: `${(donatedToday.critical/50)*100}%`}}></div></div>
           </div>
           <div>
-            <label className="block text-sm mb-1 text-slate-300">Altın (Max: 10M/gün)</label>
-            <input className="w-full bg-slate-800 p-2 rounded border border-slate-700" type="number" min={0} value={gold} onChange={(e: any) => setGold(Number(e.target.value))} />
+            <label className="flex justify-between text-sm mb-1 text-slate-300">
+              <span>Altın</span>
+              <span className="text-slate-500">Bugün: {donatedToday.gold.toLocaleString()}/10M</span>
+            </label>
+            <input className="w-full bg-slate-800 p-2 rounded border border-slate-700" type="number" min={0} max={Math.max(0, 10000000 - donatedToday.gold)} value={gold} onChange={(e: any) => setGold(Math.min(Math.max(0, 10000000 - donatedToday.gold), Number(e.target.value)))} />
+            <div className="h-1 w-full bg-slate-800 mt-1 rounded"><div className="h-full bg-yellow-500 rounded" style={{width: `${(donatedToday.gold/10000000)*100}%`}}></div></div>
           </div>
         </div>
 

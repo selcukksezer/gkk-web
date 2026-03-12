@@ -95,9 +95,9 @@ export default function MarketPage() {
     });
   }, [tickers, search, categoryFilter, rarityFilter]);
 
-  // Tradeable items for sell tab
+  // Items for sell tab (show market-locked items as disabled with reason)
   const tradeableItems = useMemo(() => {
-    return items.filter((i) => i.is_tradeable && i.is_market_tradeable !== false && !i.is_equipped);
+    return items.filter((i) => i.is_tradeable && !i.is_equipped);
   }, [items]);
 
   const handleBuy = async (order: MarketOrder) => {
@@ -279,20 +279,28 @@ export default function MarketPage() {
                       {item.quantity > 1 ? `${item.quantity} adet` : getRarityLabel(item.rarity)}
                     </p>
                   </div>
-                  <Button
-                    variant="gold"
-                    size="sm"
-                    onClick={() =>
-                      setSellItem({
-                        row_id: item.row_id,
-                        name: item.name,
-                        price: String(item.base_price || 100),
-                        quantity: "1",
-                      })
-                    }
-                  >
-                    Sat
-                  </Button>
+                  <div className="flex flex-col items-end gap-1">
+                    <Button
+                      variant="gold"
+                      size="sm"
+                      disabled={item.is_market_tradeable === false || item.is_han_only === true}
+                      onClick={() =>
+                        setSellItem({
+                          row_id: item.row_id,
+                          name: item.name,
+                          price: String(item.base_price || 100),
+                          quantity: "1",
+                        })
+                      }
+                    >
+                      Sat
+                    </Button>
+                    {(item.is_market_tradeable === false || item.is_han_only === true) && (
+                      <p className="text-[10px] text-[var(--color-warning)] text-right max-w-[180px]">
+                        Bu eşya pazarda satılamaz (Han-only)
+                      </p>
+                    )}
+                  </div>
                 </div>
               </Card>
             ))

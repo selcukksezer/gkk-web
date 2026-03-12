@@ -2,8 +2,7 @@
 -- 1. Tablolara yeni sÃ¼tunlar ekleme
 ALTER TABLE public.users
   ADD COLUMN IF NOT EXISTS character_class text,
-  ADD COLUMN IF NOT EXISTS luck integer NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS class_selected_at timestamptz;
+  ADD COLUMN IF NOT EXISTS luck integer NOT NULL DEFAULT 0;
 
 -- SÄ±nÄ±f sadece 'warrior', 'alchemist', 'shadow' olabilir
 DO $$
@@ -121,7 +120,6 @@ DECLARE
   v_user_id uuid;
   v_user record;
   v_class record;
-  v_grace_minutes integer := 30;
 BEGIN
   v_user_id := auth.uid();
   IF v_user_id IS NULL THEN
@@ -140,22 +138,18 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'KullanÄ±cÄ± bulunamadÄ±');
   END IF;
 
-  -- SÄ±nÄ±f zaten seÃ§ilmiÅŸ mi ve grace period geÃ§ti mi?
-  IF v_user.character_class IS NOT NULL
-     AND v_user.class_selected_at IS NOT NULL
-     AND v_user.class_selected_at < (now() - (v_grace_minutes || ' minutes')::interval) THEN
+  -- Eğer kullanıcı zaten bir sınıf seçmişse değiştirme yapılamaz
+  IF v_user.character_class IS NOT NULL THEN
     RETURN jsonb_build_object(
       'success', false,
-      'error', 'SÄ±nÄ±f deÄŸiÅŸtirilemez. Grace period (' || v_grace_minutes || ' dk) dolmuÅŸ.',
-      'selected_class', v_user.character_class,
-      'selected_at', v_user.class_selected_at
+      'error', 'Sınıf zaten seçilmiş',
+      'selected_class', v_user.character_class
     );
   END IF;
 
   -- KullanÄ±cÄ±yÄ± gÃ¼ncelle: sÄ±nÄ±f statlarÄ±nÄ± uygula
   UPDATE public.users SET
     character_class     = p_class_id,
-    class_selected_at   = COALESCE(class_selected_at, now()),
     attack              = v_class.base_attack + (v_class.attack_per_level * (COALESCE(v_user.level, 1) - 1)),
     defense             = v_class.base_defense + (v_class.defense_per_level * (COALESCE(v_user.level, 1) - 1)),
     health              = v_class.base_health + (v_class.health_per_level * (COALESCE(v_user.level, 1) - 1)),

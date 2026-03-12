@@ -7,6 +7,9 @@ CREATE TABLE IF NOT EXISTS public.guilds (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL UNIQUE,
   leader_id UUID NOT NULL REFERENCES auth.users(id),
+  description TEXT,
+  level INT NOT NULL DEFAULT 1,
+  max_members INT NOT NULL DEFAULT 50,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   
   monument_level INT NOT NULL DEFAULT 0,
@@ -17,6 +20,21 @@ CREATE TABLE IF NOT EXISTS public.guilds (
   monument_100_first BOOLEAN NOT NULL DEFAULT false,
   monument_100_at TIMESTAMPTZ
 );
+
+-- Compatibility: ensure columns exist when applying this migration to older DBs
+ALTER TABLE public.guilds ADD COLUMN IF NOT EXISTS tag TEXT;
+-- populate tag for existing rows and ensure NOT NULL
+UPDATE public.guilds SET tag = left(upper(regexp_replace(name, '[^A-Z0-9]', '', 'g')), 30) WHERE tag IS NULL OR tag = '';
+ALTER TABLE public.guilds ALTER COLUMN tag SET DEFAULT '';
+ALTER TABLE public.guilds ALTER COLUMN tag SET NOT NULL;
+
+ALTER TABLE public.guilds ADD COLUMN IF NOT EXISTS monument_level INT NOT NULL DEFAULT 0;
+ALTER TABLE public.guilds ADD COLUMN IF NOT EXISTS monument_structural BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE public.guilds ADD COLUMN IF NOT EXISTS monument_mystical BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE public.guilds ADD COLUMN IF NOT EXISTS monument_critical BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE public.guilds ADD COLUMN IF NOT EXISTS monument_gold_pool BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE public.guilds ADD COLUMN IF NOT EXISTS max_members INT NOT NULL DEFAULT 50;
+ALTER TABLE public.guilds ADD COLUMN IF NOT EXISTS level INT NOT NULL DEFAULT 1;
 
 -- Ensure users have guild relations
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS guild_id UUID REFERENCES public.guilds(id) ON DELETE SET NULL;

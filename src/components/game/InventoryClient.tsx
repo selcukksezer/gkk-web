@@ -38,9 +38,12 @@ export function InventoryClient() {
     removeItemByRowId,
     splitStack,
     toggleFavorite,
+    usePotion,
+    useDetox,
   } = useInventoryStore();
 
   const player = usePlayerStore((s) => s.player);
+  const tolerance = usePlayerStore((s) => s.tolerance);
   const level = usePlayerStore((s) => s.level);
   const xp = usePlayerStore((s) => s.xp);
   const gold = usePlayerStore((s) => s.gold);
@@ -54,6 +57,8 @@ export function InventoryClient() {
   const [activeSellDialog, setActiveSellDialog] = useState(false);
   const [activeSplitDialog, setActiveSplitDialog] = useState(false);
   const [activeDeleteDialog, setActiveDeleteDialog] = useState(false);
+  const [potionConfirmOpen, setPotionConfirmOpen] = useState(false);
+  const [detoxConfirmOpen, setDetoxConfirmOpen] = useState(false);
 
   // Drag-Drop State
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -123,6 +128,47 @@ export function InventoryClient() {
     setSelectedItem((prev) =>
       prev ? { ...prev, is_favorite: !prev.is_favorite } : null
     );
+  };
+
+  const handleUseItemClick = () => {
+    if (!selectedItem) return;
+    if (selectedItem.item_type === "potion" || selectedItem.item_type === "consumable") {
+      if (selectedItem.item_id.includes("detox") || (selectedItem as any).sub_type === "detox") {
+        setDetoxConfirmOpen(true);
+      } else {
+        setPotionConfirmOpen(true);
+      }
+    } else {
+      // Handle other useables if needed
+    }
+  };
+
+  const confirmUsePotion = async () => {
+    if (!selectedItem) return;
+    const res = await usePotion(selectedItem.row_id);
+    setPotionConfirmOpen(false);
+    if (res.success) {
+      if (res.overdose) {
+        addToast("Aşırı doz! Hastanelik oldunuz.", "error");
+      } else {
+        addToast("İksir kullanıldı!", "success");
+      }
+      setSelectedItem(null);
+    } else {
+      addToast(res.error || "İksir kullanılamadı.", "error");
+    }
+  };
+
+  const confirmUseDetox = async () => {
+    if (!selectedItem) return;
+    const res = await useDetox(selectedItem.row_id);
+    setDetoxConfirmOpen(false);
+    if (res.success) {
+      addToast("Detox kullanıldı! Tolerans düştü.", "success");
+      setSelectedItem(null);
+    } else {
+      addToast(res.error || "Detox kullanılamadı.", "error");
+    }
   };
 
   // =========== DND-KIT HANDLERS ===========
@@ -239,10 +285,9 @@ export function InventoryClient() {
           // equip the inventory target into the dragged equip slot, and move the previously equipped
           // item into the target slot.
           if (draggedEquipSlot && dragged.is_equipped) {
-            // Equip the target into the equipment slot (optimistic in equipItem)
-            await equipItem(target.row_id, draggedEquipSlot);
-            const moveSuccess = await moveItemToSlot(dragged.row_id, target.slot_position);
-            if (!moveSuccess) {
+            // Atomically swap equipped item and inventory item on server
+            const success = await useInventoryStore.getState().swapEquipWithSlot(draggedEquipSlot, target.slot_position);
+            if (!success) {
               const storeError = useInventoryStore.getState().error;
               if (storeError) addToast(storeError, "error");
               setActiveItem(null);
@@ -318,6 +363,7 @@ export function InventoryClient() {
           <InventoryDetailPanel
             item={selectedItem}
             onClose={() => setSelectedItem(null)}
+            onUseClick={handleUseItemClick}
             onEquipClick={() => {
               if (selectedItem && selectedItem.equip_slot !== "none" && !selectedItem.is_equipped) {
                 equipItem(selectedItem.row_id, selectedItem.equip_slot);
@@ -388,6 +434,63 @@ export function InventoryClient() {
         onConfirm={handleTrashItem}
         onCancel={() => setActiveDeleteDialog(false)}
       />
+
+      {/* Potion Use Confirm Dialog */}
+      {potionConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-6 w-full max-w-sm">
+            <h3 className="text-lg font-bold text-[var(--color-warning)] mb-2">İksir Kullan</h3>
+            <p className="text-sm text-[var(--text-secondary)] mb-4">
+              Mevcut Toleransınız: <span className="text-white font-bold">{tolerance}/100</span>
+            </p>
+            {tolerance > 50 && (
+              <p className="text-xs text-[var(--color-error)] bg-[var(--color-error)]/10 p-2 rounded mb-4">
+                ⚠️ Dikkat! Toleransınız yüksek. Overdose (aşırı doz) riski var! İksirin etkisi de düşük olacaktır.
+              </p>
+            )}
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setPotionConfirmOpen(false)}
+                className="flex-1 py-2 rounded-lg bg-[var(--bg-input)] hover:bg-[var(--bg-darker)] text-white transition"
+              >
+                İptal
+              </button>
+              <button
+                onClick={confirmUsePotion}
+                className="flex-1 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white transition font-bold"
+              >
+                Kullan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Detox Use Confirm Dialog */}
+      {detoxConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-6 w-full max-w-sm">
+            <h3 className="text-lg font-bold text-[var(--color-success)] mb-2">Detox Kullan</h3>
+            <p className="text-sm text-[var(--text-secondary)] mb-4">
+              Detox kullanarak tolerans seviyenizi ve bağımlılığınızı düşürebilirsiniz. Kullanmak istediğinize emin misiniz?
+            </p>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setDetoxConfirmOpen(false)}
+                className="flex-1 py-2 rounded-lg bg-[var(--bg-input)] hover:bg-[var(--bg-darker)] text-white transition"
+              >
+                İptal
+              </button>
+              <button
+                onClick={confirmUseDetox}
+                className="flex-1 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition font-bold"
+              >
+                Detox Yap
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }

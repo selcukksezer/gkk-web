@@ -11,6 +11,8 @@ import { useAuthStore } from "@/stores/authStore";
 import { Button } from "@/components/ui/Button";
 import { isValidEmail, isValidPassword, isValidUsername } from "@/lib/utils/string";
 
+const CHARACTER_SELECTION_ROUTE = "/onboarding/character-select";
+
 export default function RegisterPage() {
   const router = useRouter();
   const register = useAuthStore((s) => s.register);
@@ -44,7 +46,7 @@ export default function RegisterPage() {
 
     const success = await register(email, username, password, referralCode || undefined);
     if (success) {
-      router.replace("/home");
+      router.replace(CHARACTER_SELECTION_ROUTE);
     }
   };
 
@@ -122,7 +124,9 @@ export default function RegisterPage() {
               animate={{ opacity: 1 }}
               className="text-sm text-[var(--color-error)] text-center"
             >
-              {error}
+              {typeof error === "string"
+                ? error
+                : (error as any)?.message ?? JSON.stringify(error)}
             </motion.p>
           )}
 
