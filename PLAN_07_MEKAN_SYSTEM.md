@@ -1,11 +1,22 @@
 # PLAN 07 — Mekan/Han Sistemi (Business & Social Hub)
 
-> **Durum:** Tasarım Aşaması  
-> **Son Güncelleme:** 2026-03-07  
+> **Durum:** ✅ Uygulandı (20260307_050000 + 20260307_055000)  
+> **Son Güncelleme:** 2026-03-12 (Audit v2 — create_guild eksikliği, şema düzeltmesi)  
 > **Bağımlılıklar:** PLAN_01 (iksirler), PLAN_06 (ekonomi), PLAN_08 (tolerans), PLAN_09 (PvP)  
 > **Kapsam:** Mekan/Han açma, işletme, Han-only item ticareti, enerji ve tolerans yönetimi, PvP arenası
 
 > **Terminoloji Notu:** "Mekan" genel işletme türlerini kapsar. "Han" ise oyunun merkezi sosyal/PvP hub'ı olarak ayrıca vurgulanır. Tüm Mekan türleri Han çekirdeği etrafında şekillenir; özellikle Dövüş Kulübü türü Han/Circus rolünü üstlenir.
+
+> ### ⚠️ Bilinen Sorunlar (Audit v2)
+>
+> **1. Tablo Şeması `public.*` — `game.*` değil:**  
+> Bu belgede geçen `game.mekans`, `game.mekan_stock`, `game.mekan_sales` referansları hatalıdır. Migration'lar `public.mekans`, `public.mekan_stock`, `public.mekan_sales` tablolarını kullanır.
+>
+> **2. `pvp_attack_mekan` Fonksiyonu Kaldırıldı:**  
+> `20260307_050000` migration'ı `pvp_attack_mekan` RPC'sini oluşturdu. `20260307_070000_plan_09_reputation_pvp.sql` hemen ardından bunu DROP edip yeni `pvp_attack` RPC'sini oluşturdu. `pvp_attack_mekan` ölü bir sistemdir; bu belgede bahsedilmemeli.
+>
+> **3. Guild'e Bağımlı Han Trafiği:**  
+> Han sistemi guild bonuslarından (anıt lv30: loot luck +10 vb.) yararlanır, ancak `create_guild` RPC eksik olduğundan oyuncular lonca kuramaz. PLAN_10'a bak.
 
 ---
 

@@ -1,9 +1,23 @@
 # PLAN 06 — Ekonomi & Denge (Economy & Balance)
 
 > **Durum:** Tasarım Aşaması  
-> **Son Güncelleme:** 2026-03-07  
+> **Son Güncelleme:** 2026-03-12 (Audit v2 — tesis ekonomi riski, farm açıkları, eksik kısıtlamalar)  
 > **Bağımlılıklar:** Tüm diğer plan dosyaları  
 > **Kapsam:** Gold akışı, enerji bütçesi, sezon ilerleme hızı, oyuncu güç eğrisi
+
+> ### ⚠️ Ekonomi Riskleri (Audit v2)
+>
+> **1. Tesis → NPC Satış Döngüsü (Yüksek Risk):**  
+> PLAN_02 §7.3'teki NPC fiyatları (Mythic kaynak: 500,000g) üretim hızlarıyla birleşince Lv10 15 tesis **günlük 50M-100M gold** üretir. Bu, bu belgede tanımlanan Ay 9-12 gelir bandıyla (80M-265M/gün) **çakışır**; oyuncular diğer sistemlerle uğraşmadan sadece tesis toplayarak zenginleşir. **Zorunlu çözüm:** `collect_resources` RPC'de günlük NPC satış limiti (5M/gün) veya tamamen crafting-only kısıtı.
+>
+> **2. First-Clear Bonus Aşırı Büyük:**  
+> `enter_dungeon` RPC'de first-clear bonusu: `v_gold += v_dungeon.gold_max × 5; v_xp += v_xp_reward × 10`. Zone 5-7 için bu çok büyük. Zone 5+ first-clear gold multiplier 2× ile sınırlandırılmalı.
+>
+> **3. Non-Boss Zindan Günlük Limiti Yok:**  
+> Non-boss zindanlar için günlük limit tanımlı değil. Enerji Han'dan alınabiliyorsa sonsuz farm döngüsü oluşur. 20-30 günlük non-boss koşu limiti önerilir.
+>
+> **4. PvP Gold Steal Üst Sınırı:**  
+> Max 5,000,000g steal end-game için önemsiz. Ancak PvP'yi gold sink yerine reputation kazanma mekanizması olarak tutmak istiyorsak bu tasarımsal bir seçim.
 
 ---
 

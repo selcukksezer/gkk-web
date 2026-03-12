@@ -1,8 +1,18 @@
 # PLAN 04 — Zindan (Dungeon) Sistemi
 
-> **Durum:** Tasarım Aşaması  
-> **Son Güncelleme:** 2026-03-07  
-> **Bağımlılıklar:** Item sistemi (power hesabı), Tesis sistemi (catalyst drop'ları), Enhancement sistemi (item güçlendirme)
+> **Durum:** ✅ Uygulandı (20260307_030000 + 20260312_010000_dungeon_fixes.sql)  
+> **Son Güncelleme:** 2026-03-12 (Audit v2 — loot ağırlıkları, power staleness, duplicate timestamp uyarısı)  
+> **Bağımlılıklar:** Item sistemi (power hesabı), Tesis sistemi (catalyst drop'ları — ⛔ henüz uygulanmadı), Enhancement sistemi (item güçlendirme)
+
+> ### ⚠️ Bilinen Sorunlar (Audit v2)
+>
+> **1. `loot_rarity_weights` Boş:** 65 zindan tamamı `loot_rarity_weights = '{}'` ile seed edildi. Tüm loot `common` rarity düşüyor. Zone'a göre ağırlıkları güncelleyen bir migration/UPDATE çalıştırılmalıdır (bkz. §6.3 güncellenmiş tablo).
+>
+> **2. Duplicate Migration Zaman Damgası:** `20260312_010000_dungeon_fixes.sql` ve `20260312_010000_fix_dungeon_get_and_loot.sql` aynı timestamp'e sahip. Kanonik versiyon `dungeon_fixes.sql`'dir (zone/is_boss alanları ve pvp_attack patch dahil).
+>
+> **3. `users.power` Stale Kalıyor:** `enter_dungeon` stored `power` değerini kullanır. `equip_item`/`unequip_item` çağrıldığında `calculate_user_total_power()` çağrılmıyorsa zindan başarı hesabı hatalı olur.
+>
+> **4. Non-Boss Zindan Günlük Limiti Yok:** Sadece boss zindanların günlük limiti var. Non-boss zindanlar enerjiyle sınırlı ama enerji Han'dan alınabiliyorsa sonsuz farm mümkün. Günlük 20-30 non-boss limit önerilir.
 
 ---
 
@@ -400,6 +410,19 @@ Ekipman drop'u olduğunda, nadirlik:
 | 5 | — | 5% | 25% | 40% | 25% | 5% |
 | 6 | — | — | 10% | 35% | 40% | 15% |
 | 7 | — | — | — | 15% | 45% | 40% |
+
+> **⚠️ UYGULAMA UYARISI:** Yukarıdaki tablodaki ağırlıklar `dungeons.loot_rarity_weights` JSONB kolonuna `enter_dungeon` RPC'nin doğru çalışması için girilmelidir. Tüm zindanlar `'{}'` ile seeded olduğundan tüm loot `common` düşmektedir. Aşağıdaki SQL ile düzeltilmeli:
+
+```sql
+-- Zone 1-2 (zindan_order 1-20)
+UPDATE public.dungeons SET loot_rarity_weights = '{"common":0.65,"uncommon":0.25,"rare":0.08,"epic":0.02,"legendary":0.00}'::jsonb WHERE zone IN (1,2);
+-- Zone 3-4
+UPDATE public.dungeons SET loot_rarity_weights = '{"common":0.20,"uncommon":0.30,"rare":0.30,"epic":0.15,"legendary":0.05}'::jsonb WHERE zone IN (3,4);
+-- Zone 5-6
+UPDATE public.dungeons SET loot_rarity_weights = '{"common":0.00,"uncommon":0.05,"rare":0.25,"epic":0.40,"legendary":0.25,"mythic":0.05}'::jsonb WHERE zone IN (5,6);
+-- Zone 7
+UPDATE public.dungeons SET loot_rarity_weights = '{"common":0.00,"uncommon":0.00,"rare":0.05,"epic":0.20,"legendary":0.45,"mythic":0.30}'::jsonb WHERE zone = 7;
+```
 
 ### 6.4 Boss Zindanları Özel Loot
 
