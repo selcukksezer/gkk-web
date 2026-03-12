@@ -8,8 +8,7 @@
 import { useState, useCallback } from "react";
 import { usePlayerStore } from "@/stores/playerStore";
 import { useUiStore } from "@/stores/uiStore";
-import { api } from "@/lib/api";
-import { APIEndpoints } from "@/lib/endpoints";
+import { supabase } from "@/lib/supabase";
 import { GAME_CONFIG } from "@/data/GameConstants";
 import { trackPvPCompleted } from "@/lib/telemetry";
 import type { PvPTarget, PvPResult, PvPHistoryEntry } from "@/types/pvp";
@@ -64,111 +63,216 @@ export function usePvP() {
   /** Fetch PvP targets */
   const fetchTargets = useCallback(async () => {
     setIsLoading(true);
-    const res = await api.get<PvPTarget[]>(APIEndpoints.PVP_LIST_TARGETS);
-    if (res.success && res.data) {
-      setTargets(res.data);
+    const { data, error } = await supabase
+      .from("users")
+      .select("auth_id, username, level, pvp_rating")
+      .neq("auth_id", player?.auth_id ?? "")
+      .gte("level", 1)
+      .order("pvp_rating", { ascending: false })
+      .limit(20);
+    if (!error && data) {
+      setTargets(
+        data.map((u) => ({
+          id: u.auth_id,
+          player_id: u.auth_id,
+          username: u.username ?? "Bilinmeyen",
+          level: u.level ?? 1,
+          power: (u.level ?? 1) * 10,
+          pvp_rating: u.pvp_rating ?? 1000,
+          rating: u.pvp_rating ?? 1000,
+          attack: 0,
+          defense: 0,
+          health: 100,
+          estimated_gold: 0,
+          guild_name: null,
+        }) as PvPTarget)
+      );
     }
     setIsLoading(false);
-  }, []);
+  }, [player?.auth_id]);
 
   /** Attack a target */
   const attackPlayer = useCallback(
-    async (targetId: string): Promise<PvPResult | null> => {
+    async (targetId: string, mekanId: string): Promise<PvPResult | null> => {
       if (energy < energyCost) {
         addToast(`Yetersiz enerji! (${energyCost} gerekli)`, "error");
         return null;
       }
 
       // Cooldown check
-      const cooldown = GAME_CONFIG.pvp.maxAttacksPerDay; // simplified
       const now = Date.now();
       if (now - lastAttackTime < 5000) {
         addToast("Çok hızlı saldırıyorsunuz!", "warning");
         return null;
       }
 
+      if (!player?.auth_id) {
+        addToast("Oturum bulunamadı!", "error");
+        return null;
+      }
+
       setIsLoading(true);
-      const res = await api.post<PvPResult>(APIEndpoints.PVP_ATTACK, {
-        target_player_id: targetId,
+      const { data, error } = await supabase.rpc("pvp_attack", {
+        p_attacker_id: player.auth_id,
+        p_defender_id: targetId,
+        p_mekan_id: mekanId,
       });
       setIsLoading(false);
 
-      if (res.success && res.data) {
+      if (!error && data) {
         setLastAttackTime(now);
         consumeEnergy(energyCost);
-        const result = res.data;
-        if (result.won) {
-          addToast(
-            `Zafer! +${result.gold_stolen} altın, +${result.rating_change} rating`,
-            "success"
-          );
+        const rpcResult = data as {
+          success: boolean;
+          winner_id: string;
+          gold_stolen: number;
+          rep_change_winner: number;
+          rep_change_loser: number;
+          rating_change_attacker: number;
+          hospital_triggered: boolean;
+        };
+        const won = rpcResult.winner_id === player.auth_id;
+        const result: PvPResult = {
+          success: rpcResult.success,
+          won,
+          opponent_name: "",
+          attacker_damage: 0,
+          defender_damage: 0,
+          gold_stolen: rpcResult.gold_stolen,
+          gold_change: won ? rpcResult.gold_stolen : -rpcResult.gold_stolen,
+          rating_change: rpcResult.rating_change_attacker,
+          is_critical: false,
+          defender_hospitalized: rpcResult.hospital_triggered,
+        };
+        if (won) {
+          addToast(`Zafer! +${result.gold_stolen} altın, +${result.rating_change} rating`, "success");
         } else {
-          addToast(
-            `Yenilgi! ${result.rating_change} rating`,
-            "error"
-          );
+          addToast(`Yenilgi! ${result.rating_change} rating`, "error");
         }
-        trackPvPCompleted(result.won ? "win" : "loss", result.rating_change);
-        // Refresh player profile from server (gold, rating updates)
+        trackPvPCompleted(won ? "win" : "loss", result.rating_change);
         fetchProfile();
         return result;
       }
 
-      addToast(res.error ?? "Saldırı başarısız", "error");
+      addToast("Saldırı başarısız", "error");
       return null;
     },
-    [energy, energyCost, lastAttackTime, consumeEnergy, fetchProfile, addToast]
+    [energy, energyCost, lastAttackTime, player?.auth_id, consumeEnergy, fetchProfile, addToast]
   );
 
   /** Revenge attack (from history) */
   const revengeAttack = useCallback(
-    async (targetId: string): Promise<PvPResult | null> => {
+    async (targetId: string, mekanId: string): Promise<PvPResult | null> => {
       if (energy < energyCost) {
         addToast(`Yetersiz enerji! (${energyCost} gerekli)`, "error");
         return null;
       }
+      if (!player?.auth_id) {
+        addToast("Oturum bulunamadı!", "error");
+        return null;
+      }
       setIsLoading(true);
-      const res = await api.post<PvPResult>(APIEndpoints.PVP_REVENGE, {
-        target_player_id: targetId,
+      const { data, error } = await supabase.rpc("pvp_attack", {
+        p_attacker_id: player.auth_id,
+        p_defender_id: targetId,
+        p_mekan_id: mekanId,
       });
       setIsLoading(false);
 
-      if (res.success && res.data) {
+      if (!error && data) {
         consumeEnergy(energyCost);
-        const result = res.data;
+        const rpcResult = data as {
+          success: boolean;
+          winner_id: string;
+          gold_stolen: number;
+          rating_change_attacker: number;
+          hospital_triggered: boolean;
+        };
+        const won = rpcResult.winner_id === player.auth_id;
+        const result: PvPResult = {
+          success: rpcResult.success,
+          won,
+          opponent_name: "",
+          attacker_damage: 0,
+          defender_damage: 0,
+          gold_stolen: rpcResult.gold_stolen,
+          gold_change: won ? rpcResult.gold_stolen : -rpcResult.gold_stolen,
+          rating_change: rpcResult.rating_change_attacker,
+          is_critical: false,
+          defender_hospitalized: rpcResult.hospital_triggered,
+        };
         addToast(
-          result.won
-            ? `İntikam! +${result.gold_stolen} altın`
-            : `İntikam başarısız! ${result.rating_change} rating`,
-          result.won ? "success" : "error"
+          won ? `İntikam! +${result.gold_stolen} altın` : `İntikam başarısız! ${result.rating_change} rating`,
+          won ? "success" : "error"
         );
-        trackPvPCompleted(result.won ? "win" : "loss", result.rating_change);
+        trackPvPCompleted(won ? "win" : "loss", result.rating_change);
         fetchProfile();
         return result;
       }
-      addToast(res.error ?? "İntikam saldırısı başarısız", "error");
+      addToast("İntikam saldırısı başarısız", "error");
       return null;
     },
-    [energy, energyCost, consumeEnergy, fetchProfile, addToast]
+    [energy, energyCost, player?.auth_id, consumeEnergy, fetchProfile, addToast]
   );
 
   /** Fetch PvP history */
   const fetchHistory = useCallback(async (limit = 20) => {
-    const res = await api.get<PvPHistoryEntry[]>(
-      `${APIEndpoints.PVP_HISTORY}?limit=${limit}`
-    );
-    if (res.success && res.data) {
-      setHistory(res.data);
+    const authId = player?.auth_id;
+    if (!authId) return;
+    const { data, error } = await supabase
+      .from("pvp_matches")
+      .select("id, attacker_id, defender_id, winner_id, gold_stolen, rep_change_winner, rep_change_loser, rating_change_attacker, created_at")
+      .or(`attacker_id.eq.${authId},defender_id.eq.${authId}`)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (!error && data) {
+      setHistory(
+        data.map((m) => {
+          const isAttacker = m.attacker_id === authId;
+          const won = m.winner_id === authId;
+          return {
+            id: m.id,
+            opponent_id: isAttacker ? m.defender_id : m.attacker_id,
+            opponent_name: "",
+            opponent_username: "",
+            is_attacker: isAttacker,
+            won,
+            result: won ? "win" : "loss",
+            gold_change: won ? m.gold_stolen : -m.gold_stolen,
+            rating_change: m.rating_change_attacker,
+            timestamp: m.created_at,
+            created_at: m.created_at,
+            battle_log: [],
+          } as PvPHistoryEntry;
+        })
+      );
     }
-  }, []);
+  }, [player?.auth_id]);
 
   /** Fetch leaderboard */
   const fetchLeaderboard = useCallback(async (limit = 50) => {
-    const res = await api.get<PvPTarget[]>(
-      `${APIEndpoints.PVP_LEADERBOARD}?limit=${limit}`
-    );
-    if (res.success && res.data) {
-      setLeaderboard(res.data);
+    const { data, error } = await supabase
+      .from("users")
+      .select("auth_id, username, level, pvp_rating")
+      .order("pvp_rating", { ascending: false })
+      .limit(limit);
+    if (!error && data) {
+      setLeaderboard(
+        data.map((u) => ({
+          id: u.auth_id,
+          player_id: u.auth_id,
+          username: u.username ?? "Bilinmeyen",
+          level: u.level ?? 1,
+          power: (u.level ?? 1) * 10,
+          pvp_rating: u.pvp_rating ?? 1000,
+          rating: u.pvp_rating ?? 1000,
+          attack: 0,
+          defense: 0,
+          health: 100,
+          estimated_gold: 0,
+          guild_name: null,
+        }) as PvPTarget)
+      );
     }
   }, []);
 

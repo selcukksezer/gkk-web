@@ -22,38 +22,33 @@ import { useUiStore } from "@/stores/uiStore";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ProgressBar } from "@/components/ui/ProgressBar";
-import { api } from "@/lib/api";
 import { useEnhancement } from "@/hooks/useEnhancement";
 import { formatGold } from "@/lib/utils/string";
 import type { InventoryItem } from "@/types/inventory";
 import { ItemIcon } from "@/components/game/ItemIcon";
 
-const UPGRADE_CHANCES: Record<number, number> = {
-  0: 100,
-  1: 100,
-  2: 100,
-  3: 100,
-  4: 70,
-  5: 60,
-  6: 50,
-  7: 35,
-  8: 20,
-  9: 10,
-  10: 3,
+// UPGRADE_CHANCES ve UPGRADE_COSTS tablosunda sadece tablo gösterimi için kullanılır.
+// Gerçek hesaplamalar useEnhancement hook'undan yapılır.
+const UPGRADE_CHANCES_TABLE: Record<number, number> = {
+  0: 100, 1: 100, 2: 100, 3: 100, 4: 70,
+  5: 60, 6: 50, 7: 35, 8: 20, 9: 10, 10: 3,
 };
 
-const UPGRADE_COSTS: Record<number, number> = {
-  0: 1000,
-  1: 2000,
-  2: 3000,
-  3: 5000,
-  4: 15000,
-  5: 35000,
-  6: 75000,
-  7: 150000,
-  8: 500000,
-  9: 2000000,
-  10: 10000000,
+const UPGRADE_COSTS_TABLE: Record<number, number> = {
+  0: 100000, 1: 200000, 2: 300000, 3: 500000, 4: 1500000,
+  5: 3500000, 6: 7500000, 7: 15000000, 8: 50000000, 9: 200000000, 10: 1000000000,
+};
+
+type RuneType = "none" | "basic" | "advanced" | "superior" | "legendary" | "protection" | "blessed";
+
+const RUNE_LABELS: Record<RuneType, string> = {
+  none: "Rune Yok",
+  basic: "Temel Rune",
+  advanced: "Gelişmiş Rune",
+  superior: "Üstün Rune",
+  legendary: "Efsanevi Rune",
+  protection: "Koruma Runu",
+  blessed: "Kutsanmış Rune",
 };
 
 // Rarity → required scroll_id (BlacksmithScreen.gd)
@@ -79,10 +74,6 @@ const RARITY_COLORS: Record<string, string> = {
   legendary:"#fbbf24",
   mythic:   "#f43f5e",
 };
-
-function getEnhanceCost(level: number): number {
-  return UPGRADE_COSTS[level] ?? 0;
-}
 
 function getRiskLabel(level: number): string {
   // Politikaya göre: +6 ve üzeri -> yok olma riski; +4/+5 -> seviye düşer; diğerleri risksiz
@@ -229,6 +220,44 @@ function ScrollDropSlot({
   );
 }
 
+function RuneDropSlot({
+  selectedRune,
+  onRemove,
+}: {
+  selectedRune: RuneType;
+  onRemove: () => void;
+}) {
+  const { isOver, setNodeRef } = useDroppable({ id: "enh-rune-slot" });
+
+  return (
+    <button
+      ref={setNodeRef as never}
+      onClick={selectedRune !== "none" ? onRemove : undefined}
+      className={`w-[88px] h-[88px] mx-auto rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-all ${
+        selectedRune !== "none"
+          ? "border-purple-400 bg-purple-400/10"
+          : isOver
+          ? "border-purple-400/70 bg-purple-900/20"
+          : "border-[var(--border-default)] bg-[var(--bg-input)]"
+      }`}
+    >
+      {selectedRune !== "none" ? (
+        <>
+          <span className="text-2xl">🔮</span>
+          <span className="text-[9px] text-purple-300 font-medium text-center leading-tight px-1 truncate w-full text-center">
+            {RUNE_LABELS[selectedRune]}
+          </span>
+        </>
+      ) : (
+        <>
+          <span className="text-base opacity-40">🔮</span>
+          <span className="text-[9px] text-[var(--text-muted)]">Rune (opsiyonel)</span>
+        </>
+      )}
+    </button>
+  );
+}
+
 export default function EnhancementPage() {
   const items = useInventoryStore((s) => s.items);
   const fetchInventory = useInventoryStore((s) => s.fetchInventory);
@@ -240,6 +269,7 @@ export default function EnhancementPage() {
   const [selectedScrollSlots, setSelectedScrollSlots] = useState<(InventoryItem | null)[]>(
     Array.from({ length: SCROLL_SLOT_COUNT }, () => null)
   );
+  const [selectedRune, setSelectedRune] = useState<RuneType>("none");
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [animResult, setAnimResult] = useState<AnimResult | null>(null);
   const animTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -267,9 +297,11 @@ export default function EnhancementPage() {
     [items]
   );
 
+  const { enhanceItem, getCost, getSuccessRate: hookGetSuccessRate } = useEnhancement();
+
   const currentLevel = selectedItem?.enhancement_level ?? 0;
-  const successChance = UPGRADE_CHANCES[currentLevel] ?? 3;
-  const cost = getEnhanceCost(currentLevel);
+  const { gold: cost } = getCost(currentLevel, selectedRune, selectedItem?.rarity ?? "common");
+  const successChance = Math.round(hookGetSuccessRate(currentLevel, selectedRune) * 100);
   const hasEnoughGold = gold >= cost;
 
   const requiredScrollId = selectedItem ? getScrollId(selectedItem.rarity) : null;
@@ -290,6 +322,9 @@ export default function EnhancementPage() {
     if (isEnhanceableItem(item)) {
       setSelectedItem(item);
       setAnimResult(null);
+    } else if (item.item_type === "rune" || item.item_id?.startsWith("rune_")) {
+      const runeKey = (item.item_id?.replace("rune_", "") ?? "none") as RuneType;
+      setSelectedRune(runeKey);
     } else if (item.item_type === "scroll" || item.item_id?.includes("scroll")) {
       setSelectedScrollSlots((prev) => {
         if (prev.some((s) => s?.row_id === item.row_id)) return prev;
@@ -305,6 +340,7 @@ export default function EnhancementPage() {
   const handleCancel = useCallback(() => {
     setSelectedItem(null);
     setSelectedScrollSlots(Array.from({ length: SCROLL_SLOT_COUNT }, () => null));
+    setSelectedRune("none");
     setAnimResult(null);
   }, []);
 
@@ -321,6 +357,14 @@ export default function EnhancementPage() {
       if (isEnhanceableItem(dragged)) {
         setSelectedItem(dragged);
         setAnimResult(null);
+      }
+      return;
+    }
+
+    if (overId === "enh-rune-slot") {
+      if (dragged.item_type === "rune" || dragged.item_id?.startsWith("rune_")) {
+        const runeKey = (dragged.item_id?.replace("rune_", "") ?? "none") as RuneType;
+        setSelectedRune(runeKey);
       }
       return;
     }
@@ -349,15 +393,12 @@ export default function EnhancementPage() {
     }
   }, [items]);
 
-  const { enhanceItem } = useEnhancement();
-
   const handleEnhance = useCallback(async () => {
     if (!selectedItem || !canEnhance) return;
 
     setIsEnhancing(true);
     try {
-      // Delegate to centralized enhancement logic (uses inventory RPCs and store)
-      const result = await enhanceItem(selectedItem as InventoryItem);
+      const result = await enhanceItem(selectedItem as InventoryItem, selectedRune);
 
       if (result) {
         if (result.destroyed) {
@@ -376,6 +417,7 @@ export default function EnhancementPage() {
           setAnimResult(null);
           setSelectedItem(null);
           setSelectedScrollSlots(Array.from({ length: SCROLL_SLOT_COUNT }, () => null));
+          setSelectedRune("none");
         }, 3000);
       } else {
         addToast("Güçlendirme hatası", "error");
@@ -480,6 +522,20 @@ export default function EnhancementPage() {
                 <span className="text-[var(--text-muted)] text-lg">+</span>
               </div>
 
+              {/* Rune Slot */}
+              <div className="flex-1">
+                <p className="text-[10px] text-[var(--text-muted)] mb-1.5 text-center">Rune (opsiyonel)</p>
+                <RuneDropSlot
+                  selectedRune={selectedRune}
+                  onRemove={() => setSelectedRune("none")}
+                />
+              </div>
+
+              {/* Arrow */}
+              <div className="flex flex-col items-center gap-1 shrink-0">
+                <span className="text-[var(--text-muted)] text-lg">+</span>
+              </div>
+
               {/* Scroll Slots */}
               <div className="flex-[2]">
                 <p className="text-[10px] text-[var(--text-muted)] mb-1.5 text-center">Parşömen Slotları (9)</p>
@@ -547,6 +603,14 @@ export default function EnhancementPage() {
               <span className="text-[var(--text-secondary)]">Gerekli Parşömen</span>
               <span className={`font-medium ${selectedItem ? "text-amber-400" : "text-[var(--text-muted)]"}`}>
                 {requiredScrollLabel ?? "— Eşya Seçin —"}
+              </span>
+            </div>
+
+            {/* Active rune */}
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-[var(--text-secondary)]">Aktif Rune</span>
+              <span className={`font-medium ${selectedRune !== "none" ? "text-purple-400" : "text-[var(--text-muted)]"}`}>
+                {RUNE_LABELS[selectedRune]}
               </span>
             </div>
 
@@ -649,6 +713,7 @@ export default function EnhancementPage() {
               const isSelectedScroll = item && selectedScrollSlots.some((s) => s?.row_id === item.row_id);
               const isEquip = item && EQUIPMENT_TYPES.has(item.item_type);
               const isScroll = item && (item.item_type === "scroll" || item.item_id?.includes("scroll"));
+              const isRune = item && (item.item_type === "rune" || item.item_id?.startsWith("rune_"));
               const rarityColor = item ? RARITY_COLORS[item.rarity] ?? "var(--text-muted)" : undefined;
 
               return (
@@ -664,6 +729,8 @@ export default function EnhancementPage() {
                             ? "border-[var(--border-default)] bg-[var(--bg-elevated)] hover:border-[var(--accent)]/50 cursor-pointer"
                             : isScroll
                             ? "border-amber-400/40 bg-amber-900/20 hover:border-amber-400 cursor-pointer"
+                            : isRune
+                            ? "border-purple-400/40 bg-purple-900/20 hover:border-purple-400 cursor-pointer"
                             : "border-[var(--border-default)] bg-[var(--bg-elevated)] cursor-pointer"
                         }`}
                         style={{ borderColor: isSelectedItem || isSelectedScroll ? undefined : `${rarityColor}40` }}
@@ -716,8 +783,8 @@ export default function EnhancementPage() {
                 return (
                   <div key={`tbl-${i}`} className="contents">
                     <span className={isCurrent ? "text-[var(--accent)] font-bold" : ""}>+{i}</span>
-                    <span className={isCurrent ? "text-[var(--accent)] font-bold" : ""}>%{UPGRADE_CHANCES[i]}</span>
-                    <span>{formatGold(UPGRADE_COSTS[i])}</span>
+                    <span className={isCurrent ? "text-[var(--accent)] font-bold" : ""}>%{UPGRADE_CHANCES_TABLE[i]}</span>
+                    <span>{formatGold(UPGRADE_COSTS_TABLE[i])}</span>
                     <span>{getRiskLabel(i)}</span>
                   </div>
                 );

@@ -65,50 +65,7 @@ function previewSuccessRate(dungeon: DungeonData, playerLevel: number) {
   };
 }
 
-// Mock dungeons matching Godot exactly
-const SOLO_DUNGEONS: DungeonData[] = [
-  {
-    id: "1", dungeon_id: "dungeon_tutorial_grotto", name: "Başlangıç Mağarası",
-    description: "Yeni kahramanlar için basit düşmanlar ve küçük ödüller.",
-    difficulty: "easy", required_level: 1, min_level: 1, max_players: 1,
-    energy_cost: 5, min_gold: 10, max_gold: 50,
-    xp_reward: 100, base_gold_reward: 30, base_xp_reward: 100,
-    success_rate: 0.90, is_group: false, loot_table: ["iron_ore", "herb", "leather"], boss_name: null,
-  },
-  {
-    id: "2", dungeon_id: "dungeon_dark_forest", name: "Karanlık Orman Zindanı",
-    description: "Karanlık Orman'ın derinliklerini keşfet ve boss'u yen.",
-    difficulty: "dungeon", required_level: 10, min_level: 10, max_players: 1,
-    energy_cost: 25, min_gold: 500, max_gold: 2000,
-    xp_reward: 500, base_gold_reward: 1000, base_xp_reward: 500,
-    success_rate: 0.45, is_group: false, loot_table: ["iron_ingot", "rare_gem", "scroll_fire"], boss_name: "Orman Koruyucusu",
-  },
-  {
-    id: "3", dungeon_id: "dungeon_cursed_tomb", name: "Lanetli Mezar",
-    description: "Lanetli Mezar'ın sırlarını keşfet.",
-    difficulty: "dungeon", required_level: 15, min_level: 15, max_players: 1,
-    energy_cost: 30, min_gold: 1000, max_gold: 5000,
-    xp_reward: 750, base_gold_reward: 2500, base_xp_reward: 750,
-    success_rate: 0.40, is_group: false, loot_table: ["cursed_blade", "dark_essence", "bone_armor"], boss_name: "Mezar Koruyucusu",
-  },
-  {
-    id: "4", dungeon_id: "dungeon_dragon_lair", name: "Ejderha Yuvası",
-    description: "Ejderha Yuvası'na gir ve hazinesini al.",
-    difficulty: "dungeon", required_level: 25, min_level: 25, max_players: 1,
-    energy_cost: 40, min_gold: 3000, max_gold: 10000,
-    xp_reward: 1000, base_gold_reward: 5000, base_xp_reward: 1000,
-    success_rate: 0.35, is_group: false, loot_table: ["dragon_scale", "legendary_sword", "fire_gem"], boss_name: "Kadim Ejderha",
-  },
-];
-
-const GROUP_DUNGEON: DungeonData = {
-  id: "5", dungeon_id: "dungeon_group_crystal_cavern", name: "Kristal Mağarası (Grup)",
-  description: "Kristal Mağarası'nda grup halinde hazine avla.",
-  difficulty: "dungeon", required_level: 12, min_level: 12, max_players: 4,
-  energy_cost: 35, min_gold: 1500, max_gold: 6000,
-  xp_reward: 750, base_gold_reward: 3000, base_xp_reward: 750,
-  success_rate: 0.60, is_group: true, loot_table: ["crystal_shard", "mithril_ore", "enchanted_ring"], boss_name: "Kristal Golem",
-};
+const EMPTY_DUNGEONS: DungeonData[] = [];
 
 export default function DungeonPage() {
   const energy = usePlayerStore((s) => s.energy);
@@ -118,7 +75,7 @@ export default function DungeonPage() {
   const addToast = useUiStore((s) => s.addToast);
 
   const [mode, setMode] = useState<DungeonMode>("solo");
-  const [dungeons, setDungeons] = useState<DungeonData[]>(SOLO_DUNGEONS);
+  const [allDungeons, setAllDungeons] = useState<DungeonData[]>(EMPTY_DUNGEONS);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDungeon, setSelectedDungeon] = useState<DungeonData | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -133,29 +90,35 @@ export default function DungeonPage() {
 
   const inHospital = isInHospital(hospitalUntil);
 
-  // Mode change — Godot: _change_mode
+  // Mode change — boss ağırlıklı filtre ve genel solo akışı
   const handleModeChange = (newMode: DungeonMode) => {
     setMode(newMode);
-    if (newMode === "solo") {
-      setDungeons(SOLO_DUNGEONS);
-    } else {
-      setDungeons([...SOLO_DUNGEONS, GROUP_DUNGEON]);
-    }
   };
 
-  // Try loading from API first, fall back to mock
+  // Load dungeon catalog from RPC
   useEffect(() => {
     (async () => {
       setIsLoading(true);
       try {
         const res = await api.rpc<DungeonData[]>("get_dungeons", {});
         if (res.success && res.data && res.data.length > 0) {
-          setDungeons(res.data);
+          setAllDungeons(res.data);
+        } else {
+          setAllDungeons([]);
         }
-      } catch { /* keep mock data */ }
+      } catch {
+        setAllDungeons([]);
+      }
       setIsLoading(false);
     })();
   }, []);
+
+  const dungeons = useMemo(() => {
+    if (mode === "group") {
+      return allDungeons.filter((d) => d.difficulty === "dungeon" || d.max_players > 1);
+    }
+    return allDungeons;
+  }, [allDungeons, mode]);
 
   const handleEnterDungeon = async () => {
     if (!selectedDungeon) return;
