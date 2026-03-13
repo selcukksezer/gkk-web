@@ -70,8 +70,33 @@ export function InventoryClient() {
   );
 
   // Fetch on mount
+  // Detailed logging: clear console and show full state on mount
+  const logFullInventory = () => {
+    const state = useInventoryStore.getState();
+    console.groupCollapsed('[InventoryClient] Full Inventory State');
+    console.log('items count:', state.items.length);
+    console.table(
+      state.items.map((i) => ({
+        row_id: i.row_id,
+        item_id: i.item_id,
+        name: i.name,
+        slot_position: i.slot_position,
+        is_equipped: i.is_equipped,
+        equip_slot: (i as any).equip_slot ?? (i as any).equipped_slot ?? null,
+        quantity: i.quantity,
+      }))
+    );
+    console.log('equipped map:', state.equippedItems);
+    console.groupEnd();
+  };
+
   useEffect(() => {
-    fetchInventory();
+    (async () => {
+      console.clear();
+      console.info('[InventoryClient] initializing — clearing logs');
+      await fetchInventory();
+      logFullInventory();
+    })();
   }, [fetchInventory]);
 
   // =========== HANDLERS ===========
@@ -204,9 +229,17 @@ export function InventoryClient() {
       return setActiveItem(null);
     }
 
-    const activeIdStr = String(active.id);
+      const activeIdStr = String(active.id);
     const overIdStr = over ? String(over.id) : null;
     console.log(`[dnd] end active=${activeIdStr} over=${overIdStr}`);
+
+    // Snapshot before operation for detailed debugging
+    console.log('[InventoryClient] Pre-op snapshot', {
+      activeId: activeIdStr,
+      overId: overIdStr,
+      itemsCount: items.length,
+      equippedKeys: Object.keys(equippedItems),
+    });
 
     try {
       // Nothing changed
@@ -286,7 +319,9 @@ export function InventoryClient() {
           // item into the target slot.
           if (draggedEquipSlot && dragged.is_equipped) {
             // Atomically swap equipped item and inventory item on server
+            console.log('[InventoryClient] calling swapEquipWithSlot', { draggedEquipSlot, targetSlot: target.slot_position, draggedRow: dragged.row_id, targetRow: target.row_id });
             const success = await useInventoryStore.getState().swapEquipWithSlot(draggedEquipSlot, target.slot_position);
+            console.log('[InventoryClient] swapEquipWithSlot finished, success=', success, 'storeError=', useInventoryStore.getState().error);
             if (!success) {
               const storeError = useInventoryStore.getState().error;
               if (storeError) addToast(storeError, "error");
@@ -297,7 +332,9 @@ export function InventoryClient() {
           } else {
             // Regular inventory <-> inventory swap
             console.log(`[dnd] Regular swap: dragged[${dragged.row_id}] slot=${dragged.slot_position} is_equipped=${dragged.is_equipped}, target[${target.row_id}] slot=${target.slot_position} is_equipped=${target.is_equipped}`);
-            await swapSlots(dragged.slot_position, target.slot_position);
+            console.log('[InventoryClient] calling swapSlots', { from: dragged.slot_position, to: target.slot_position });
+            const swapOk = await swapSlots(dragged.slot_position, target.slot_position);
+            console.log('[InventoryClient] swapSlots result:', swapOk, 'storeError=', useInventoryStore.getState().error);
           }
           await fetchInventory(true);
         }

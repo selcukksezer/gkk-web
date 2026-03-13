@@ -126,7 +126,8 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
             const rawSlot = (item as any).equip_slot ?? (item as any).equipped_slot ?? null;
             if (rawSlot) {
               const key = String(rawSlot).toLowerCase();
-              equipped[key] = item as InventoryItem;
+              // Ensure the equipped item object carries canonical equip_slot and is_equipped flags
+              equipped[key] = { ...(item as InventoryItem), is_equipped: true, equip_slot: key } as InventoryItem;
             }
           });
           console.log("[InventoryStore] equipped items count:", equippedItemsArr.length, "mapped slots:", Object.keys(equipped));
@@ -463,14 +464,18 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
   swapEquipWithSlot: async (equipSlot: string, targetSlot: number) => {
     try {
       const res = await api.rpc('swap_equip_with_slot', { p_equip_slot: equipSlot, p_target_slot: targetSlot });
+      console.log('[InventoryStore] swapEquipWithSlot RPC response:', res, { equipSlot, targetSlot });
       if (res.success) {
         // Prefer authoritative refresh to ensure consistent state
         await get().fetchInventory(true);
         return true;
       }
+      // If server returned payload with more info, log it for debugging
+      console.warn('[InventoryStore] swapEquipWithSlot failed response:', res.error, res.data);
       set({ error: res.error || 'Equip swap failed' });
       return false;
     } catch (err) {
+      console.error('[InventoryStore] swapEquipWithSlot errored:', err);
       set({ error: err instanceof Error ? err.message : String(err) });
       await get().fetchInventory(true);
       return false;

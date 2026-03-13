@@ -31,6 +31,7 @@ CREATE FUNCTION public.equip_item(p_row_id uuid, p_slot text) RETURNS jsonb
 DECLARE
     v_user_id UUID;
     v_item_record RECORD;
+  v_target_slot INTEGER;
 BEGIN
     v_user_id := auth.uid();
 
@@ -48,12 +49,19 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'error', 'Item not found or not owned by player');
     END IF;
 
+    -- Read the current slot_position of the item being equipped (may be NULL)
+    SELECT slot_position INTO v_target_slot FROM public.inventory WHERE row_id = p_row_id LIMIT 1;
+
     -- Unequip any item currently in this slot
-    -- CRITICAL: clear slot_position = NULL to prevent idx_inventory_user_slot_unique collision
+    -- If we're equipping from an inventory slot, move the currently equipped item into that slot
+    -- (prevents both items ending up with NULL slot_position)
     UPDATE public.inventory
-    SET is_equipped = FALSE, equip_slot = NULL, slot_position = NULL, updated_at = NOW()
-    WHERE user_id = v_user_id 
-      AND lower(COALESCE(equip_slot, '')) = lower(COALESCE(p_slot, '')) 
+    SET is_equipped = FALSE,
+        equip_slot = NULL,
+        slot_position = v_target_slot,
+        updated_at = NOW()
+    WHERE user_id = v_user_id
+      AND lower(COALESCE(equip_slot, '')) = lower(COALESCE(p_slot, ''))
       AND is_equipped = TRUE
       AND row_id != p_row_id;
 
@@ -202,11 +210,21 @@ BEGIN
     LIMIT 1 FOR UPDATE;
 
   -- Both exist: swap atomically
+  -- To avoid unique-index conflicts on equip_slot we first move the currently equipped
+  -- item out of the equip slot (freeing the slot), then mark the inventory item as equipped.
   IF v_equip_row IS NOT NULL AND v_inv_row IS NOT NULL THEN
-    UPDATE public.inventory SET slot_position = NULL, is_equipped = TRUE, equip_slot = p_equip_slot, updated_at = NOW()
+    -- Clear the inventory slot on the target row first to avoid idx_inventory_user_slot_unique collisions
+    UPDATE public.inventory SET slot_position = NULL, updated_at = NOW()
       WHERE row_id = v_inv_row;
+
+    -- Move currently equipped item into the inventory target slot (now free)
     UPDATE public.inventory SET slot_position = p_target_slot, is_equipped = FALSE, equip_slot = NULL, updated_at = NOW()
       WHERE row_id = v_equip_row;
+
+    -- Now equip the inventory item into the equip slot (equip_slot is free)
+    UPDATE public.inventory SET slot_position = NULL, is_equipped = TRUE, equip_slot = p_equip_slot, updated_at = NOW()
+      WHERE row_id = v_inv_row;
+
     RETURN jsonb_build_object('success', true, 'moved', jsonb_build_array(
       jsonb_build_object('row_id', v_inv_row, 'slot', NULL::int),
       jsonb_build_object('row_id', v_equip_row, 'slot', p_target_slot)
@@ -222,6 +240,15 @@ BEGIN
 
   -- Only inventory exists: equip it
   IF v_equip_row IS NULL AND v_inv_row IS NOT NULL THEN
+    -- Defensive: ensure any stray equipped row for this equip slot is cleared
+    UPDATE public.inventory
+    SET is_equipped = FALSE, equip_slot = NULL, slot_position = NULL, updated_at = NOW()
+    WHERE user_id = v_user_id
+      AND lower(COALESCE(equip_slot, '')) = lower(COALESCE(p_equip_slot, ''))
+      AND is_equipped = TRUE
+      AND row_id != v_inv_row;
+
+    -- Equip the inventory item
     UPDATE public.inventory SET slot_position = NULL, is_equipped = TRUE, equip_slot = p_equip_slot, updated_at = NOW()
       WHERE row_id = v_inv_row;
     RETURN jsonb_build_object('success', true, 'moved', jsonb_build_array(jsonb_build_object('row_id', v_inv_row, 'slot', NULL)));
