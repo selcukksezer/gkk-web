@@ -268,7 +268,7 @@ export function InventoryClient() {
         return;
       }
 
-      // Drop on equipment slot: equip
+      // Drop on equipment slot: equip or inventory<->equipped swap
       if (overIdStr.startsWith("equip-")) {
         const slotName = overIdStr.replace(/^equip-/, "");
 
@@ -280,7 +280,24 @@ export function InventoryClient() {
           return;
         }
 
-        await equipItem(dragged.row_id, slotName);
+        const normalizedSlot = String(slotName).toLowerCase();
+        const equippedInTarget = equippedItems[normalizedSlot] ?? null;
+
+        // If the target equipment slot is already occupied and dragged item comes
+        // from inventory, use atomic server-side swap to avoid losing slot_position.
+        if (!dragged.is_equipped && equippedInTarget && equippedInTarget.row_id !== dragged.row_id) {
+          const swapSuccess = await useInventoryStore.getState().swapEquipWithSlot(normalizedSlot, dragged.slot_position);
+          if (!swapSuccess) {
+            const storeError = useInventoryStore.getState().error;
+            if (storeError) addToast(storeError, "error");
+            setActiveItem(null);
+            await fetchInventory(true);
+            return;
+          }
+        } else {
+          await equipItem(dragged.row_id, normalizedSlot);
+        }
+
         setActiveItem(null);
         await fetchInventory(true);
         return;

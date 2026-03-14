@@ -38,7 +38,7 @@ export function RecipeCard({ recipe, isSelected, onClick, index }: RecipeCardPro
       : Number(recipe.success_rate)
     : 0.8;
   const outputRarity = (recipe.output_rarity || outputItem?.rarity || "common") as Rarity;
-  const outputName = recipe.output_name || outputItem?.name || "Bilinmiyor";
+  const outputName = outputItem?.name || recipe.output_name || "Bilinmiyor";
 
   return (
     <motion.button

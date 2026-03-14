@@ -28,6 +28,7 @@ interface InventoryState {
   unequipItem: (slot: string) => Promise<boolean>;
   unequipItemToSlot: (rowId: string, slotName: string, targetSlot: number) => Promise<boolean>;
   swapSlots: (fromSlot: number, toSlot: number) => Promise<boolean>;
+  swapEquipWithSlot: (equipSlot: string, targetSlot: number) => Promise<boolean>;
   moveItemToSlot: (rowId: string, targetSlot: number) => Promise<boolean>;
   batchUpdatePositions: (updates: Array<{ row_id: string; slot_position: number }>) => Promise<boolean>;
   updateItemEnhancement: (rowId: string, newLevel: number) => Promise<boolean>;

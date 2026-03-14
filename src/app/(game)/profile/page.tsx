@@ -5,9 +5,12 @@
 
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
 import { usePlayerStore } from "@/stores/playerStore";
+import { useInventoryStore } from "@/stores/inventoryStore";
+import { calculateEquipmentStats, calculateCharacterPowerBreakdown } from "@/lib/utils/calculateEquipmentStats";
+import { getReputationTier, getReputationPowerContribution, getNextReputationMilestone } from "@/lib/utils/reputation";
 import { Card } from "@/components/ui/Card";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { formatGold, formatCompact } from "@/lib/utils/string";
@@ -36,21 +39,39 @@ export default function ProfilePage() {
   const pvpRating = usePlayerStore((s) => s.pvpRating);
   const characterClass = usePlayerStore((s) => s.characterClass);
 
+  // Subscribe to equipped items to update stats immediately when equipment changes
+  const equippedMap = useInventoryStore((s) => s.equippedItems);
+  const computedStats = useMemo(() => {
+    const eq = calculateEquipmentStats(equippedMap || {});
+    const breakdown = calculateCharacterPowerBreakdown(eq, level, player?.reputation ?? 0);
+
+    return {
+      totalPower: breakdown.totalPower,
+      attack: eq.totalAttack,
+      defense: eq.totalDefense,
+      hp: eq.totalHP,
+      luck: eq.totalLuck,
+      equipmentPower: breakdown.equipmentPower,
+      levelPower: breakdown.levelPower,
+      reputationPower: breakdown.reputationPower,
+    };
+  }, [equippedMap, level, player?.reputation]);
+
+  // Ensure inventory (and equipped items) are fetched when profile mounts
+  const fetchInventory = useInventoryStore((s) => s.fetchInventory);
+  useEffect(() => {
+    fetchInventory(true).catch(() => {});
+  }, [fetchInventory]);
+
   const xpForNext = Math.floor(1000 * Math.pow(level, 1.5));
   const winRate =
     pvpWins + pvpLosses > 0
       ? Math.round((pvpWins / (pvpWins + pvpLosses)) * 100)
       : 0;
 
-  const reputationStatus = useMemo(() => {
-    const rep = player?.reputation ?? 0;
-    if (rep >= 1000) return { label: "Efsane Kahraman", color: "var(--rarity-legendary)" };
-    if (rep >= 500) return { label: "Saygıdeğer", color: "var(--rarity-epic)" };
-    if (rep >= 100) return { label: "Güvenilir", color: "var(--color-success)" };
-    if (rep >= 0) return { label: "Nötr", color: "var(--text-secondary)" };
-    if (rep >= -100) return { label: "Şüpheli", color: "var(--color-warning)" };
-    return { label: "Kara Liste", color: "var(--color-error)" };
-  }, [player?.reputation]);
+  const reputation = Math.max(0, player?.reputation ?? 0);
+  const reputationTier = useMemo(() => getReputationTier(reputation), [reputation]);
+  const nextReputation = useMemo(() => getNextReputationMilestone(reputation), [reputation]);
 
   return (
     <motion.div
@@ -88,7 +109,7 @@ export default function ProfilePage() {
                 <ProgressBar value={xp} max={xpForNext} color="accent" size="sm" />
               </div>
               <InfoRow label="Lonca" value={player?.guild_name || "Yok"} />
-              <InfoRow label="Unvan" value={player?.title || "Çaylak"} />
+              <InfoRow label="Unvan" value={reputationTier.title} />
             </div>
           </div>
         </Card>
@@ -102,13 +123,16 @@ export default function ProfilePage() {
               📊 İstatistikler
             </h3>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-              <InfoRow label="Güç" value={String(player?.power || 0)} />
-              <InfoRow label="Dayanıklılık" value={String(player?.endurance || 0)} />
-              <InfoRow label="Çeviklik" value={String(player?.agility || 0)} />
+              <InfoRow label="Güç" value={String(Math.round(computedStats.totalPower))} />
+              <InfoRow label="Dayanıklılık" value={String(computedStats.defense)} />
+              <InfoRow label="Çeviklik" value={String(computedStats.attack)} />
               <InfoRow label="Zeka" value={String(player?.intelligence || 0)} />
-              <InfoRow label="Şans" value={String(player?.luck || 0)} />
-              <InfoRow label="HP" value={String(player?.hp || 0)} />
+              <InfoRow label="Şans" value={String(computedStats.luck)} />
+              <InfoRow label="HP" value={String(computedStats.hp)} />
               <InfoRow label="Enerji" value={`${energy}/${maxEnergy}`} />
+              <InfoRow label="Güç (Ekipman)" value={formatCompact(computedStats.equipmentPower)} />
+              <InfoRow label="Güç (Seviye)" value={formatCompact(computedStats.levelPower)} />
+              <InfoRow label="Güç (Saygınlık)" value={formatCompact(computedStats.reputationPower)} />
             </div>
           </div>
         </Card>
@@ -155,12 +179,23 @@ export default function ProfilePage() {
             </h3>
             <p
               className="text-sm font-bold"
-              style={{ color: reputationStatus.color }}
+              style={{ color: reputationTier.color }}
             >
-              {reputationStatus.label}
+              {reputationTier.title}
             </p>
             <p className="text-xs text-[var(--text-muted)]">
-              Puan: {player?.reputation ?? 0}
+              Puan: {formatCompact(reputation)}
+            </p>
+            <p className="text-xs text-[var(--text-muted)]">
+              Power katkısı: +{formatCompact(getReputationPowerContribution(reputation))}
+            </p>
+            <p className="text-xs text-[var(--text-muted)]">
+              Görsel: {reputationTier.visual}
+            </p>
+            <p className="text-xs text-[var(--text-muted)]">
+              {nextReputation.target
+                ? `Sonraki unvan: ${formatCompact(nextReputation.target)} (kalan ${formatCompact(nextReputation.remaining)})`
+                : "Maksimum unvandasın"}
             </p>
           </div>
         </Card>

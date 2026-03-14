@@ -8,78 +8,25 @@ import { create } from "zustand";
 import { api } from "@/lib/api";
 import { APIEndpoints } from "@/lib/endpoints";
 import type { PlayerFacility, FacilityType, FacilityConfig, ProductionQueueItem, ResourceRarity } from "@/types/facility";
+import { FACILITIES_CONFIG } from "@/data/FacilityConfig";
+import {
+  FACILITY_RESOURCE_BY_RARITY,
+  FACILITY_RESOURCE_IDS,
+  getDropRatesForLevel,
+  PLAN2_RARITY_UNLOCK_LEVELS,
+  RESOURCE_RARITIES,
+} from "@/data/ResourceCatalog";
 import { usePlayerStore } from "./playerStore";
 import { useInventoryStore } from "./inventoryStore";
 
 // ── Constants (from FacilityManager.gd) ──────────────────────
 
 export const RARITY_DISTRIBUTION: Record<ResourceRarity, number> = {
-  common: 70.0,
-  uncommon: 20.0,
-  rare: 8.0,
-  epic: 1.5,
-  legendary: 0.5,
+  ...getDropRatesForLevel(1),
 };
 
 export const RARITY_UNLOCK_LEVELS: Record<ResourceRarity, number> = {
-  common: 1,
-  uncommon: 3,
-  rare: 5,
-  epic: 7,
-  legendary: 10,
-};
-
-/** Base rarity weights (level 1). Higher levels scale up rarer drops. */
-const RARITY_BASE_WEIGHTS: Record<ResourceRarity, number> = {
-  common: 700,
-  uncommon: 200,
-  rare: 80,
-  epic: 15,
-  legendary: 5,
-};
-
-/** Per-level weight scaling for rarities above common */
-const RARITY_LEVEL_SCALING: Partial<Record<ResourceRarity, number>> = {
-  uncommon: 15,
-  rare: 8,
-  epic: 3,
-  legendary: 1.5,
-};
-
-export const FACILITY_RESOURCES_FULL: Record<FacilityType, string[]> = {
-  mining: ["iron_ore", "copper_ore", "silver_ore", "gold_ore", "mithril_ore"],
-  quarry: ["granite", "marble", "crystal_shard", "obsidian", "moonstone"],
-  lumber_mill: ["oak_wood", "pine_wood", "bamboo", "elder_wood", "world_tree_sap"],
-  clay_pit: ["ceramic_clay", "brick_clay", "enchanted_clay", "dragon_clay"],
-  sand_quarry: ["glass_sand", "crystal_sand", "star_dust", "void_sand"],
-  farming: ["wheat", "vegetables", "cotton", "magical_grain", "golden_wheat"],
-  herb_garden: ["healing_herb", "poison_herb", "rare_flower", "dragon_root", "phoenix_petal"],
-  ranch: ["leather", "bone", "wool", "monster_hide", "dragon_scale"],
-  apiary: ["honey", "beeswax", "bee_venom", "royal_jelly", "celestial_honey"],
-  mushroom_farm: ["healing_mushroom", "poison_mushroom", "glowing_mushroom", "ghost_mushroom", "immortality_shroom"],
-  rune_mine: ["raw_rune", "magic_crystal", "energy_shard", "power_rune", "ancient_rune"],
-  holy_spring: ["holy_water", "mana_crystal", "purification_water", "blessed_essence", "divine_tear"],
-  shadow_pit: ["dark_essence", "shadow_crystal", "curse_dust", "void_fragment", "abyss_core"],
-  elemental_forge: ["fire_essence", "ice_crystal", "lightning_core", "storm_shard", "primordial_flame"],
-  time_well: ["time_crystal", "aging_dust", "eternity_essence", "temporal_shard", "infinity_stone"],
-};
-
-export const FACILITIES_CONFIG: Record<FacilityType, FacilityConfig> = {
-  mining: { name: "Maden", icon: "⛏️", description: "Cevher çıkarma tesisi", resources: FACILITY_RESOURCES_FULL.mining, base_rate: 10, unlock_level: 1, unlock_cost: 500, base_upgrade_cost: 1000, upgrade_multiplier: 1.5 },
-  quarry: { name: "Taş Ocağı", icon: "🪨", description: "Taş ve kristal çıkarma", resources: FACILITY_RESOURCES_FULL.quarry, base_rate: 8, unlock_level: 2, unlock_cost: 800, base_upgrade_cost: 1200, upgrade_multiplier: 1.5 },
-  lumber_mill: { name: "Kereste Fabrikası", icon: "🪵", description: "Ahşap üretimi", resources: FACILITY_RESOURCES_FULL.lumber_mill, base_rate: 12, unlock_level: 3, unlock_cost: 1000, base_upgrade_cost: 1500, upgrade_multiplier: 1.5 },
-  clay_pit: { name: "Kil Çukuru", icon: "🏺", description: "Kil çıkarma", resources: FACILITY_RESOURCES_FULL.clay_pit, base_rate: 15, unlock_level: 4, unlock_cost: 1200, base_upgrade_cost: 1800, upgrade_multiplier: 1.5 },
-  sand_quarry: { name: "Kum Ocağı", icon: "🏜️", description: "Kum ve toz çıkarma", resources: FACILITY_RESOURCES_FULL.sand_quarry, base_rate: 20, unlock_level: 5, unlock_cost: 1500, base_upgrade_cost: 2000, upgrade_multiplier: 1.5 },
-  farming: { name: "Çiftlik", icon: "🌾", description: "Tarım ürünleri", resources: FACILITY_RESOURCES_FULL.farming, base_rate: 18, unlock_level: 6, unlock_cost: 2000, base_upgrade_cost: 2500, upgrade_multiplier: 1.5 },
-  herb_garden: { name: "Şifalı Otlar Bahçesi", icon: "🌿", description: "Bitki yetiştirme", resources: FACILITY_RESOURCES_FULL.herb_garden, base_rate: 10, unlock_level: 7, unlock_cost: 2500, base_upgrade_cost: 3000, upgrade_multiplier: 1.5 },
-  ranch: { name: "Çiftlik Hayvanları", icon: "🐄", description: "Hayvan ürünleri", resources: FACILITY_RESOURCES_FULL.ranch, base_rate: 12, unlock_level: 8, unlock_cost: 3000, base_upgrade_cost: 3500, upgrade_multiplier: 1.5 },
-  apiary: { name: "Arı Kovanı", icon: "🐝", description: "Bal ve mum üretimi", resources: FACILITY_RESOURCES_FULL.apiary, base_rate: 8, unlock_level: 9, unlock_cost: 3500, base_upgrade_cost: 4000, upgrade_multiplier: 1.5 },
-  mushroom_farm: { name: "Mantar Çiftliği", icon: "🍄", description: "Mantar yetiştirme", resources: FACILITY_RESOURCES_FULL.mushroom_farm, base_rate: 10, unlock_level: 10, unlock_cost: 4000, base_upgrade_cost: 5000, upgrade_multiplier: 1.5 },
-  rune_mine: { name: "Rün Madeni", icon: "🔮", description: "Rün taşı çıkarma", resources: FACILITY_RESOURCES_FULL.rune_mine, base_rate: 5, unlock_level: 11, unlock_cost: 5000, base_upgrade_cost: 6000, upgrade_multiplier: 1.6 },
-  holy_spring: { name: "Kutsal Pınar", icon: "💧", description: "Kutsal su toplama", resources: FACILITY_RESOURCES_FULL.holy_spring, base_rate: 6, unlock_level: 12, unlock_cost: 6000, base_upgrade_cost: 7000, upgrade_multiplier: 1.6 },
-  shadow_pit: { name: "Gölge Çukuru", icon: "🌑", description: "Karanlık öz toplama", resources: FACILITY_RESOURCES_FULL.shadow_pit, base_rate: 4, unlock_level: 13, unlock_cost: 7000, base_upgrade_cost: 8000, upgrade_multiplier: 1.6 },
-  elemental_forge: { name: "Element Ocağı", icon: "🔥", description: "Element özü üretimi", resources: FACILITY_RESOURCES_FULL.elemental_forge, base_rate: 5, unlock_level: 14, unlock_cost: 8000, base_upgrade_cost: 10000, upgrade_multiplier: 1.6 },
-  time_well: { name: "Zaman Kuyusu", icon: "⏳", description: "Zaman kristali toplama", resources: FACILITY_RESOURCES_FULL.time_well, base_rate: 3, unlock_level: 15, unlock_cost: 10000, base_upgrade_cost: 12000, upgrade_multiplier: 1.7 },
+  ...PLAN2_RARITY_UNLOCK_LEVELS,
 };
 
 const PRODUCTION_ENERGY_COST = 50;
@@ -156,6 +103,12 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
       );
 
       if (res.success && res.data) {
+        // DEBUG: log raw RPC payload to help diagnose empty queue issues
+        try {
+          console.log('[facilityStore] raw get_player_facilities_with_queue payload:', res.data);
+        } catch (e) {
+          // ignore logging errors
+        }
         let facilitiesData: PlayerFacility[] = [];
         const data = res.data as Record<string, unknown>;
 
@@ -187,7 +140,7 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
                     return null;
                   };
 
-          return {
+          const mapped = {
             id: f.id,
             facility_type: (f.facility_type || f.type) as FacilityType,
             level: f.level,
@@ -209,6 +162,13 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
               };
             }),
           };
+
+          // DEBUG: log normalized facility queue for inspection
+          try {
+            console.log(`[facilityStore] normalized facility ${mapped.id} queue:`, mapped.facility_queue);
+          } catch (e) {}
+
+          return mapped;
         });
 
         facilitiesData = facilitiesData.filter((f) => f.is_active !== false);
@@ -276,6 +236,12 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
     const facilityType = facility.facility_type;
     if (!facilityType) return false;
     const cost = get().getUpgradeCost(facilityType, facility.level);
+
+    // Enforce client-side maximum level of 10
+    if (facility.level >= 10) {
+      set({ error: "Bu tesis zaten maksimum seviye 10'a ulaşmış." });
+      return false;
+    }
 
     const gold = usePlayerStore.getState().gold;
 
@@ -499,13 +465,15 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
     }
 
     // Step 1: Call RPC with seed and count
+    console.log("[facilityStore] collectResourcesV2 inventory snapshot before:", inventoryBefore);
+    console.log("[facilityStore] collectResourcesV2 request payload:", { facilityId, seed, totalCount });
     const res = await api.rpc<any>("collect_facility_resources_v2", {
       p_facility_id: facilityId,
       p_seed: seed,
       p_total_count: totalCount,
     });
-    
-    console.log("[facilityStore] collectResourcesV2 response:", res);
+
+    console.log("[facilityStore] collectResourcesV2 response (raw):", res);
 
     if (!res.success) {
       set({ error: res.error || "Toplama başarısız" });
@@ -517,15 +485,31 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
     const admissionOccurred = rpcResult?.admission_occurred ?? false;
     const itemsGenerated = rpcResult?.items_generated ?? [];
 
+    console.log("[facilityStore] collectResourcesV2 parsed result:", {
+      addedCount,
+      admissionOccurred,
+      itemsGenerated,
+      rpcResult,
+    });
+
     // Step 2: Refresh facilities (production cleared on server)
+    console.log("[facilityStore] collectResourcesV2 refreshing facilities...");
     await get().fetchFacilities(true);
+    console.log("[facilityStore] collectResourcesV2 facilities after refresh:", get().facilities.map((f) => ({
+      id: f.id,
+      level: f.level,
+      production_started_at: f.production_started_at,
+    })));
 
     // Step 3: Sync global risk to database after collection
     const globalRisk = get().getGlobalSuspicionRisk();
+    console.log("[facilityStore] collectResourcesV2 global risk before sync:", globalRisk);
     await get().syncGlobalRiskToDatabase(globalRisk);
 
     // Step 4: Refresh player data from server
+    console.log("[facilityStore] collectResourcesV2 player profile before refresh:", usePlayerStore.getState().profile);
     await usePlayerStore.getState().refreshData();
+    console.log("[facilityStore] collectResourcesV2 player profile after refresh:", usePlayerStore.getState().profile);
 
     // Step 5: Refresh inventory if collection succeeded and player not imprisoned
     try {
@@ -564,6 +548,13 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
           const before = inventoryBefore[itemId] || 0;
           const after = afterCounts[itemId] || 0;
           const delta = expectedQty - (after - before);
+          console.log("[facilityStore] collectResourcesV2 inventory delta check:", {
+            itemId,
+            expectedQty,
+            before,
+            after,
+            delta,
+          });
           if (delta > 0) {
             console.warn(`[facilityStore] Inventory missing ${delta}x ${itemId}, adding via RPC fallback`);
             // Call addItemToServer with aggregated quantity
@@ -792,7 +783,7 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
   // ── Upgrade cost formula: base_upgrade_cost * pow(upgrade_multiplier, current_level) ──
   getUpgradeCost: (facilityType: FacilityType, currentLevel: number) => {
     const config = FACILITIES_CONFIG[facilityType];
-    return Math.floor(config.base_upgrade_cost * Math.pow(config.upgrade_multiplier, currentLevel));
+    return Math.floor(config.base_upgrade_cost * Math.pow(config.upgrade_multiplier, Math.max(0, currentLevel - 1)));
   },
 
   // ── Global suspicion risk formula (raw calculation) ────────────────────
@@ -855,13 +846,7 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
 
   // ── Rarity weights at level (scaled) ──────────────────────
   getRarityWeightsAtLevel: (level: number): Record<ResourceRarity, number> => {
-    const weights: Record<ResourceRarity, number> = { ...RARITY_BASE_WEIGHTS };
-    if (level > 1) {
-      for (const [rarity, scaling] of Object.entries(RARITY_LEVEL_SCALING)) {
-        weights[rarity as ResourceRarity] += (level - 1) * (scaling as number);
-      }
-    }
-    return weights;
+    return { ...getDropRatesForLevel(level) };
   },
 
   // ── Deterministic idle resource calculation (LCG RNG) ──────
@@ -871,13 +856,14 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
     productionStartedAt: string,
     totalCount: number
   ): Array<{ item_id: string; rarity: ResourceRarity }> => {
-    const resources = FACILITY_RESOURCES_FULL[facilityType] || [];
+    const resources = FACILITY_RESOURCE_IDS[facilityType] || [];
     if (resources.length === 0 || totalCount === 0) return [];
 
     // Clamp requested totalCount to what can actually be produced within the configured production duration
     const facilityConfig = FACILITIES_CONFIG[facilityType] || { base_rate: 10 };
     const baseRate = facilityConfig.base_rate || 10;
-    const fullDurationTotal = Math.floor((PRODUCTION_DURATION_SECONDS / 3600.0) * (baseRate * facilityLevel * 10));
+    // Use Math.round to match backend exact duration count logic and prevent floating point FLOOR misses
+    const fullDurationTotal = Math.round((PRODUCTION_DURATION_SECONDS / 3600.0) * (baseRate * facilityLevel * 10));
     const clampedCount = Math.min(totalCount, Math.max(fullDurationTotal, 0));
 
     // Deterministic seed from production_started_at
@@ -886,102 +872,68 @@ export const useFacilityStore = create<FacilityState>()((set, get) => ({
 
     // Build rarity weights at this level
     const weights = get().getRarityWeightsAtLevel(facilityLevel);
-    const rarities: ResourceRarity[] = ["common", "uncommon", "rare", "epic", "legendary"];
+    const rarities: ResourceRarity[] = [...RESOURCE_RARITIES];
     const totalWeight = rarities.reduce((sum, r) => sum + weights[r], 0);
 
     const results: Array<{ item_id: string; rarity: ResourceRarity }> = [];
-    // Ensure each resource gets a single, consistent rarity for this generation run
-    const resourceRarityMap: Record<string, ResourceRarity> = {};
 
     const _debugSamples: Array<{ i: number; rngVal: number; rngForIndex: number; resourceIndex: number }> = [];
-    // Quota-based deterministic rarity distribution adjusted to match Godot's
-    // Each resource has a fixed tier by index (0..4 => common,common,uncommon,rare,legendary)
     const LCG_MOD = 2147483647;
     const LCG_RARITY_MULT = 16807;
-    const LCG_IDX_MULT = 48271;
 
     let rarityState = (detSeed + 13579) % LCG_MOD;
-    let indexState = (detSeed + 24680) % LCG_MOD;
-
-    // Map resource index -> inherent tier (from Godot MD)
-    const indexToTier: ResourceRarity[] = ["common", "common", "uncommon", "rare", "legendary"];
-
-    // Calculate expected counts per rarity (fractional), floor them and distribute remainders
-    const rawCounts: Record<ResourceRarity, number> = { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0 };
-    for (const r of rarities) rawCounts[r] = (weights[r] / totalWeight) * clampedCount;
-
-    const baseCounts: Record<ResourceRarity, number> = { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0 };
-    const rems: Array<{ r: ResourceRarity; rem: number }> = [];
-    let baseSum = 0;
-    for (const r of rarities) {
-      baseCounts[r] = Math.floor(rawCounts[r]);
-      baseSum += baseCounts[r];
-      rems.push({ r, rem: rawCounts[r] - baseCounts[r] });
-    }
-    let remaining = clampedCount - baseSum;
-    // Sort remainders descending, tie-break with rarityState
-    rems.sort((a, b) => {
-      if (a.rem !== b.rem) return b.rem - a.rem;
+    
+    // Warmup LCG 5 times to improve initial randomness distribution
+    for (let i = 0; i < 5; i++) {
       rarityState = (rarityState * LCG_RARITY_MULT) % LCG_MOD;
-      return (rarityState / LCG_MOD) - 0.5;
-    });
+    }
 
-    const quota: Record<ResourceRarity, number> = { ...baseCounts };
-    for (let i = 0; i < remaining; i++) {
-      const r = rems[i % rems.length].r;
-      quota[r] = (quota[r] || 0) + 1;
+    const quota: Record<ResourceRarity, number> = Object.fromEntries(rarities.map((rarity) => [rarity, 0])) as Record<ResourceRarity, number>;
+
+    // For each item, roll a seeded random number to determine rarity
+    for (let i = 0; i < clampedCount; i++) {
+      rarityState = (rarityState * LCG_RARITY_MULT) % LCG_MOD;
+      const roll = (rarityState / LCG_MOD) * totalWeight;
+
+      let currentWeight = 0;
+      let selectedRarity: ResourceRarity = "common";
+      for (const r of rarities) {
+        currentWeight += weights[r];
+        if (roll < currentWeight) {
+          selectedRarity = r;
+          break;
+        }
+      }
+      quota[selectedRarity] = (quota[selectedRarity] || 0) + 1;
     }
 
     try {
       console.log("[facilityStore] calculateIdleResources quotas:", quota);
     } catch (e) {}
 
-    // For each rarity, distribute its quota across the resources whose inherent tier == rarity
-    // If facility level does not unlock that rarity, treat those resources as common.
-    const countsPerResource: Record<string, number> = {};
-    for (let idx = 0; idx < resources.length; idx++) countsPerResource[resources[idx]] = 0;
-
     for (const r of rarities) {
-      let targetR = r;
-      // if facility level doesn't unlock this rarity, downgrades to common
-      if (facilityLevel < (RARITY_UNLOCK_LEVELS[targetR] || Infinity)) targetR = "common" as ResourceRarity;
-
       const countForR = quota[r] || 0;
       if (countForR <= 0) continue;
 
-      // resources that belong to this rarity by index
-      const pool = resources
-        .map((id, i) => ({ id, i }))
-        .filter(({ i }) => indexToTier[Math.min(i, indexToTier.length - 1)] === r)
-        .map((p) => p.id);
-
-      const effectivePool = pool.length > 0 ? pool : resources.slice();
-
-      // Round-robin allocate countForR across effectivePool
-      for (let k = 0; k < countForR; k++) {
-        const pick = effectivePool[k % effectivePool.length];
-        countsPerResource[pick] = (countsPerResource[pick] || 0) + 1;
+      let effectiveRarity = r;
+      if (facilityLevel < (RARITY_UNLOCK_LEVELS[effectiveRarity] || Infinity)) {
+        effectiveRarity = "common";
       }
-    }
 
-    // Build results from countsPerResource, assigning final rarity per resource (downgrade if needed)
-    let built = 0;
-    for (let idx = 0; idx < resources.length && built < clampedCount; idx++) {
-      const id = resources[idx];
-      let assignedRarity: ResourceRarity = indexToTier[Math.min(idx, indexToTier.length - 1)];
-      if (facilityLevel < (RARITY_UNLOCK_LEVELS[assignedRarity] || Infinity)) assignedRarity = "common" as ResourceRarity;
-      const qty = countsPerResource[id] || 0;
-      for (let q = 0; q < qty && built < clampedCount; q++) {
-        results.push({ item_id: id, rarity: assignedRarity });
-        built++;
-        if (results.length >= clampedCount) break;
+      const resourceId = FACILITY_RESOURCE_BY_RARITY[facilityType]?.[effectiveRarity] || resources[0];
+      for (let index = 0; index < countForR; index++) {
+        results.push({ item_id: resourceId, rarity: effectiveRarity });
       }
     }
 
     // If for some reason we haven't filled results, pad with common items (first resource)
     while (results.length < clampedCount) {
-      const fallback = resources[0] || "unknown";
+      const fallback = FACILITY_RESOURCE_BY_RARITY[facilityType]?.common || resources[0] || "unknown";
       results.push({ item_id: fallback, rarity: "common" });
+    }
+
+    if (results.length > clampedCount) {
+      results.length = clampedCount;
     }
 
     if (_debugSamples.length > 0) {

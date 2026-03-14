@@ -41,6 +41,7 @@ export default function FacilitiesPage() {
   const level = usePlayerStore((s) => s.level);
   const gold = usePlayerStore((s) => s.gold);
   const gems = usePlayerStore((s) => s.gems);
+  const prisonReason = usePlayerStore((s) => s.prisonReason);
   const payBail = usePlayerStore((s) => (s as any).payBail);
   const resetAllProduction = useFacilityStore((s) => (s as any).resetAllProduction);
   const prisonUntil = usePlayerStore((s) => s.prisonUntil);
@@ -106,17 +107,43 @@ export default function FacilitiesPage() {
   }, [facilities]);
 
   return (
-    <div className="p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-[var(--text-primary)]">🏭 Tesisler</h2>
-        <span className="text-xs text-[var(--text-muted)]">
-          {facilities.length} / {Object.keys(FACILITY_TYPES).length} aktif
-        </span>
-        {/* Dev/Test reset button (visible in development or for high-level accounts) */}
-        <div className="ml-2">
-          {(process.env.NODE_ENV === "development" || level >= 99) && (
+    <div className="relative overflow-hidden p-4 space-y-4 pb-24">
+      <div className="pointer-events-none absolute -top-24 -right-24 w-72 h-72 rounded-full blur-3xl opacity-25 bg-cyan-400" />
+      <div className="pointer-events-none absolute top-40 -left-24 w-72 h-72 rounded-full blur-3xl opacity-20 bg-amber-400" />
+
+      <Card className="relative overflow-hidden border border-[var(--border-default)] bg-[linear-gradient(135deg,rgba(30,35,48,0.95),rgba(15,17,24,0.95))]">
+        <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.35),transparent_55%)]" />
+        <div className="relative flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] tracking-[0.2em] uppercase text-cyan-300">Operasyon Merkezi</p>
+            <h2 className="text-xl font-black text-[var(--text-primary)]">Tesis Ağı</h2>
+            <p className="text-xs text-[var(--text-secondary)] mt-1">İstasyonları yönet, üretimi ölçekle, riski kontrol et.</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] text-[var(--text-muted)]">Aktif Tesis</p>
+            <p className="text-lg font-black text-cyan-300">{facilities.length} / {Object.keys(FACILITY_TYPES).length}</p>
+          </div>
+        </div>
+
+        <div className="relative mt-4 grid grid-cols-3 gap-2">
+          <div className="rounded-xl border border-white/10 bg-black/25 px-3 py-2">
+            <p className="text-[10px] text-[var(--text-muted)]">Seviye</p>
+            <p className="text-sm font-bold text-white">Lv.{level}</p>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-black/25 px-3 py-2">
+            <p className="text-[10px] text-[var(--text-muted)]">Altın</p>
+            <p className="text-sm font-bold text-amber-300">{formatGold(gold)}</p>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-black/25 px-3 py-2">
+            <p className="text-[10px] text-[var(--text-muted)]">Gem</p>
+            <p className="text-sm font-bold text-fuchsia-300">{gems}</p>
+          </div>
+        </div>
+
+        {(process.env.NODE_ENV === "development" || level >= 99) && (
+          <div className="relative mt-3 flex justify-end">
             <button
-              className="text-xs px-2 py-1 rounded bg-[var(--bg-darker)]"
+              className="text-xs px-3 py-1.5 rounded-lg border border-white/15 bg-black/25 hover:bg-black/40 transition-colors"
               onClick={async () => {
                 const res = await resetAllProduction();
                 if (res?.success) {
@@ -128,43 +155,44 @@ export default function FacilitiesPage() {
             >
               🔧 TEST: Reset Tüm Üretim
             </button>
-          )}
-        </div>
-      </div>
+          </div>
+        )}
+      </Card>
 
       {inPrison && (
-        <Card>
-          <div className="p-3 text-center text-sm text-[var(--color-error)]">
-            👮 Cezaevindeyken tesis işlemleri yapılamaz!
-            <div className="mt-2">
-              {/* Compute remaining minutes & bail cost */}
+        <Card className="border border-red-500/40 bg-[linear-gradient(135deg,rgba(90,20,20,0.45),rgba(20,10,10,0.9))]">
+          <div className="p-1 text-sm text-red-200">
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-semibold">👮 Cezaevindesiniz, operasyonlar kilitli.</p>
+              <span className="text-[10px] px-2 py-1 rounded bg-red-950/60 border border-red-700/40">Acil Durum</span>
+            </div>
+            <p className="mt-2 text-xs text-red-100/90">📄 Gerekçe: {prisonReason || "Bilinmiyor"}</p>
+            <div className="mt-3">
               {prisonUntil && (
-                <PrisonBailRow prisonUntil={prisonUntil} gems={gems} onPay={async () => {
-                  const result = await payBail?.();
-                  if (result?.success) {
-                    addToast("✅ Kefalet ödendi, serbest bırakıldınız", "success");
-                    await fetchFacilities();
-                  } else {
-                    addToast(result?.error || "Kefalet başarısız", "error");
-                  }
-                }} />
+                <PrisonBailRow
+                  prisonUntil={prisonUntil}
+                  gems={gems}
+                  onPay={async () => {
+                    const result = await payBail?.();
+                    if (result?.success) {
+                      addToast("✅ Kefalet ödendi, serbest bırakıldınız", "success");
+                      await fetchFacilities();
+                    } else {
+                      addToast(result?.error || "Kefalet başarısız", "error");
+                    }
+                  }}
+                />
               )}
             </div>
           </div>
         </Card>
       )}
 
-      {/* Global Suspicion */}
-      <Card>
-        <div className="p-3">
+      <Card className="border border-[var(--border-default)] bg-[linear-gradient(135deg,rgba(8,28,36,0.8),rgba(8,12,20,0.95))]">
+        <div className="p-1">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-[var(--text-primary)]">
-              🕵️ Genel Şüphe
-            </span>
-            <span
-              className="text-xs font-bold"
-              style={{ color: suspicionColor(globalSuspicion) }}
-            >
+            <span className="text-sm font-semibold text-cyan-200">🕵️ Genel Şüphe İndeksi</span>
+            <span className="text-xs font-black" style={{ color: suspicionColor(globalSuspicion) }}>
               %{globalSuspicion}
             </span>
           </div>
@@ -174,39 +202,35 @@ export default function FacilitiesPage() {
             color={globalSuspicion >= 80 ? "health" : globalSuspicion >= 50 ? "warning" : "success"}
             size="sm"
           />
-          <div className="mt-2 flex justify-end">
-            <Button
-              variant="gold"
-              size="sm"
-              disabled={gems < 5 || inPrison}
-              onClick={handleBribe}
-            >
-              💎5 Rüşvet Ver
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <p className="text-[11px] text-[var(--text-secondary)]">Yüksek şüphe, baskın ve hapis riskini artırır.</p>
+            <Button variant="gold" size="sm" disabled={gems < 5 || inPrison} onClick={handleBribe}>
+              💎 5 Rüşvet Ver
             </Button>
           </div>
         </div>
       </Card>
 
-      {/* Tier Groups */}
       {tiers.map((tierGroup) => (
-        <div key={tierGroup.tier}>
-          <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-2">
-            {tierGroup.label}
-          </h3>
-          <div className="grid grid-cols-3 gap-2">
+        <section key={tierGroup.tier} className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-[var(--text-primary)]">{tierGroup.label}</h3>
+            <span className="text-[10px] text-[var(--text-muted)]">{tierGroup.facilities.length} istasyon</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {tierGroup.facilities.map(({ type, config, playerFacility }) => {
               const isUnlocked = !!playerFacility;
               const canUnlock = level >= config.unlock_level && gold >= config.unlock_cost;
               const productionCount = playerFacility?.facility_queue?.length || 0;
 
               return (
-                <motion.div
+                <motion.button
                   key={type}
-                  whileTap={{ scale: 0.95 }}
-                  className={`rounded-lg border p-2 text-center transition-all cursor-pointer ${
+                  whileTap={{ scale: 0.97 }}
+                  className={`text-left rounded-2xl border p-3 transition-all ${
                     isUnlocked
-                      ? "bg-[var(--bg-card)] border-[var(--border-default)]"
-                      : "bg-[var(--bg-darker)] border-[var(--border-subtle)] opacity-60"
+                      ? "border-cyan-500/30 bg-[linear-gradient(145deg,rgba(20,27,38,0.95),rgba(11,15,22,0.95))] hover:border-cyan-300/45 hover:-translate-y-0.5"
+                      : "border-[var(--border-default)] bg-[linear-gradient(145deg,rgba(18,18,22,0.95),rgba(12,12,16,0.95))] opacity-80"
                   }`}
                   onClick={() => {
                     if (inPrison) {
@@ -215,9 +239,9 @@ export default function FacilitiesPage() {
                     }
                     if (isUnlocked) {
                       router.push(`/facilities/${type}`);
-                    } else if (canUnlock && !inPrison) {
+                    } else if (canUnlock) {
                       handleUnlock(type);
-                    } else if (!canUnlock) {
+                    } else {
                       addToast(
                         level < config.unlock_level
                           ? `Seviye ${config.unlock_level} gerekli`
@@ -227,48 +251,99 @@ export default function FacilitiesPage() {
                     }
                   }}
                 >
-                  <span className="text-2xl">{config.icon}</span>
-                  <p className="text-[10px] font-medium text-[var(--text-primary)] mt-1 truncate">
-                    {config.name}
-                  </p>
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-2xl">{config.icon}</span>
+                    {isUnlocked ? (
+                      <span className="text-[10px] px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
+                        Aktif
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-2 py-1 rounded-full bg-white/10 text-[var(--text-secondary)] border border-white/15">
+                        Kilitli
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="mt-2 text-xs font-semibold text-[var(--text-primary)] leading-tight">{config.name}</p>
+
                   {isUnlocked ? (
-                    <div className="mt-1">
-                      <p className="text-[9px] text-[var(--text-muted)]">
-                        Lv.{playerFacility.level}
-                        {productionCount > 0 && ` • ⏳${productionCount}`}
-                      </p>
-                      
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <div className="rounded-lg bg-black/25 px-2 py-1.5 border border-white/10">
+                        <p className="text-[9px] text-[var(--text-muted)]">Seviye</p>
+                        <p className="text-[11px] font-bold text-white">Lv.{playerFacility.level}</p>
+                      </div>
+                      <div className="rounded-lg bg-black/25 px-2 py-1.5 border border-white/10">
+                        <p className="text-[9px] text-[var(--text-muted)]">Kuyruk</p>
+                        <p className="text-[11px] font-bold text-white">⏳ {productionCount}</p>
+                      </div>
                     </div>
                   ) : (
-                    <p className="text-[9px] text-[var(--text-muted)] mt-1">
-                      🔒 Lv.{config.unlock_level}
-                    </p>
+                    <div className="mt-2 space-y-1">
+                      <p className="text-[10px] text-[var(--text-muted)]">🔒 Gereken Seviye: {config.unlock_level}</p>
+                      <p className="text-[10px] text-[var(--text-muted)]">🪙 Maliyet: {formatGold(config.unlock_cost)}</p>
+                    </div>
                   )}
-                </motion.div>
+                </motion.button>
               );
             })}
           </div>
-        </div>
+        </section>
       ))}
     </div>
   );
 }
 
 function PrisonBailRow({ prisonUntil, gems, onPay }: { prisonUntil: string | null; gems: number; onPay: () => Promise<void> }) {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   if (!prisonUntil) return null;
-  const remainingMs = Math.max(0, Date.parse(prisonUntil) - Date.now());
+  const prisonEndMs = Date.parse(prisonUntil);
+  const remainingMs = Math.max(0, prisonEndMs - now);
+
+  if (remainingMs === 0) {
+    return (
+      <div className="mt-4 text-center text-[var(--color-success)] font-bold">
+        ✅ Ceza süreniz doldu! Lütfen sayfayı yenileyin.
+      </div>
+    );
+  }
+
   const remainingMins = Math.ceil(remainingMs / 60000);
   const bailCost = Math.max(1, remainingMins);
 
+  const hours = Math.floor(remainingMs / (1000 * 60 * 60));
+  const mins = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+  const secs = Math.floor((remainingMs % (1000 * 60)) / 1000);
+  const timeString = `${hours > 0 ? `${hours}s ` : ""}${mins}dk ${secs}sn`;
+
   return (
-    <div className="mt-2 flex items-center justify-center gap-2">
-      <span className="text-xs">⏱️ Kalan: {remainingMins} dk</span>
+    <div className="mt-4 flex flex-col gap-3">
+      <div className="bg-[var(--bg-darker)] p-3 rounded-lg border border-[var(--color-error)] border-opacity-30 relative overflow-hidden">
+        <div className="absolute inset-0 bg-red-500/10 animate-pulse"></div>
+        <div className="relative z-10 flex flex-col items-center gap-2">
+          <div className="text-xs font-semibold text-[var(--color-error)]">
+            Hapis Cezası Devam Ediyor
+          </div>
+          <div className="text-2xl font-mono tabular-nums text-white">
+            {timeString}
+          </div>
+        </div>
+      </div>
       <button
-        className={`text-xs px-2 py-1 rounded ${gems >= bailCost ? 'bg-[var(--accent)]' : 'bg-[var(--bg-darker)] opacity-60'}`}
+        className={`w-full font-bold py-2 rounded transition-colors ${
+          gems >= bailCost
+            ? "bg-amber-500 hover:bg-amber-400 text-black shadow-[0_0_10px_rgba(245,158,11,0.5)]"
+            : "bg-gray-700 text-gray-500 opacity-60 cursor-not-allowed"
+        }`}
         disabled={gems < bailCost}
         onClick={async () => await onPay()}
       >
-        💎 Kefalet Öde ({bailCost} Gem)
+        💎 {bailCost} Gem ile Kefalet Öde
       </button>
     </div>
   );

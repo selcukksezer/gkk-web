@@ -68,7 +68,21 @@ export type ResourceRarity =
   | "uncommon"
   | "rare"
   | "epic"
-  | "legendary";
+  | "legendary"
+  | "mythic";
+
+export interface ResourceDefinition {
+  id: string;
+  name: string;
+  name_tr: string;
+  description: string;
+  icon: string;
+  facility_type: FacilityType;
+  rarity: ResourceRarity;
+  base_value: number;
+  is_stackable: boolean;
+  max_stack: number;
+}
 
 export interface ResourceRarityDistribution {
   common: number;
@@ -76,6 +90,7 @@ export interface ResourceRarityDistribution {
   rare: number;
   epic: number;
   legendary: number;
+  mythic: number;
 }
 
 // Facility recipes are no longer used for facility production in the web client.

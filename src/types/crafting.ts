@@ -44,4 +44,7 @@ export interface CraftQueueItem {
   claimed: boolean;
   failed?: boolean;
   xp_reward?: number;
+  output_item_id?: string;
+  output_quantity?: number;
+  output_name?: string;
 }

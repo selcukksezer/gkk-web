@@ -41,7 +41,50 @@ export type WeaponType =
   | "mace"
   | "none";
 
-export type ArmorType = "plate" | "leather" | "cloth" | "shield" | "none";
+export type ArmorType =
+  | "plate"
+  | "chain"
+  | "leather"
+  | "robe"
+  | "cloth"
+  | "shield"
+  | "none";
+
+export type SubType =
+  | "dagger"
+  | "sword"
+  | "axe"
+  | "staff"
+  | "plate"
+  | "chain"
+  | "leather"
+  | "robe"
+  | "helm"
+  | "hood"
+  | "crown"
+  | "circlet"
+  | "greaves"
+  | "leggings"
+  | "tassets"
+  | "pteruges"
+  | "sabaton"
+  | "treads"
+  | "sandals"
+  | "moccasins"
+  | "gauntlet"
+  | "bracers"
+  | "wraps"
+  | "mitts"
+  | "signet"
+  | "band"
+  | "loop"
+  | "seal"
+  | "pendant"
+  | "amulet"
+  | "choker"
+  | "talisman"
+  | "detox"
+  | "none";
 
 export type PotionType = "health" | "mana" | "energy" | "buff" | "none";
 
@@ -52,6 +95,7 @@ export interface ItemData {
   icon: string;
   item_type: ItemType;
   rarity: Rarity;
+  facility_type?: string;
   base_price: number;
   vendor_sell_price: number;
   // Combat stats
@@ -59,11 +103,13 @@ export interface ItemData {
   defense: number;
   health: number;
   power: number;
+  luck: number;
   mana: number;
   // Equipment
   equip_slot: EquipSlot;
   weapon_type: WeaponType;
   armor_type: ArmorType;
+  sub_type: SubType;
   required_level: number;
   // Enhancement
   can_enhance: boolean;
@@ -75,6 +121,9 @@ export interface ItemData {
   quantity: number;
   // Trade
   is_tradeable: boolean;
+  is_han_only: boolean;
+  is_market_tradeable: boolean;
+  is_direct_tradeable: boolean;
   // Potion specifics
   potion_type: PotionType;
   energy_restore: number;

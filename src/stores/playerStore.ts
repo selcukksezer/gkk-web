@@ -11,6 +11,7 @@ import { APIEndpoints } from "@/lib/endpoints";
 import type { PlayerProfile } from "@/types/player";
 import { isActive } from "@/lib/utils/datetime";
 import { supabase } from "@/lib/supabase";
+import { calculateEquipmentStats, calculateTotalPower } from "@/lib/utils/calculateEquipmentStats";
 
 // Debounce sync timer
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
@@ -73,6 +74,14 @@ interface PlayerState {
   // Computed
   isRestricted: () => boolean;
   computePrisonStatus: () => { inPrison: boolean; daysRemaining: number };
+  getEquipmentStats: () => ReturnType<typeof calculateEquipmentStats>;
+  getComputedCharacterStats: () => {
+    attack: number;
+    defense: number;
+    hp: number;
+    luck: number;
+    totalPower: number;
+  };
 
   // Actions
   loadPlayerData: (data: Record<string, unknown>) => void;
@@ -148,6 +157,39 @@ export const usePlayerStore = create<PlayerState>()(
         const msRemaining = prisonTime - now;
         const daysRemaining = Math.ceil(msRemaining / (1000 * 60 * 60 * 24));
         return { inPrison: true, daysRemaining };
+      },
+
+      // Get equipment stats from currently equipped items
+      getEquipmentStats: () => {
+        try {
+          const { useInventoryStore } = require("@/stores/inventoryStore");
+          const equippedItems = useInventoryStore.getState().equippedItems;
+          return calculateEquipmentStats(equippedItems || {});
+        } catch {
+          return { totalAttack: 0, totalDefense: 0, totalHP: 0, totalLuck: 0, powerFromEquipment: 0 };
+        }
+      },
+
+      // Get computed character stats (equipment + profile stats merged)
+      getComputedCharacterStats: () => {
+        try {
+          const equipStats = get().getEquipmentStats();
+          const { player } = get();
+          
+          return {
+            attack: equipStats.totalAttack,
+            defense: equipStats.totalDefense,
+            hp: equipStats.totalHP,
+            luck: equipStats.totalLuck,
+            totalPower: calculateTotalPower(
+              equipStats,
+              get().level,
+              player?.reputation ?? 0
+            ),
+          };
+        } catch {
+          return { attack: 0, defense: 0, hp: 0, luck: 0, totalPower: 0 };
+        }
       },
 
   loadPlayerData: (data: Record<string, unknown>) => {

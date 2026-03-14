@@ -42,21 +42,21 @@ const BUILDING_DEFAULTS: Omit<Building, "collected_amount" | "last_collected_at"
   {
     id: "mine", type: "mine", name: "Maden Ocağı", icon: "⛏️",
     level: 1, max_level: 10, is_built: true,
-    resource_type: "iron_ore", resource_icon: "🪨",
+    resource_type: "res_mining_common", resource_icon: "⛏️",
     capacity: 100, production_rate: 10,
     upgrade_cost_gold: 5000, upgrade_cost_gems: 0, build_cost_gold: 0,
   },
   {
     id: "lumber", type: "lumber", name: "Kereste Ocağı", icon: "🪵",
     level: 1, max_level: 10, is_built: true,
-    resource_type: "lumber", resource_icon: "🌲",
+    resource_type: "res_lumber_common", resource_icon: "🪵",
     capacity: 100, production_rate: 8,
     upgrade_cost_gold: 4000, upgrade_cost_gems: 0, build_cost_gold: 0,
   },
   {
     id: "alchemy", type: "alchemy", name: "Simya Laboratuvarı", icon: "⚗️",
     level: 0, max_level: 10, is_built: false,
-    resource_type: "herb", resource_icon: "🌿",
+    resource_type: "res_herb_common", resource_icon: "🌿",
     capacity: 80, production_rate: 5,
     upgrade_cost_gold: 6000, upgrade_cost_gems: 0, build_cost_gold: 3000,
   },
@@ -70,7 +70,7 @@ const BUILDING_DEFAULTS: Omit<Building, "collected_amount" | "last_collected_at"
   {
     id: "leatherwork", type: "leatherwork", name: "Deri İşlevi", icon: "🦌",
     level: 0, max_level: 10, is_built: false,
-    resource_type: "leather", resource_icon: "👝",
+    resource_type: "res_ranch_common", resource_icon: "🐄",
     capacity: 80, production_rate: 6,
     upgrade_cost_gold: 5000, upgrade_cost_gems: 0, build_cost_gold: 2500,
   },

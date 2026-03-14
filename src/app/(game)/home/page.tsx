@@ -19,6 +19,8 @@ import { Modal } from "@/components/ui/Modal";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { formatGold, formatCompact } from "@/lib/utils/string";
 import { isInHospital, isInPrison } from "@/lib/utils/validation";
+import { calculateEquipmentStats, calculateCharacterPowerBreakdown } from "@/lib/utils/calculateEquipmentStats";
+import { getReputationTier } from "@/lib/utils/reputation";
 import { api } from "@/lib/api";
 import { APIEndpoints } from "@/lib/endpoints";
 import Link from "next/link";
@@ -115,6 +117,8 @@ export default function HomePage() {
   const router = useRouter();
   const player = usePlayerStore((s) => s.player);
   const inventoryItems = useInventoryStore((s) => s.items);
+  const equippedMap = useInventoryStore((s) => s.equippedItems);
+  const fetchInventory = useInventoryStore((s) => s.fetchInventory);
   const { consumePotion, tolerance: potionTolerance } = usePotion();
 
   const [showPotionModal, setShowPotionModal] = useState(false);
@@ -138,12 +142,19 @@ export default function HomePage() {
   const hospitalUntil = player?.hospital_until;
   const prisonUntil = player?.prison_until;
   const globalSuspicionLevel = player?.global_suspicion_level || 0;
+  const reputation = Math.max(0, player?.reputation || 0);
+  const reputationTier = useMemo(() => getReputationTier(reputation), [reputation]);
 
   const inHospital = hospitalUntil ? isInHospital(hospitalUntil) : false;
   const inPrison = prisonUntil ? isInPrison(prisonUntil) : false;
   const xpPercent = nextLevelXp > 0 ? Math.min(100, (xp / nextLevelXp) * 100) : 0;
   const energyPercent = maxEnergy > 0 ? (energy / maxEnergy) * 100 : 0;
   const tolerancePercent = Math.min(100, tolerance);
+  const equipmentStats = useMemo(() => calculateEquipmentStats(equippedMap || {}), [equippedMap]);
+  const powerBreakdown = useMemo(
+    () => calculateCharacterPowerBreakdown(equipmentStats, level, reputation),
+    [equipmentStats, level, reputation]
+  );
 
   // Potion items
   const potionItems = useMemo(
@@ -157,6 +168,10 @@ export default function HomePage() {
     { id: "q2", title: "Karanlık Orman'ı Temizle", progress: 1, goal: 3, icon: "🏰" },
     { id: "q3", title: "5 İksir Kullan", progress: 2, goal: 5, icon: "🧪" },
   ];
+
+  useEffect(() => {
+    fetchInventory(true).catch(() => {});
+  }, [fetchInventory]);
 
   useEffect(() => {
     void (async () => {
@@ -382,6 +397,16 @@ export default function HomePage() {
                   </motion.span>
                 )}
                 <motion.span
+                  className="px-4 py-1.5 rounded-full border text-sm font-bold backdrop-blur-lg"
+                  style={{
+                    borderColor: reputationTier.color,
+                    color: reputationTier.color,
+                    background: "rgba(255,255,255,0.04)",
+                  }}
+                >
+                  👑 {reputationTier.title} • {formatCompact(reputation)} Rep
+                </motion.span>
+                <motion.span
                   className="px-4 py-1.5 rounded-full bg-gradient-to-r from-blue-600/40 to-cyan-600/40 border border-blue-500/50 text-blue-200 text-sm font-bold backdrop-blur-lg"
                 >
                   🌟 {globalSuspicionLevel > 60 ? `Şüphe: ${globalSuspicionLevel}%` : "Güvenli"}
@@ -446,6 +471,22 @@ export default function HomePage() {
               gradient: "from-red-600 to-orange-600",
               border: "border-red-500/30",
               glow: "from-red-600/50 to-orange-600/50",
+            },
+            {
+              label: "Reputation",
+              icon: "⭐",
+              value: `${formatCompact(reputation)} (${reputationTier.title})`,
+              gradient: "from-emerald-600 to-teal-600",
+              border: "border-emerald-500/30",
+              glow: "from-emerald-600/50 to-teal-600/50",
+            },
+            {
+              label: "Power",
+              icon: "🔥",
+              value: formatCompact(powerBreakdown.totalPower),
+              gradient: "from-indigo-600 to-violet-600",
+              border: "border-indigo-500/30",
+              glow: "from-indigo-600/50 to-violet-600/50",
             },
           ].map((stat, idx) => (
             <motion.div key={stat.label} whileHover={{ scale: 1.05 }} className="relative group">

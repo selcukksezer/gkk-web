@@ -152,7 +152,7 @@ export function QueueSection({ queue, onClaim, onAcknowledge, onFinalize, onCanc
                       <div className="flex items-center gap-3">
                         <ItemIcon icon={item.recipe_icon} itemId={item.recipe_id} className="w-10 h-10" />
                         <div>
-                          <p className="font-bold text-sm text-white">{item.recipe_name}</p>
+                          <p className="font-bold text-sm text-white">{item.output_name || item.recipe_name}</p>
                           <div className="flex items-center gap-2">
                             <p className="text-xs text-white/60">x{item.batch_count} adet</p>
                             {serverCompleted && !item.failed && item.xp_reward ? (

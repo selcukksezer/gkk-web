@@ -17,6 +17,7 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Button } from "@/components/ui/Button";
 import { formatGold, formatCompact } from "@/lib/utils/string";
 import { ToleranceBar } from "@/components/game/ToleranceBar";
+import type { InventoryItem } from "@/types/inventory";
 
 // Character class data (PLAN_11 — Karakter Sınıfı & Stat Sistemi)
 const CLASS_DATA: Record<'warrior' | 'alchemist' | 'shadow', {
@@ -175,7 +176,6 @@ export default function CharacterPage() {
   const warriorBloodlustUntil = usePlayerStore((s) => s.warriorBloodlustUntil);
   const globalSuspicionLevel = usePlayerStore((s) => s.globalSuspicionLevel);
   const characterClass = usePlayerStore((s) => s.characterClass);
-  const luck = usePlayerStore((s) => s.luck);
   const fetchProfile = usePlayerStore((s) => s.fetchProfile);
 
   // Inventory
@@ -192,13 +192,18 @@ export default function CharacterPage() {
     fetchInventory();
   }, [fetchProfile, fetchInventory]);
 
-  // Equipped items
-  const equippedItems = useMemo(() => items.filter((i) => i.is_equipped), [items]);
+  // Subscribe to equipped items map (reactive) instead of filtering items array
+  const equippedMap = useInventoryStore((s) => s.equippedItems);
+  const equippedList = useMemo(
+    () => Object.values(equippedMap).filter((i): i is InventoryItem => Boolean(i)),
+    [equippedMap]
+  );
 
-  // Equipment bonuses
-  const eqAtk = useMemo(() => equippedItems.reduce((s, i) => s + (i.attack ?? 0), 0), [equippedItems]);
-  const eqDef = useMemo(() => equippedItems.reduce((s, i) => s + (i.defense ?? 0), 0), [equippedItems]);
-  const eqHp = useMemo(() => equippedItems.reduce((s, i) => s + (i.health ?? 0), 0), [equippedItems]);
+  // Equipment bonuses (derived from equippedList)
+  const eqAtk = useMemo(() => equippedList.reduce((s, i) => s + (i.attack ?? 0), 0), [equippedList]);
+  const eqDef = useMemo(() => equippedList.reduce((s, i) => s + (i.defense ?? 0), 0), [equippedList]);
+  const eqHp = useMemo(() => equippedList.reduce((s, i) => s + (i.health ?? 0), 0), [equippedList]);
+  const eqLuck = useMemo(() => equippedList.reduce((s, i) => s + (i.luck ?? 0), 0), [equippedList]);
 
   // Level bonuses (Godot: CharacterScreen combat formula)
   const lvlHp = level * 10;
@@ -217,7 +222,7 @@ export default function CharacterPage() {
   const finalAtk = baseAtk + eqAtk + lvlAtk;
   const finalDef = baseDef + eqDef + lvlDef;
   const finalSpeed = baseSpeed + Math.floor(level * 0.3);
-  const finalLuck = (luck ?? 0) + Math.floor(level * 0.5);
+  const finalLuck = baseLuck + eqLuck + Math.floor(level * 0.5);
   const critChance = Math.min(5 + Math.floor(level * 0.4) + Math.floor(skillLevels.combat * 1.5), 50);
   const critDamage = 150 + Math.floor(level * 0.5) + skillLevels.combat * 5;
   const evasion = Math.floor(skillLevels.stealth * 3 + level * 0.2);
@@ -418,8 +423,8 @@ export default function CharacterPage() {
                       <tr>
                         <td className="py-2 text-[var(--text-primary)]">🍀 Şans</td>
                         <td className="py-2 text-right text-[var(--text-muted)]">{baseLuck}</td>
-                        <td className="py-2 text-right text-[var(--color-success)]">+0</td>
-                        <td className="py-2 text-right text-[var(--accent-light)]">+{finalLuck - baseLuck}</td>
+                        <td className="py-2 text-right text-[var(--color-success)]">+{eqLuck}</td>
+                        <td className="py-2 text-right text-[var(--accent-light)]">+{Math.floor(level * 0.5)}</td>
                         <td className="py-2 text-right font-bold text-[var(--text-primary)]">{finalLuck}</td>
                       </tr>
                       <tr>
@@ -491,13 +496,13 @@ export default function CharacterPage() {
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-[var(--text-secondary)]">🛡️ Ekipman Slotları</h3>
                   <span className="text-xs text-[var(--text-muted)]">
-                    {equippedItems.length}/{EQUIP_SLOTS.length} kuşanıldı
+                    {equippedList.length}/{EQUIP_SLOTS.length} kuşanıldı
                   </span>
                 </div>
                 <div className="space-y-2">
                   {EQUIP_SLOTS.map((slot) => {
-                    const eq = equippedItems.find(
-                      (i) => i.equipped_slot === slot.key || i.equip_slot === slot.key
+                    const eq = equippedList.find(
+                      (i) => (i.equipped_slot === slot.key || i.equip_slot === slot.key)
                     );
                     return (
                       <div

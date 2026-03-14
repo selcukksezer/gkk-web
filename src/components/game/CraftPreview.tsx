@@ -130,7 +130,7 @@ export function CraftPreview({
         <div className="flex items-start justify-between">
           <div>
             <h2 className={`text-lg font-bold ${getRarityColor(outputRarity)}`}>
-              {recipe.output_name || recipe.name}
+              {outputItem?.name || outputItem?.name || recipe.output_name || recipe.name}
             </h2>
             <p className="text-xs text-white/40 mt-1">Üretim Ön İzlemesi</p>
           </div>
@@ -154,7 +154,7 @@ export function CraftPreview({
               </div>
               <div className="flex-1">
                 <div className={`text-sm font-bold ${getRarityColor(outputRarity)}`}>
-                  {recipe.output_name || outputItem?.name || "Bilinmiyor"}
+                  {outputItem?.name || recipe.output_name || "Bilinmiyor"}
                   {outputItem?.is_han_only && (
                     <span className="ml-2 inline-block px-1.5 py-0.5 rounded bg-orange-500/20 text-[10px] text-orange-400 font-semibold align-middle">
                       🏪 Sadece Han

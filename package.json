@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "generate:plan1:seed": "node scripts/generate-plan1-item-seed.mjs",
+    "generate:plan2:seed": "node scripts/generate-plan2-resource-seed.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -123,7 +123,7 @@ const FALLBACK_QUESTS: QuestData[] = [
     gold_reward: 750,
     xp_reward: 400,
     gem_reward: 1,
-    item_rewards: ["iron_ore", "pickaxe"],
+    item_rewards: ["res_mining_common", "pickaxe"],
     status: "available",
     progress: 0,
     progress_max: 10,

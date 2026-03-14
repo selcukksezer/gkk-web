@@ -2,7 +2,7 @@
 // Inventory Types — Kaynak: core/data/InventoryItemData.gd
 // ============================================================
 
-import type { ItemType, Rarity, EquipSlot, WeaponType, ArmorType, PotionType } from "./item";
+import type { ItemType, Rarity, EquipSlot, WeaponType, ArmorType, PotionType, SubType } from "./item";
 
 /**
  * InventoryItem = veritabanındaki envanter satırı + item meta verisi
@@ -26,6 +26,7 @@ export interface InventoryItem {
   icon: string;
   item_type: ItemType;
   rarity: Rarity;
+  facility_type?: string;
   base_price: number;
   vendor_sell_price: number;
 
@@ -34,12 +35,14 @@ export interface InventoryItem {
   defense: number;
   health: number;
   power: number;
+  luck: number;
   mana: number;
 
   // Equipment
   equip_slot: EquipSlot;
   weapon_type: WeaponType;
   armor_type: ArmorType;
+  sub_type?: SubType;
   required_level: number;
 
   // Enhancement
