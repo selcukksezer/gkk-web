@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { DndContext, DragEndEvent, DragStartEvent, DragCancelEvent, pointerWithin } from "@dnd-kit/core";
 import { PointerSensor, useSensor, useSensors, KeyboardSensor } from "@dnd-kit/core";
@@ -29,12 +29,10 @@ export function InventoryClient() {
     error,
     fetchInventory,
     equipItem,
-    unequipItem,
     unequipItemToSlot,
     moveItemToSlot,
     swapSlots,
     sellItemByRow,
-    trashItem,
     removeItemByRowId,
     splitStack,
     toggleFavorite,
@@ -63,7 +61,6 @@ export function InventoryClient() {
   // Drag-Drop State
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeItem, setActiveItem] = useState<InventoryItem | null>(null);
-  const dragTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor)
@@ -363,188 +360,185 @@ export function InventoryClient() {
     }
   };
 
+  const occupiedSlots = items.filter((it) => !it.is_equipped).length;
+
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="min-h-screen w-full bg-gradient-to-br from-[var(--bg-darker)] via-[var(--bg-card)] to-[var(--bg-darker)] space-y-4 p-4 md:p-6 pb-20 overflow-x-hidden"
+      className="relative min-h-screen w-full overflow-hidden bg-[radial-gradient(circle_at_15%_10%,rgba(56,189,248,0.12),transparent_40%),radial-gradient(circle_at_85%_20%,rgba(249,115,22,0.12),transparent_35%),linear-gradient(145deg,#090d14_0%,#101722_55%,#090d14_100%)] px-4 pb-20 pt-5 md:px-6"
     >
-        {/* Header removed as requested */}
+      <div className="pointer-events-none absolute -left-12 top-24 h-40 w-40 rounded-full bg-sky-500/10 blur-3xl" />
+      <div className="pointer-events-none absolute -right-8 top-8 h-48 w-48 rounded-full bg-orange-400/10 blur-3xl" />
 
-      {/* Error Banner */}
-      <AnimatePresence>
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="p-3 bg-red-600/20 border border-red-500/50 rounded-lg text-red-300 text-sm backdrop-blur-sm"
-          >
-            ⚠️ {error}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <div className="relative z-10 mx-auto w-full max-w-[1400px] space-y-4">
 
-      {/* Main Layout: Equipment (Left) + Character (Right) - Flex for better control */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={pointerWithin}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-        onDragCancel={handleDragCancel}
-      >
-      <div className="flex flex-col lg:flex-row gap-4 w-full items-stretch">
-        {/* Left Column: Equipment Grid */}
-        <motion.div
-          initial={{ x: -30, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ delay: 0.1 }}
-          className="w-full lg:w-80 flex-shrink-0 bg-gradient-to-br from-[var(--bg-card)] to-[var(--bg-darker)] p-4 rounded-xl border border-[var(--border-subtle)] shadow-lg"
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="rounded-xl border border-red-500/50 bg-red-600/20 px-4 py-3 text-sm text-red-200 backdrop-blur-sm"
+            >
+              ⚠️ {error}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <DndContext
+          sensors={sensors}
+          collisionDetection={pointerWithin}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
         >
-          <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3">
-            🛡️ Kuşanılan Eşyalar
-          </p>
-          <EquipmentGrid equippedItems={equippedItems} />
-        </motion.div>
+          <div className="grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
+            <motion.aside
+              initial={{ x: -20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.05 }}
+              className="rounded-3xl border border-white/10 bg-[linear-gradient(155deg,rgba(20,27,38,0.94),rgba(9,13,21,0.94))] p-4 shadow-[0_20px_40px_rgba(0,0,0,0.35)]"
+            >
+              <EquipmentGrid equippedItems={equippedItems} />
+            </motion.aside>
 
-        {/* Right Column: Character Stats / Detail Panel */}
-        <motion.div
-          initial={{ x: 30, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ delay: 0.1 }}
-          className="w-full lg:flex-1 flex-shrink"
-        >
-          <InventoryDetailPanel
-            item={selectedItem}
-            onClose={() => setSelectedItem(null)}
-            onUseClick={handleUseItemClick}
-            onEquipClick={() => {
-              if (selectedItem && selectedItem.equip_slot !== "none" && !selectedItem.is_equipped) {
-                equipItem(selectedItem.row_id, selectedItem.equip_slot);
-              }
-            }}
-            onSellClick={() => setActiveSellDialog(true)}
-            onTrashClick={() => setActiveDeleteDialog(true)}
-            onSplitClick={() => setActiveSplitDialog(true)}
-            onFavoriteToggle={handleToggleFavorite}
-          />
-        </motion.div>
-      </div>
+            <motion.section
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.12 }}
+              className="rounded-3xl border border-white/10 bg-[linear-gradient(160deg,rgba(20,27,38,0.94),rgba(10,14,22,0.94))] p-4 shadow-[0_20px_40px_rgba(0,0,0,0.35)]"
+            >
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--text-muted)]">ENVANTER</p>
+                  <h2 className="text-lg font-black text-white">Eşyalar</h2>
+                </div>
+                <span className="rounded-full border border-white/15 bg-black/20 px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
+                  {occupiedSlots.toString().padStart(2, "0")}/{INVENTORY_CAPACITY}
+                </span>
+              </div>
 
-      {/* Bottom: Inventory Grid (Full Width) */}
-      <motion.div
-        initial={{ y: 30, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.2 }}
-        className="bg-gradient-to-br from-[var(--bg-card)] to-[var(--bg-darker)] p-6 rounded-xl border border-[var(--border-subtle)] shadow-lg"
-      >
-        <div className="mb-4">
-          <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
-            📦 Envanter - {items.length.toString().padStart(2, "0")}/{INVENTORY_CAPACITY} Slot
-          </p>
-        </div>
-
-        {isLoading ? (
-          <div className="flex justify-center items-center h-60">
-            <div className="relative w-12 h-12">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                className="absolute inset-0 border-4 border-transparent border-t-[var(--accent)] rounded-full"
-              />
-            </div>
+              {isLoading ? (
+                <div className="flex h-64 items-center justify-center">
+                  <div className="relative h-14 w-14">
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1.3, repeat: Infinity, ease: "linear" }}
+                      className="absolute inset-0 rounded-full border-4 border-transparent border-t-cyan-400"
+                    />
+                    <motion.div
+                      animate={{ rotate: -360 }}
+                      transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                      className="absolute inset-2 rounded-full border-2 border-transparent border-t-orange-300"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <InventoryGrid
+                    items={items}
+                    selectedItemId={selectedItem?.row_id}
+                    activeItemId={activeId}
+                    onItemClick={handleItemClick}
+                  />
+                  <InventoryDragOverlay activeItem={activeItem} isDragging={!!activeId} />
+                </>
+              )}
+            </motion.section>
           </div>
-        ) : (
-          <>
-            <InventoryGrid
-              items={items}
-              selectedItemId={selectedItem?.row_id}
-              activeItemId={activeId}
-              onItemClick={handleItemClick}
-            />
+        </DndContext>
 
-            <InventoryDragOverlay activeItem={activeItem} isDragging={!!activeId} />
-          </>
-        )}
-      </motion.div>
+        <InventoryDetailPanel
+          item={selectedItem}
+          onClose={() => setSelectedItem(null)}
+          onUseClick={handleUseItemClick}
+          onEquipClick={() => {
+            if (selectedItem && selectedItem.equip_slot !== "none" && !selectedItem.is_equipped) {
+              equipItem(selectedItem.row_id, selectedItem.equip_slot);
+            }
+          }}
+          onSellClick={() => setActiveSellDialog(true)}
+          onTrashClick={() => setActiveDeleteDialog(true)}
+          onSplitClick={() => setActiveSplitDialog(true)}
+          onFavoriteToggle={handleToggleFavorite}
+        />
 
-      {/* Close DnD scope so equipment droppables are included */}
-      </DndContext>
+        {/* Dialogs */}
+        <SellDialog
+          item={activeSellDialog ? selectedItem : null}
+          onConfirm={handleSellItem}
+          onCancel={() => setActiveSellDialog(false)}
+        />
+        <SplitStackDialog
+          item={activeSplitDialog ? selectedItem : null}
+          onConfirm={handleSplitStack}
+          onCancel={() => setActiveSplitDialog(false)}
+        />
 
-      {/* Dialogs */}
-      <SellDialog
-        item={activeSellDialog ? selectedItem : null}
-        onConfirm={handleSellItem}
-        onCancel={() => setActiveSellDialog(false)}
-      />
-      <SplitStackDialog
-        item={activeSplitDialog ? selectedItem : null}
-        onConfirm={handleSplitStack}
-        onCancel={() => setActiveSplitDialog(false)}
-      />
+        <DeleteConfirmDialog
+          item={activeDeleteDialog ? selectedItem : null}
+          onConfirm={handleTrashItem}
+          onCancel={() => setActiveDeleteDialog(false)}
+        />
 
-      <DeleteConfirmDialog
-        item={activeDeleteDialog ? selectedItem : null}
-        onConfirm={handleTrashItem}
-        onCancel={() => setActiveDeleteDialog(false)}
-      />
-
-      {/* Potion Use Confirm Dialog */}
-      {potionConfirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-6 w-full max-w-sm">
-            <h3 className="text-lg font-bold text-[var(--color-warning)] mb-2">İksir Kullan</h3>
-            <p className="text-sm text-[var(--text-secondary)] mb-4">
-              Mevcut Toleransınız: <span className="text-white font-bold">{tolerance}/100</span>
-            </p>
-            {tolerance > 50 && (
-              <p className="text-xs text-[var(--color-error)] bg-[var(--color-error)]/10 p-2 rounded mb-4">
-                ⚠️ Dikkat! Toleransınız yüksek. Overdose (aşırı doz) riski var! İksirin etkisi de düşük olacaktır.
+        {/* Potion Use Confirm Dialog */}
+        {potionConfirmOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+            <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-6 w-full max-w-sm">
+              <h3 className="text-lg font-bold text-[var(--color-warning)] mb-2">İksir Kullan</h3>
+              <p className="text-sm text-[var(--text-secondary)] mb-4">
+                Mevcut Toleransınız: <span className="text-white font-bold">{tolerance}/100</span>
               </p>
-            )}
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setPotionConfirmOpen(false)}
-                className="flex-1 py-2 rounded-lg bg-[var(--bg-input)] hover:bg-[var(--bg-darker)] text-white transition"
-              >
-                İptal
-              </button>
-              <button
-                onClick={confirmUsePotion}
-                className="flex-1 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white transition font-bold"
-              >
-                Kullan
-              </button>
+              {tolerance > 50 && (
+                <p className="text-xs text-[var(--color-error)] bg-[var(--color-error)]/10 p-2 rounded mb-4">
+                  ⚠️ Dikkat! Toleransınız yüksek. Overdose (aşırı doz) riski var! İksirin etkisi de düşük olacaktır.
+                </p>
+              )}
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setPotionConfirmOpen(false)}
+                  className="flex-1 py-2 rounded-lg bg-[var(--bg-input)] hover:bg-[var(--bg-darker)] text-white transition"
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={confirmUsePotion}
+                  className="flex-1 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white transition font-bold"
+                >
+                  Kullan
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Detox Use Confirm Dialog */}
-      {detoxConfirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-6 w-full max-w-sm">
-            <h3 className="text-lg font-bold text-[var(--color-success)] mb-2">Detox Kullan</h3>
-            <p className="text-sm text-[var(--text-secondary)] mb-4">
-              Detox kullanarak tolerans seviyenizi ve bağımlılığınızı düşürebilirsiniz. Kullanmak istediğinize emin misiniz?
-            </p>
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setDetoxConfirmOpen(false)}
-                className="flex-1 py-2 rounded-lg bg-[var(--bg-input)] hover:bg-[var(--bg-darker)] text-white transition"
-              >
-                İptal
-              </button>
-              <button
-                onClick={confirmUseDetox}
-                className="flex-1 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition font-bold"
-              >
-                Detox Yap
-              </button>
+        {/* Detox Use Confirm Dialog */}
+        {detoxConfirmOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+            <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-6 w-full max-w-sm">
+              <h3 className="text-lg font-bold text-[var(--color-success)] mb-2">Detox Kullan</h3>
+              <p className="text-sm text-[var(--text-secondary)] mb-4">
+                Detox kullanarak tolerans seviyenizi ve bağımlılığınızı düşürebilirsiniz. Kullanmak istediğinize emin misiniz?
+              </p>
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setDetoxConfirmOpen(false)}
+                  className="flex-1 py-2 rounded-lg bg-[var(--bg-input)] hover:bg-[var(--bg-darker)] text-white transition"
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={confirmUseDetox}
+                  className="flex-1 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition font-bold"
+                >
+                  Detox Yap
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </motion.div>
   );
 }

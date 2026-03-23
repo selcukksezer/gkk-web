@@ -5,13 +5,28 @@
 import { formatDistanceToNow, differenceInSeconds, differenceInMinutes, format, parseISO } from "date-fns";
 import { tr } from "date-fns/locale";
 
+function normalizeSupabaseTimestamp(dateStr: string): string {
+  const trimmed = dateStr.trim();
+  // Already includes timezone info (Z or +/-HH:MM)
+  if (/[zZ]$|[+-]\d{2}:\d{2}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  // Supabase/Postgres often returns "YYYY-MM-DD HH:mm:ss(.SSS...)" for timestamp without tz.
+  // Treat it as UTC to keep client checks aligned with server-side NOW() comparisons.
+  if (trimmed.includes(" ")) {
+    return `${trimmed.replace(" ", "T")}Z`;
+  }
+  return `${trimmed}Z`;
+}
+
 /**
  * ISO string → Date parse (null-safe)
  */
 export function parseDate(dateStr: string | null | undefined): Date | null {
   if (!dateStr) return null;
   try {
-    return parseISO(dateStr);
+    return parseISO(normalizeSupabaseTimestamp(dateStr));
   } catch {
     return null;
   }

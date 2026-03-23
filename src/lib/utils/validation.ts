@@ -2,6 +2,8 @@
 // Validation Utilities — Kaynak: core/utils/ValidationHelper.gd
 // ============================================================
 
+import { parseDate } from "@/lib/utils/datetime";
+
 /**
  * Envanter kapasitesi kontrolü
  */
@@ -42,7 +44,9 @@ export function meetsLevelRequirement(playerLevel: number, requiredLevel: number
  */
 export function isInHospital(hospitalUntil: string | null): boolean {
   if (!hospitalUntil) return false;
-  return new Date(hospitalUntil) > new Date();
+  const d = parseDate(hospitalUntil);
+  if (!d) return false;
+  return d > new Date();
 }
 
 /**
@@ -50,7 +54,9 @@ export function isInHospital(hospitalUntil: string | null): boolean {
  */
 export function isInPrison(prisonUntil: string | null): boolean {
   if (!prisonUntil) return false;
-  return new Date(prisonUntil) > new Date();
+  const d = parseDate(prisonUntil);
+  if (!d) return false;
+  return d > new Date();
 }
 
 /**

@@ -1,0 +1,505 @@
+{
+  "missing": [
+    {
+      "id": "res_lumber_common",
+      "type": "Meşe Kerestesi"
+    },
+    {
+      "id": "res_lumber_uncommon",
+      "type": "Çam Kerestesi"
+    },
+    {
+      "id": "res_lumber_rare",
+      "type": "Abanoz"
+    },
+    {
+      "id": "res_lumber_epic",
+      "type": "Ejder Ağacı"
+    },
+    {
+      "id": "res_lumber_legendary",
+      "type": "Dünya Ağacı Dalı"
+    },
+    {
+      "id": "res_lumber_mythic",
+      "type": "Yggdrasil Dalı"
+    },
+    {
+      "id": "res_clay_common",
+      "type": "Sıradan Kil"
+    },
+    {
+      "id": "res_clay_uncommon",
+      "type": "Seramik Kili"
+    },
+    {
+      "id": "res_clay_rare",
+      "type": "Altın Kil"
+    },
+    {
+      "id": "res_clay_epic",
+      "type": "Ejder Kili"
+    },
+    {
+      "id": "res_clay_legendary",
+      "type": "Elementel Kil"
+    },
+    {
+      "id": "res_clay_mythic",
+      "type": "İlkel Kil"
+    },
+    {
+      "id": "res_sand_common",
+      "type": "Sıradan Kum"
+    },
+    {
+      "id": "res_sand_uncommon",
+      "type": "Cam Kumu"
+    },
+    {
+      "id": "res_sand_rare",
+      "type": "Kristal Kum"
+    },
+    {
+      "id": "res_sand_epic",
+      "type": "Altın Kum"
+    },
+    {
+      "id": "res_sand_legendary",
+      "type": "Yıldız Kumu"
+    },
+    {
+      "id": "res_sand_mythic",
+      "type": "Zaman Kumu"
+    },
+    {
+      "id": "res_herb_common",
+      "type": "Şifalı Ot"
+    },
+    {
+      "id": "res_herb_uncommon",
+      "type": "Zehirli Ot"
+    },
+    {
+      "id": "res_herb_rare",
+      "type": "Ay Çiçeği"
+    },
+    {
+      "id": "res_herb_epic",
+      "type": "Ejder Kökü"
+    },
+    {
+      "id": "res_herb_legendary",
+      "type": "Ölümsüzlük Otu"
+    },
+    {
+      "id": "res_herb_mythic",
+      "type": "Hayat Özü"
+    },
+    {
+      "id": "res_mushroom_common",
+      "type": "Şifalı Mantar"
+    },
+    {
+      "id": "res_mushroom_uncommon",
+      "type": "Parlayan Mantar"
+    },
+    {
+      "id": "res_mushroom_rare",
+      "type": "Zehirli Mantar"
+    },
+    {
+      "id": "res_mushroom_epic",
+      "type": "Kristal Mantar"
+    },
+    {
+      "id": "res_mushroom_legendary",
+      "type": "Zaman Mantarı"
+    },
+    {
+      "id": "res_mushroom_mythic",
+      "type": "İlkel Mantar"
+    },
+    {
+      "id": "res_rune_common",
+      "type": "Ham Rune Taşı"
+    },
+    {
+      "id": "res_rune_uncommon",
+      "type": "Büyü Kristali"
+    },
+    {
+      "id": "res_rune_rare",
+      "type": "Enerji Parçası"
+    },
+    {
+      "id": "res_rune_epic",
+      "type": "Rune Çekirdeği"
+    },
+    {
+      "id": "res_rune_legendary",
+      "type": "Gizemli Kalp"
+    },
+    {
+      "id": "res_rune_mythic",
+      "type": "Rune Özü"
+    },
+    {
+      "id": "res_holy_common",
+      "type": "Kutsal Su"
+    },
+    {
+      "id": "res_holy_uncommon",
+      "type": "Mana Kristali"
+    },
+    {
+      "id": "res_holy_rare",
+      "type": "Arındırma Suyu"
+    },
+    {
+      "id": "res_holy_epic",
+      "type": "Melek Gözyaşı"
+    },
+    {
+      "id": "res_holy_legendary",
+      "type": "Yaşam Kaynağı"
+    },
+    {
+      "id": "res_holy_mythic",
+      "type": "Ebedi Su"
+    },
+    {
+      "id": "res_shadow_common",
+      "type": "Gölge Tozu"
+    },
+    {
+      "id": "res_shadow_uncommon",
+      "type": "Gölge Kristali"
+    },
+    {
+      "id": "res_shadow_rare",
+      "type": "Karanlık Esansı"
+    },
+    {
+      "id": "res_shadow_epic",
+      "type": "Gölge Kalbi"
+    },
+    {
+      "id": "res_shadow_legendary",
+      "type": "Uçurum Çekirdeği"
+    },
+    {
+      "id": "res_shadow_mythic",
+      "type": "Ebedi Boşluk"
+    },
+    {
+      "id": "res_elemental_common",
+      "type": "Ateş Kıvılcımı"
+    },
+    {
+      "id": "res_elemental_uncommon",
+      "type": "Buz Parçası"
+    },
+    {
+      "id": "res_elemental_rare",
+      "type": "Yıldırım Çekirdeği"
+    },
+    {
+      "id": "res_elemental_epic",
+      "type": "Toprak Kalbi"
+    },
+    {
+      "id": "res_elemental_legendary",
+      "type": "Saf Element"
+    },
+    {
+      "id": "res_elemental_mythic",
+      "type": "Beşinci Element"
+    },
+    {
+      "id": "res_time_common",
+      "type": "Zaman Tozu"
+    },
+    {
+      "id": "res_time_uncommon",
+      "type": "Saat Parçası"
+    },
+    {
+      "id": "res_time_rare",
+      "type": "Zaman Kristali"
+    },
+    {
+      "id": "res_time_epic",
+      "type": "Kronos Esansı"
+    },
+    {
+      "id": "res_time_legendary",
+      "type": "Ebedi An"
+    },
+    {
+      "id": "res_time_mythic",
+      "type": "Sonsuz Zaman"
+    },
+    {
+      "id": "dng_001",
+      "type": "Kurt İni"
+    },
+    {
+      "id": "dng_002",
+      "type": "Örümcek Yuvası"
+    },
+    {
+      "id": "dng_003",
+      "type": "Goblin Kampı"
+    },
+    {
+      "id": "dng_004",
+      "type": "Mantar Mağarası"
+    },
+    {
+      "id": "dng_005",
+      "type": "Orman Tapınağı"
+    },
+    {
+      "id": "dng_006",
+      "type": "Cadı Kulübesi"
+    },
+    {
+      "id": "dng_007",
+      "type": "Ölü Orman"
+    },
+    {
+      "id": "dng_008",
+      "type": "Kurt Kralın İni"
+    },
+    {
+      "id": "dng_009",
+      "type": "Kadim Ağaç"
+    },
+    {
+      "id": "dng_010",
+      "type": "Lanetli Orman Kalbi"
+    },
+    {
+      "id": "dng_011",
+      "type": "Terk Edilmiş Maden"
+    },
+    {
+      "id": "dng_012",
+      "type": "Kristal Odası"
+    },
+    {
+      "id": "dng_013",
+      "type": "Solucan Tüneli"
+    },
+    {
+      "id": "dng_014",
+      "type": "Yeraltı Gölü"
+    },
+    {
+      "id": "dng_015",
+      "type": "Yarasa Mağarası"
+    },
+    {
+      "id": "dng_016",
+      "type": "Troglodyt Şehri"
+    },
+    {
+      "id": "dng_017",
+      "type": "Yeraltı Nehri"
+    },
+    {
+      "id": "dng_018",
+      "type": "Mantar Krallığı"
+    },
+    {
+      "id": "dng_019",
+      "type": "Genç Ejder Yuvası"
+    },
+    {
+      "id": "dng_020",
+      "type": "Uçurumun Kapısı"
+    },
+    {
+      "id": "dng_021",
+      "type": "Akrep Vadisi"
+    },
+    {
+      "id": "dng_022",
+      "type": "Zehirli Vaha"
+    },
+    {
+      "id": "dng_023",
+      "type": "Piramit Harabeleri"
+    },
+    {
+      "id": "dng_024",
+      "type": "Sfenks Bilmecesi"
+    },
+    {
+      "id": "dng_025",
+      "type": "Kum Fırtınası Tapınağı"
+    },
+    {
+      "id": "dng_026",
+      "type": "Mumya Mezarı"
+    },
+    {
+      "id": "dng_027",
+      "type": "Güneş Tapınağı"
+    },
+    {
+      "id": "dng_028",
+      "type": "Cin Sarayı"
+    },
+    {
+      "id": "dng_029",
+      "type": "Firavunun Laneti"
+    },
+    {
+      "id": "dng_030",
+      "type": "Çölün Ateş Kalbi"
+    },
+    {
+      "id": "dng_031",
+      "type": "Keçi Yolu Geçidi"
+    },
+    {
+      "id": "dng_032",
+      "type": "Kartal Yuvası"
+    },
+    {
+      "id": "dng_033",
+      "type": "Dev Kayalıkları"
+    },
+    {
+      "id": "dng_034",
+      "type": "Buz Mağarası"
+    },
+    {
+      "id": "dng_035",
+      "type": "Yıldırım Kulesi"
+    },
+    {
+      "id": "dng_036",
+      "type": "Cüce Madeni"
+    },
+    {
+      "id": "dng_037",
+      "type": "Ejder Kayalığı"
+    },
+    {
+      "id": "dng_038",
+      "type": "Rüzgar Tapınağı"
+    },
+    {
+      "id": "dng_039",
+      "type": "Titanın Kemikleri"
+    },
+    {
+      "id": "dng_040",
+      "type": "Gökyüzü Zirvesi"
+    },
+    {
+      "id": "dng_041",
+      "type": "Lav Nehri"
+    },
+    {
+      "id": "dng_042",
+      "type": "Şeytan Kapısı"
+    },
+    {
+      "id": "dng_043",
+      "type": "Kemik Sarayı"
+    },
+    {
+      "id": "dng_044",
+      "type": "Ruh Hapishanesi"
+    },
+    {
+      "id": "dng_045",
+      "type": "Ölü Büyücünün Lab."
+    },
+    {
+      "id": "dng_046",
+      "type": "Kan Çeşmesi"
+    },
+    {
+      "id": "dng_047",
+      "type": "Gölge Labirenti"
+    },
+    {
+      "id": "dng_048",
+      "type": "Ölüm Tahtı"
+    },
+    {
+      "id": "dng_049",
+      "type": "Cehennem Kalbi"
+    },
+    {
+      "id": "dng_050",
+      "type": "Uçurum Kralı"
+    },
+    {
+      "id": "dng_051",
+      "type": "Bulut Adası"
+    },
+    {
+      "id": "dng_052",
+      "type": "Melek Harabeleri"
+    },
+    {
+      "id": "dng_053",
+      "type": "Yıldız Yolu"
+    },
+    {
+      "id": "dng_054",
+      "type": "Ay Sarayı"
+    },
+    {
+      "id": "dng_055",
+      "type": "Güneş Dökümhanesi"
+    },
+    {
+      "id": "dng_056",
+      "type": "Zaman Yarığı"
+    },
+    {
+      "id": "dng_057",
+      "type": "Boyut Kavşağı"
+    },
+    {
+      "id": "dng_058",
+      "type": "Tanrılar Avlusu"
+    },
+    {
+      "id": "dng_059",
+      "type": "Kader Tahtı"
+    },
+    {
+      "id": "dng_060",
+      "type": "Her Şeyin Sonu"
+    },
+    {
+      "id": "dng_061",
+      "type": "Sonsuz Zaman"
+    },
+    {
+      "id": "dng_062",
+      "type": "İlkel Kaos"
+    },
+    {
+      "id": "dng_063",
+      "type": "Mutlak Hiçlik"
+    },
+    {
+      "id": "dng_064",
+      "type": "Yaratıcı Bağlantı"
+    },
+    {
+      "id": "dng_065",
+      "type": "Son Meydan Okuma"
+    }
+  ],
+  "mismatched": []
+}

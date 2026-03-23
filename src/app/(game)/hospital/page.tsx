@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePlayerStore } from "@/stores/playerStore";
@@ -18,6 +18,7 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Modal } from "@/components/ui/Modal";
 import { api } from "@/lib/api";
 import { isInHospital } from "@/lib/utils/validation";
+import { parseDate } from "@/lib/utils/datetime";
 
 export default function HospitalPage() {
   const router = useRouter();
@@ -35,6 +36,10 @@ export default function HospitalPage() {
   const [released, setReleased] = useState(false);
 
   const inHospital = isInHospital(hospitalUntil);
+
+  useEffect(() => {
+    void fetchProfile();
+  }, [fetchProfile]);
 
   const { secondsLeft, isComplete } = useCountdown({
     targetDate: hospitalUntil,
@@ -63,7 +68,8 @@ export default function HospitalPage() {
   // Release time formatted as datetime
   const releaseTimeFormatted = useMemo(() => {
     if (!hospitalUntil) return "";
-    const d = new Date(hospitalUntil);
+    const d = parseDate(hospitalUntil);
+    if (!d) return "";
     if (isNaN(d.getTime())) return "";
     const pad = (n: number) => String(n).padStart(2, "0");
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;

@@ -44,12 +44,75 @@ interface BattleResult {
   hospitalized: boolean;
 }
 
+const RARITY_THEME: Record<string, { label: string; bg: string; text: string; ring: string }> = {
+  common: { label: "Common", bg: "rgba(148,163,184,.16)", text: "#cbd5e1", ring: "rgba(148,163,184,.35)" },
+  uncommon: { label: "Uncommon", bg: "rgba(34,197,94,.16)", text: "#86efac", ring: "rgba(34,197,94,.35)" },
+  rare: { label: "Rare", bg: "rgba(56,189,248,.16)", text: "#7dd3fc", ring: "rgba(56,189,248,.35)" },
+  epic: { label: "Epic", bg: "rgba(244,114,182,.16)", text: "#f9a8d4", ring: "rgba(244,114,182,.35)" },
+  legendary: { label: "Legendary", bg: "rgba(251,191,36,.18)", text: "#fcd34d", ring: "rgba(251,191,36,.38)" },
+  mythic: { label: "Mythic", bg: "rgba(248,113,113,.2)", text: "#fda4af", ring: "rgba(248,113,113,.42)" },
+};
+
+function inferRarity(itemId: string): keyof typeof RARITY_THEME {
+  const normalized = String(itemId || "").toLowerCase();
+  if (normalized.endsWith("_mythic")) return "mythic";
+  if (normalized.endsWith("_legendary")) return "legendary";
+  if (normalized.endsWith("_epic")) return "epic";
+  if (normalized.endsWith("_rare")) return "rare";
+  if (normalized.endsWith("_uncommon")) return "uncommon";
+  return "common";
+}
+
 // ── Loot item display helper ─────────────────────────────────
 
 function formatItemName(raw: string): string {
   return raw
     .replace(/_/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatDuration(seconds: number): string {
+  if (seconds <= 0) return "0 dk";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h <= 0) return `${m} dk`;
+  return `${h} sa ${m} dk`;
+}
+
+function HospitalFailureFullscreen({ isOpen, duration, onBack }: { isOpen: boolean; duration: number; onBack: () => void }) {
+  if (!isOpen) return null;
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[120]"
+      style={{
+        background:
+          "radial-gradient(120% 100% at 50% 0%, rgba(239,68,68,.38) 0%, rgba(15,23,42,.94) 54%, rgba(2,6,23,.98) 100%)",
+      }}
+    >
+      <div className="relative flex min-h-screen items-center justify-center p-4">
+        <motion.div
+          initial={{ y: 24, opacity: 0, scale: 0.97 }}
+          animate={{ y: 0, opacity: 1, scale: 1 }}
+          transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+          className="w-full max-w-xl rounded-3xl border border-red-300/20 bg-slate-950/80 p-6 text-center"
+        >
+          <p className="text-[11px] uppercase tracking-[0.28em] text-red-200/80">Critical Status</p>
+          <h2 className="mt-2 text-3xl font-black text-red-100 sm:text-4xl">Hastaneye Sevk Edildin</h2>
+          <p className="mt-3 text-sm text-red-100/85">Savaş kaybedildi. Karakter ağır yaralı durumda.</p>
+          <div className="mt-4 rounded-2xl border border-red-300/20 bg-red-950/35 px-4 py-3">
+            <p className="text-xs uppercase tracking-widest text-red-200/70">Tedavi Süresi</p>
+            <p className="mt-1 text-2xl font-black text-red-100">{formatDuration(duration)}</p>
+          </div>
+          <div className="mt-6">
+            <Button variant="secondary" size="sm" fullWidth onClick={onBack}>Hastaneye Git</Button>
+          </div>
+        </motion.div>
+      </div>
+    </motion.div>
+  );
 }
 
 // ── Animated battle spinner ─────────────────────────────────
@@ -188,14 +251,21 @@ function ResultPanel({
                       <p className="text-xs text-[var(--text-secondary)] mb-1">
                         🎒 Eşyalar
                       </p>
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-wrap gap-1.5">
                         {result.rewards.items.map((item, i) => (
-                          <span
-                            key={i}
-                            className="text-xs px-2 py-0.5 rounded-md bg-[var(--bg-elevated)] text-[var(--text-primary)]"
-                          >
-                            {formatItemName(item)}
-                          </span>
+                          <div key={i} className="inline-flex items-center gap-1 rounded-md bg-[var(--bg-elevated)] px-2 py-0.5 text-xs text-[var(--text-primary)]">
+                            <span>{formatItemName(item)}</span>
+                            <span
+                              className="rounded px-1 py-0.5 text-[10px] font-semibold"
+                              style={{
+                                background: RARITY_THEME[inferRarity(item)].bg,
+                                color: RARITY_THEME[inferRarity(item)].text,
+                                boxShadow: `inset 0 0 0 1px ${RARITY_THEME[inferRarity(item)].ring}`,
+                              }}
+                            >
+                              {RARITY_THEME[inferRarity(item)].label}
+                            </span>
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -496,6 +566,13 @@ function DungeonBattleContent() {
 
       {/* Content */}
       <div className="flex-1 p-4 max-w-md mx-auto w-full">
+        <AnimatePresence>
+          <HospitalFailureFullscreen
+            isOpen={Boolean(result?.hospitalized && phase === "failure")}
+            duration={result?.hospitalDuration ?? 0}
+            onBack={handleBack}
+          />
+        </AnimatePresence>
         <AnimatePresence mode="wait">
           {/* Fighting phase */}
           {phase === "fighting" && (

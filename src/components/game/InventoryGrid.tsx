@@ -47,12 +47,12 @@ const SortableSlot = memo(function SortableSlot({
       <div
         ref={setNodeRef as any}
         key={`empty-${index}`}
-        className={`flex justify-center items-center select-none inventory-slot w-18 h-18 transition ${
-          isOver ? "scale-105" : ""
+        className={`flex justify-center items-center select-none transition ${
+          isOver ? "scale-[1.04]" : ""
         }`}
         aria-hidden
       >
-        <EmptySlot index={index} />
+        <EmptySlot index={index} enhancementStyle />
       </div>
     );
   }
@@ -71,7 +71,7 @@ const SortableSlot = memo(function SortableSlot({
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex justify-center items-center select-none -webkit-user-drag-none inventory-slot ${
+      className={`flex justify-center items-center select-none -webkit-user-drag-none ${
         isDragging ? "opacity-50" : "opacity-100"
       }`}
       {...attributes}
@@ -83,6 +83,7 @@ const SortableSlot = memo(function SortableSlot({
         isSelected={isSelected}
         isDragging={isDragging}
         compact={false}
+        enhancementStyle
       />
     </div>
   );
@@ -123,16 +124,11 @@ export function InventoryGrid({
   return (
     <SortableContext items={slotIds} strategy={rectSortingStrategy}>
       <motion.div
-        className="p-4 rounded-2xl backdrop-blur-md bg-[var(--bg-card)]/60 border border-[var(--border-subtle)]"
+        className="p-0"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >
-        <div className="mb-3 flex items-center justify-between">
-          <h4 className="text-sm font-semibold text-[var(--text-muted)]">Envanter</h4>
-          <div className="text-xs text-[var(--text-muted)]">Oyun Stili - 5×4</div>
-        </div>
-
-        <div className="grid grid-cols-5 gap-3 p-2">
+        <div className="grid grid-cols-5 gap-1.5 justify-start">
           {slots.map((it, idx) => (
             <MemoizedSortableSlot
               key={it?.row_id || `empty-${idx}`}

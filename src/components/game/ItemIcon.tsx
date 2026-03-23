@@ -25,6 +25,19 @@ const TYPE_EMOJI: Record<string, string> = {
  */
 const _failedUrls = new Set<string>();
 
+const PREFIX_FOLDER_MAP: Record<string, string> = {
+  wpn: "weapons",
+  arm: "armor",
+  acc: "accessories",
+  pot: "potions",
+  rune: "runes",
+  res: "materials",
+  scroll: "materials",
+  key: "materials",
+  quest: "materials",
+  recipe: "materials",
+};
+
 function inferItemType(itemType?: string | null, itemId?: string | null): string {
   if (itemType && itemType.trim().length > 0) return itemType.toLowerCase();
   if (!itemId) return "";
@@ -37,12 +50,50 @@ function resolveIconSrc(icon?: string | null): string | null {
   if (!icon) return null;
   const value = icon.trim();
   if (!value) return null;
-  // pure emoji / single word without path → not an image src
+  // pure emoji / single short token without a dot or slash → not an image src
   if (!value.includes("/") && !value.includes(".")) return null;
-  if (value.startsWith("res://")) {
-    return value.replace(/^res:\/\//, "/");
-  }
-  return value;
+
+  // support internal resource scheme
+  if (value.startsWith("res://")) return value.replace(/^res:\/\//, "/");
+
+  // Normalize common variants so requests target the public root:
+  // - public/assets/...  -> /assets/...
+  // - /public/assets/... -> /assets/...
+  // - assets/...         -> /assets/...
+  let v = value;
+  if (v.startsWith("/public/")) v = v.replace(/^\/public\//, "");
+  if (v.startsWith("public/")) v = v.replace(/^public\//, "");
+  if (!v.startsWith("/")) v = "/" + v;
+  return v;
+}
+
+function itemTokenToIconPath(token?: string | null): string | null {
+  if (!token) return null;
+  const value = token.trim().toLowerCase();
+  if (!value) return null;
+  // Accept ids like wpn_dagger_common, res_mining_common, scroll_upgrade_low.
+  if (!/^[a-z][a-z0-9]*_[a-z0-9_]+$/.test(value)) return null;
+  const prefix = value.split("_")[0];
+  const folder = PREFIX_FOLDER_MAP[prefix];
+  if (!folder) return null;
+  return `/assets/icons/${folder}/${value}.png`;
+}
+
+function isShortEmojiLike(text?: string | null): boolean {
+  if (!text) return false;
+  const value = text.trim();
+  if (!value) return false;
+  return !value.includes("/") && !value.includes(".") && value.length <= 3;
+}
+
+function buildIconCandidates(icon?: string | null, itemId?: string | null): string[] {
+  const candidates = [
+    resolveIconSrc(icon),
+    itemTokenToIconPath(icon),
+    itemTokenToIconPath(itemId),
+  ].filter((v): v is string => Boolean(v));
+
+  return Array.from(new Set(candidates));
 }
 
 interface ItemIconProps {
@@ -57,15 +108,17 @@ interface ItemIconProps {
 export function ItemIcon({ icon, itemType, itemId, className = "text-xl", alt = "item icon", enhancementLevel = null }: ItemIconProps) {
   const inferredType = useMemo(() => inferItemType(itemType, itemId), [itemType, itemId]);
   const fallbackEmoji = TYPE_EMOJI[inferredType] ?? "📦";
-  const src = useMemo(() => resolveIconSrc(icon), [icon]);
+  const srcCandidates = useMemo(() => buildIconCandidates(icon, itemId), [icon, itemId]);
+  const [failedVersion, setFailedVersion] = useState(0);
 
-  // If src is already known to fail, skip img entirely — no network request, no re-render
-  const alreadyFailed = src ? _failedUrls.has(src) : false;
-  const [failed, setFailed] = useState(alreadyFailed);
+  const src = useMemo(
+    () => srcCandidates.find((url) => !_failedUrls.has(url)) ?? null,
+    [srcCandidates, failedVersion]
+  );
 
   useEffect(() => {
-    setFailed(src ? _failedUrls.has(src) : false);
-  }, [src]);
+    setFailedVersion((v) => v + 1);
+  }, [icon, itemId]);
 
   // Resolve enhancement level: prefer explicit prop, otherwise try inventory store
   const resolvedEnhancement = useMemo(() => {
@@ -84,8 +137,8 @@ export function ItemIcon({ icon, itemType, itemId, className = "text-xl", alt = 
   }, [itemId, enhancementLevel]);
 
   const content = (() => {
-    // Only render <img> if src exists AND hasn't failed before
-    if (src && !failed) {
+    // Render first non-failed candidate URL.
+    if (src) {
       return (
         <img
           src={src}
@@ -94,14 +147,14 @@ export function ItemIcon({ icon, itemType, itemId, className = "text-xl", alt = 
           draggable={false}
           onError={() => {
             _failedUrls.add(src);
-            setFailed(true);
+            setFailedVersion((v) => v + 1);
           }}
         />
       );
     }
 
-    // If icon prop is a raw emoji / text (not a file path), show it directly
-    if (icon && !src) {
+    // If icon prop is a raw emoji, show it directly.
+    if (isShortEmojiLike(icon)) {
       return <span className={className}>{icon}</span>;
     }
 

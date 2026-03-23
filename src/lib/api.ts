@@ -242,8 +242,19 @@ export const api = {
       }
 
       if (candidate && typeof candidate === "object" && Object.prototype.hasOwnProperty.call(candidate, "success")) {
-        if (candidate.success === false) {
-          return { success: false, error: candidate.error || candidate.message || "RPC error", data: undefined };
+        const candidateError =
+          typeof candidate.error === "string" && candidate.error.trim().length > 0
+            ? candidate.error.trim()
+            : typeof candidate.message === "string" && candidate.message.trim().length > 0
+              ? candidate.message.trim()
+              : undefined;
+
+        // Some RPCs use success=false for a legitimate business outcome
+        // (for example a lost dungeon run) and still return a valid payload.
+        // Only surface an API-level failure when the payload explicitly carries
+        // an error/message that should short-circuit the caller.
+        if (candidate.success === false && candidateError) {
+          return { success: false, error: candidateError, data: undefined };
         }
       }
     } catch (e) {

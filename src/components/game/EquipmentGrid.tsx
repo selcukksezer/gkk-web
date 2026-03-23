@@ -38,10 +38,13 @@ export function EquipmentGrid({
 }: EquipmentGridProps) {
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-bold text-white">Kuşanılmış Ekipmanlar</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-black uppercase tracking-[0.16em] text-[var(--text-muted)]">Ekipman</h3>
+        <span className="text-[10px] text-[var(--text-muted)]">8 Slot</span>
+      </div>
 
       {/* Equipment slots grid */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-4 gap-2.5 rounded-2xl border border-white/10 bg-black/20 p-3">
         {equipmentSlots.map((slot) => (
           <EquipmentSlot
             key={slot}
@@ -64,16 +67,16 @@ function TrashSlot({ isOverProp }: { isOverProp?: boolean }) {
     <motion.div
       ref={setNodeRef as any}
       className={cn(
-        "h-20 rounded-lg border-2 border-dashed flex items-center justify-center gap-3 cursor-pointer transition",
+        "h-16 rounded-xl border border-dashed flex items-center justify-center gap-2 cursor-pointer transition",
         isOver || isOverProp
           ? "border-red-500 bg-red-500/20 shadow-lg shadow-red-500/30"
-          : "border-red-500/50 bg-red-500/5 hover:bg-red-500/10"
+          : "border-red-500/50 bg-red-500/10 hover:bg-red-500/15"
       )}
     >
-      <span className="text-3xl">🗑️</span>
+      <span className="text-2xl">🗑️</span>
       <div>
-        <p className="text-sm font-bold text-red-500">Çöp</p>
-        <p className="text-xs text-red-400">Silmek için bırak</p>
+        <p className="text-xs font-bold uppercase tracking-wider text-red-300">Çöp Alanı</p>
+        <p className="text-[10px] text-red-400">Silmek için buraya bırak</p>
       </div>
     </motion.div>
   );

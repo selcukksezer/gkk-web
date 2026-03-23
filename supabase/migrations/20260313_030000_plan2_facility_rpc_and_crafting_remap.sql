@@ -88,17 +88,33 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'Not authenticated');
   END IF;
 
-  UPDATE public.inventory inv1
-  SET slot_position = COALESCE((SELECT MIN(unused_slot) FROM (
-    SELECT generate_series(0, 19) AS unused_slot
-    EXCEPT
-    SELECT DISTINCT slot_position FROM public.inventory inv2
-    WHERE inv2.user_id = v_user_id AND inv2.is_equipped = false AND inv2.slot_position IS NOT NULL
-  ) available LIMIT 1), 0),
+  -- Assign unique free slots to unassigned inventory rows (avoids duplicate slot updates).
+  WITH free_slots AS (
+    SELECT s.slot,
+           row_number() OVER (ORDER BY s.slot) AS rn
+    FROM generate_series(0, 19) AS s(slot)
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM public.inventory inv2
+      WHERE inv2.user_id = v_user_id
+        AND inv2.is_equipped = false
+        AND inv2.slot_position = s.slot
+    )
+  ),
+  unassigned_rows AS (
+    SELECT inv1.row_id,
+           row_number() OVER (ORDER BY inv1.created_at, inv1.row_id) AS rn
+    FROM public.inventory inv1
+    WHERE inv1.user_id = v_user_id
+      AND inv1.is_equipped = false
+      AND inv1.slot_position IS NULL
+  )
+  UPDATE public.inventory inv
+  SET slot_position = fs.slot,
       updated_at = now()
-  WHERE inv1.user_id = v_user_id
-    AND inv1.is_equipped = false
-    AND inv1.slot_position IS NULL;
+  FROM unassigned_rows ur
+  JOIN free_slots fs ON fs.rn = ur.rn
+  WHERE inv.row_id = ur.row_id;
 
   SELECT jsonb_agg(
     jsonb_build_object(
