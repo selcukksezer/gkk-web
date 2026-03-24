@@ -51,12 +51,24 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[var(--bg-darker)]">
+    <div className="relative min-h-screen flex flex-col items-center justify-center p-6 overflow-hidden bg-black">
+      {/* Background Video */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="absolute inset-0 w-full h-full object-cover z-0 opacity-60 pointer-events-none"
+      >
+        <source src="/assets/login/login.mp4" type="video/mp4" />
+      </video>
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/80 z-0 pointer-events-none" />
+
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full max-w-sm"
+        className="w-full max-w-sm relative z-10 p-6 rounded-2xl bg-black/40 backdrop-blur-sm border border-white/10 shadow-2xl"
       >
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-[var(--accent-light)] mb-2">

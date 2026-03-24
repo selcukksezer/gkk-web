@@ -49,6 +49,14 @@ export const APIEndpoints = {
   CHAT_SEND: `${API_VERSION}/chat/send`,
   CHAT_BLOCK: `${API_VERSION}/chat/block`,
   CHAT_REPORT: `${API_VERSION}/chat/report`,
+  CHAT_MOD_STATE: `${API_VERSION}/chat/mod/state`,
+  CHAT_MOD_DELETE: `${API_VERSION}/chat/mod/delete`,
+  CHAT_MOD_BAN: `${API_VERSION}/chat/mod/ban`,
+  CHAT_MOD_FILTERS: `${API_VERSION}/chat/mod/filters`,
+  CHAT_MOD_ASSIGN: `${API_VERSION}/chat/mod/assign`,
+  CHAT_DM_CONVERSATIONS: `${API_VERSION}/chat/dm/conversations`,
+  CHAT_DM_SEARCH: `${API_VERSION}/chat/dm/search`,
+  CHAT_DM_READ: `${API_VERSION}/chat/dm/read`,
 
   // Season
   SEASON_CURRENT: `${API_VERSION}/season/current`,

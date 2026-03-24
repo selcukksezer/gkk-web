@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { TopBar } from "@/components/layout/TopBar";
 import { BottomNav } from "@/components/layout/BottomNav";
+import { FloatingChat } from "@/components/layout/FloatingChat";
 import { ToastContainer } from "@/components/ui/ToastContainer";
 import { LoadingScreen } from "@/components/ui/Spinner";
 import { useAuthStore } from "@/stores/authStore";
@@ -85,6 +86,7 @@ export default function GameLayout({
       <main className={isOnboardingRoute ? "flex-1 overflow-y-auto animate-page-enter" : "flex-1 overflow-y-auto pb-20 animate-page-enter"}>
         {children}
       </main>
+      {!isOnboardingRoute && <FloatingChat />}
       {!isOnboardingRoute && <BottomNav />}
       <ToastContainer />
     </div>
