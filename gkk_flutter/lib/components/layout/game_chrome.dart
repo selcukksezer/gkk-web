@@ -148,14 +148,17 @@ class GameDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     return Drawer(
       child: SafeArea(
-        child: ListView(
-          padding: EdgeInsets.zero,
+        child: Column(
           children: <Widget>[
-            ListTile(
-              leading: const Icon(Icons.home_rounded),
-              title: const Text('Ana Sayfa'),
-              onTap: () => _go(context, AppRoutes.home),
-            ),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: <Widget>[
+                  ListTile(
+                    leading: const Icon(Icons.home_rounded),
+                    title: const Text('Ana Sayfa'),
+                    onTap: () => _go(context, AppRoutes.home),
+                  ),
             _sectionHeader('KARAKTER'),
             ListTile(
               leading: const Icon(Icons.person_outline_rounded),
@@ -293,20 +296,22 @@ class GameDrawer extends StatelessWidget {
               title: const Text('Ayarlar'),
               onTap: () => _go(context, AppRoutes.settings),
             ),
-            const Divider(),
-            if (onLogout != null)
-              ListTile(
-                leading: const Icon(Icons.logout_rounded),
-                title: const Text('Çıkış Yap'),
-                onTap: () async {
-                  Navigator.of(context).pop();
-                  await onLogout!.call();
-                },
-              ),
           ],
         ),
       ),
-    );
+    ),
+    const Divider(height: 1),
+    if (onLogout != null)
+      ListTile(
+        leading: const Icon(Icons.logout_rounded),
+        title: const Text('Çıkış Yap'),
+        onTap: () async {
+          Navigator.of(context).pop();
+          await onLogout!.call();
+        },
+      ),
+  ],
+),
   }
 
   Widget _sectionHeader(String title) {
