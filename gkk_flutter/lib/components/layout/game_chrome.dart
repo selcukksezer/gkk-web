@@ -148,29 +148,152 @@ class GameDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     return Drawer(
       child: SafeArea(
-        child: Column(
+        child: ListView(
+          padding: EdgeInsets.zero,
           children: <Widget>[
+            ListTile(
+              leading: const Icon(Icons.home_rounded),
+              title: const Text('Ana Sayfa'),
+              onTap: () => _go(context, AppRoutes.home),
+            ),
+            _sectionHeader('KARAKTER'),
             ListTile(
               leading: const Icon(Icons.person_outline_rounded),
               title: const Text('Karakter'),
               onTap: () => _go(context, AppRoutes.character),
             ),
             ListTile(
+              leading: const Icon(Icons.emoji_events_outlined),
+              title: const Text('Başarımlar'),
+              onTap: () => _go(context, AppRoutes.achievements),
+            ),
+            ListTile(
+              leading: const Icon(Icons.stars_outlined),
+              title: const Text('İtibar'),
+              onTap: () => _go(context, AppRoutes.reputation),
+            ),
+            _sectionHeader('SAVAŞ'),
+            ListTile(
               leading: const Icon(Icons.shield_moon_outlined),
               title: const Text('Zindan'),
               onTap: () => _go(context, AppRoutes.dungeon),
             ),
+            ListTile(
+              leading: const Icon(Icons.sports_kabaddi_rounded),
+              title: const Text('PvP'),
+              onTap: () => _go(context, AppRoutes.pvp),
+            ),
+            ListTile(
+              leading: const Icon(Icons.leaderboard_rounded),
+              title: const Text('Sıralama'),
+              onTap: () => _go(context, AppRoutes.leaderboard),
+            ),
+            ListTile(
+              leading: const Icon(Icons.ac_unit_rounded),
+              title: const Text('Mevsim'),
+              onTap: () => _go(context, AppRoutes.season),
+            ),
+            _sectionHeader('LONCA'),
+            ListTile(
+              leading: const Icon(Icons.groups_outlined),
+              title: const Text('Lonca'),
+              onTap: () => _go(context, AppRoutes.guild),
+            ),
+            ListTile(
+              leading: const Icon(Icons.flag_outlined),
+              title: const Text('Lonca Savaşı'),
+              onTap: () => _go(context, AppRoutes.guildWar),
+            ),
+            ListTile(
+              leading: const Icon(Icons.account_balance_outlined),
+              title: const Text('Anıt'),
+              onTap: () => _go(context, AppRoutes.guildMonument),
+            ),
+            _sectionHeader('EKONOMİ'),
             ListTile(
               leading: const Icon(Icons.storefront_outlined),
               title: const Text('Pazar'),
               onTap: () => _go(context, AppRoutes.market),
             ),
             ListTile(
+              leading: const Icon(Icons.shopping_bag_outlined),
+              title: const Text('Mağaza'),
+              onTap: () => _go(context, AppRoutes.shop),
+            ),
+            ListTile(
+              leading: const Icon(Icons.account_balance_wallet_outlined),
+              title: const Text('Banka'),
+              onTap: () => _go(context, AppRoutes.bank),
+            ),
+            ListTile(
+              leading: const Icon(Icons.swap_horiz_rounded),
+              title: const Text('Ticaret'),
+              onTap: () => _go(context, AppRoutes.trade),
+            ),
+            _sectionHeader('ÜRETİM'),
+            ListTile(
+              leading: const Icon(Icons.handyman_outlined),
+              title: const Text('El Sanatları'),
+              onTap: () => _go(context, AppRoutes.crafting),
+            ),
+            ListTile(
+              leading: const Icon(Icons.auto_fix_high_outlined),
+              title: const Text('Güçlendirme'),
+              onTap: () => _go(context, AppRoutes.enhancement),
+            ),
+            ListTile(
+              leading: const Icon(Icons.construction_outlined),
+              title: const Text('İnşaat'),
+              onTap: () => _go(context, AppRoutes.building),
+            ),
+            ListTile(
               leading: const Icon(Icons.factory_outlined),
               title: const Text('Tesisler'),
               onTap: () => _go(context, AppRoutes.facilities),
             ),
-            const Spacer(),
+            _sectionHeader('DÜNYA'),
+            ListTile(
+              leading: const Icon(Icons.map_outlined),
+              title: const Text('Harita'),
+              onTap: () => _go(context, AppRoutes.map),
+            ),
+            ListTile(
+              leading: const Icon(Icons.location_city_outlined),
+              title: const Text('Mekanlar'),
+              onTap: () => _go(context, AppRoutes.mekans),
+            ),
+            ListTile(
+              leading: const Icon(Icons.event_outlined),
+              title: const Text('Etkinlikler'),
+              onTap: () => _go(context, AppRoutes.events),
+            ),
+            ListTile(
+              leading: const Icon(Icons.task_alt_rounded),
+              title: const Text('Görevler'),
+              onTap: () => _go(context, AppRoutes.quests),
+            ),
+            _sectionHeader('DİĞER'),
+            ListTile(
+              leading: const Icon(Icons.local_hospital_outlined),
+              title: const Text('Hastane'),
+              onTap: () => _go(context, AppRoutes.hospital),
+            ),
+            ListTile(
+              leading: const Icon(Icons.gavel_rounded),
+              title: const Text('Hapishane'),
+              onTap: () => _go(context, AppRoutes.prison),
+            ),
+            ListTile(
+              leading: const Icon(Icons.chat_outlined),
+              title: const Text('Sohbet'),
+              onTap: () => _go(context, AppRoutes.chat),
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings_outlined),
+              title: const Text('Ayarlar'),
+              onTap: () => _go(context, AppRoutes.settings),
+            ),
+            const Divider(),
             if (onLogout != null)
               ListTile(
                 leading: const Icon(Icons.logout_rounded),
@@ -186,9 +309,15 @@ class GameDrawer extends StatelessWidget {
     );
   }
 
-  void _comingSoon(BuildContext context, String text) {
-    Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  Widget _sectionHeader(String title) {
+    return ListTile(
+      dense: true,
+      enabled: false,
+      title: Text(
+        title,
+        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: Colors.white38),
+      ),
+    );
   }
 
   void _go(BuildContext context, String route) {
