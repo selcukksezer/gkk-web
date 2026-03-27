@@ -227,12 +227,12 @@ final GoRouter appRouter = GoRouter(
       builder: (BuildContext context, GoRouterState state) => const MapScreen(),
     ),
     GoRoute(
-      path: AppRoutes.mekanCreate,
-      builder: (BuildContext context, GoRouterState state) => const MekanCreateScreen(),
-    ),
-    GoRoute(
       path: AppRoutes.mekans,
       builder: (BuildContext context, GoRouterState state) => const MekansScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.mekanCreate,
+      builder: (BuildContext context, GoRouterState state) => const MekanCreateScreen(),
     ),
     GoRoute(
       path: '${AppRoutes.mekans}/:id',
