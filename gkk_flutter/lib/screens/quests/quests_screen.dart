@@ -109,6 +109,39 @@ class _QuestsScreenState extends ConsumerState<QuestsScreen> {
     }
   }
 
+  Future<void> _abandonQuest(QuestData quest) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A2030),
+        title: const Text('Görevi İptal Et'),
+        content: const Text('Bu görevi iptal etmek istediğinize emin misiniz?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Vazgeç')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            child: const Text('İptal Et'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    setState(() => _actionLoading = true);
+    try {
+      await SupabaseService.client.rpc('abandon_quest', params: {'p_quest_id': quest.questId});
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Görev iptal edildi.'), backgroundColor: Colors.green));
+        setState(() => _selectedQuest = null);
+        await _loadQuests();
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hata: $e'), backgroundColor: Colors.red));
+    } finally {
+      if (mounted) setState(() => _actionLoading = false);
+    }
+  }
+
   List<QuestData> get _filteredQuests {
     switch (_activeFilter) {
       case _QuestFilter.all: return _quests;
@@ -186,6 +219,12 @@ class _QuestsScreenState extends ConsumerState<QuestsScreen> {
                     onPressed: _actionLoading ? null : () { Navigator.pop(ctx); _startQuest(quest); },
                     style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1)),
                     child: _actionLoading ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Başlat'),
+                  )),
+                if (quest.status == QuestStatus.active)
+                  Expanded(child: ElevatedButton(
+                    onPressed: _actionLoading ? null : () { Navigator.pop(ctx); _abandonQuest(quest); },
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                    child: _actionLoading ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('İptal Et'),
                   )),
                 if (quest.status == QuestStatus.completed)
                   Expanded(child: ElevatedButton(
