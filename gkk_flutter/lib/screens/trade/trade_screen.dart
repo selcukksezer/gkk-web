@@ -23,34 +23,9 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
   List<Map<String, dynamic>> _myOffer = [];
   bool _processing = false;
   List<Map<String, dynamic>> _history = [];
+  bool _historyLoading = false;
+  String? _historyError;
   final TextEditingController _searchController = TextEditingController();
-
-  static final List<Map<String, dynamic>> _mockHistory = [
-    {
-      'id': 'th1',
-      'date': '2025-01-15',
-      'partner': 'Alkan',
-      'my_items': ['Demir Külçe x5', 'Bakır Cevheri x10'],
-      'their_items': ['Şifalı Bitki x20'],
-      'status': 'completed',
-    },
-    {
-      'id': 'th2',
-      'date': '2025-01-14',
-      'partner': 'Zeren',
-      'my_items': ['Ham Deri x15'],
-      'their_items': ['Çelik Levha x3'],
-      'status': 'completed',
-    },
-    {
-      'id': 'th3',
-      'date': '2025-01-12',
-      'partner': 'Selin',
-      'my_items': ['Meşe Kerestesi x8'],
-      'their_items': [],
-      'status': 'cancelled',
-    },
-  ];
 
   static const Map<String, String> _statusLabels = {
     'idle': '',
@@ -64,11 +39,39 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
   @override
   void initState() {
     super.initState();
-    _history =
-        List<Map<String, dynamic>>.from(_mockHistory.map((e) => Map<String, dynamic>.from(e)));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(inventoryProvider.notifier).loadInventory();
+      _loadHistory();
     });
+  }
+
+  Future<void> _loadHistory() async {
+    setState(() {
+      _historyLoading = true;
+      _historyError = null;
+    });
+    try {
+      final raw = await SupabaseService.client.rpc('get_trade_history');
+      if (!mounted) return;
+      final List<Map<String, dynamic>> loaded = [];
+      if (raw is List) {
+        for (final entry in raw) {
+          if (entry is Map) {
+            loaded.add(Map<String, dynamic>.from(entry));
+          }
+        }
+      }
+      setState(() {
+        _history = loaded;
+        _historyLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _historyLoading = false;
+        _historyError = 'Geçmiş yüklenemedi: $e';
+      });
+    }
   }
 
   @override
@@ -101,30 +104,23 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
       setState(() {
         _sessionId = sessionId.isNotEmpty ? sessionId : null;
         _partnerName = partnerName;
-        _tradeStatus = 'pending';
+        _tradeStatus = sessionId.isNotEmpty ? 'active' : 'pending';
         _processing = false;
       });
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('$target ile ticaret başlatıldı')));
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted && _tradeStatus == 'pending') setState(() => _tradeStatus = 'active');
-      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _partnerName = target;
-        _tradeStatus = 'pending';
+        _tradeStatus = 'idle';
         _processing = false;
       });
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('$target ile ticaret başlatıldı')));
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted && _tradeStatus == 'pending') setState(() => _tradeStatus = 'active');
-      });
+          .showSnackBar(SnackBar(content: Text('Ticaret başlatılamadı: $e')));
     }
   }
 
-  void _addItemToOffer(InventoryItem item) {
+  Future<void> _addItemToOffer(InventoryItem item) async {
     if (_myOffer.any((o) => o['row_id'] == item.rowId)) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Bu eşya zaten teklifte')));
@@ -138,8 +134,15 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
           'rarity': item.rarity.name,
         }));
     if (_sessionId != null) {
-      SupabaseService.client.rpc('add_trade_item',
-          params: {'session_id': _sessionId, 'item_row_id': item.rowId}).catchError((_) {});
+      try {
+        await SupabaseService.client.rpc('add_trade_item',
+            params: {'session_id': _sessionId, 'item_row_id': item.rowId});
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Eşya sunucuya eklenemedi: $e')));
+        }
+      }
     }
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text('${item.name} teklife eklendi')));
@@ -164,19 +167,23 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
         await SupabaseService.client
             .rpc('confirm_trade', params: {'p_session_id': _sessionId});
       }
-    } catch (_) {
-      // ignore
+      if (!mounted) return;
+      _addToHistory('completed');
+      setState(() {
+        _tradeStatus = 'done';
+        _processing = false;
+      });
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('🎉 Ticaret tamamlandı!')));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _tradeStatus = 'active';
+        _processing = false;
+      });
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Ticaret onaylanamadı: $e')));
     }
-    if (!mounted) return;
-    setState(() => _processing = false);
-    Future.delayed(const Duration(milliseconds: 1500), () {
-      if (mounted) {
-        _addToHistory('completed');
-        setState(() => _tradeStatus = 'done');
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('🎉 Ticaret tamamlandı!')));
-      }
-    });
   }
 
   Future<void> _cancelTrade() async {
@@ -185,8 +192,10 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
       try {
         await SupabaseService.client
             .rpc('cancel_trade', params: {'p_session_id': _sessionId});
-      } catch (_) {
-        // ignore
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('İptal sunucuya iletilemedi: $e')));
       }
     }
     if (!mounted) return;
@@ -200,6 +209,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
   }
 
   void _addToHistory(String status) {
+    // Optimistically add the entry locally, then refresh from server
     setState(() => _history.insert(0, {
           'id': 'th${DateTime.now().millisecondsSinceEpoch}',
           'date': DateTime.now().toIso8601String().substring(0, 10),
@@ -208,6 +218,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
           'their_items': <String>[],
           'status': status,
         }));
+    _loadHistory();
   }
 
   void _resetTrade() {
@@ -569,13 +580,23 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
               const SizedBox(height: 6),
               Container(
                 constraints: const BoxConstraints(minHeight: 80),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
                 ),
-                child: const Center(
-                    child: Text('Bekleniyor...',
-                        style: TextStyle(color: Colors.white38, fontSize: 11))),
+                child: const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.sync_disabled, color: Colors.white24, size: 20),
+                    SizedBox(height: 4),
+                    Text(
+                      'Gerçek zamanlı senkronizasyon henüz desteklenmiyor.\nKarşı tarafın teklifi burada görünecek.',
+                      style: TextStyle(color: Colors.white38, fontSize: 10),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
               ),
             ]),
           ),
@@ -672,6 +693,31 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
   }
 
   Widget _buildHistoryTab() {
+    if (_historyLoading) {
+      return const Padding(
+        padding: EdgeInsets.all(32),
+        child: Center(child: CircularProgressIndicator(color: Color(0xFF3B82F6))),
+      );
+    }
+    if (_historyError != null) {
+      return Padding(
+        padding: const EdgeInsets.all(32),
+        child: Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(_historyError!,
+                style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: _loadHistory,
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF3B82F6), foregroundColor: Colors.white),
+              child: const Text('Tekrar Dene'),
+            ),
+          ]),
+        ),
+      );
+    }
     if (_history.isEmpty) {
       return const Padding(
         padding: EdgeInsets.all(32),
