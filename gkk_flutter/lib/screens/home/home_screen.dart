@@ -331,9 +331,19 @@ class _HomeDashboardState extends ConsumerState<_HomeDashboard> {
                             '+${item.energyRestore} enerji • +${item.toleranceIncrease} tolerans • x${item.quantity}',
                           ),
                           trailing: FilledButton(
-                            onPressed: () {
+                            onPressed: () async {
                               Navigator.of(context).pop();
-                              _showComingSoon('İksir kullanma akışının mobil RPC bağlantısı bir sonraki adımda.');
+                              final bool ok = await ref
+                                  .read(inventoryProvider.notifier)
+                                  .useItem(item: item);
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(ok ? '${item.name} kullanıldı!' : '${item.name} kullanılamadı.'),
+                                  ),
+                                );
+                                if (ok) widget.onRefresh();
+                              }
                             },
                             child: const Text('Kullan'),
                           ),
@@ -812,7 +822,7 @@ class _QuestSection extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: <Widget>[
             Text('🎯 Aktif Görevler', style: Theme.of(context).textTheme.titleMedium),
-            TextButton(onPressed: () {}, child: const Text('Tümünü Gör')),
+            TextButton(onPressed: () => context.push(AppRoutes.quests), child: const Text('Tümünü Gör')),
           ],
         ),
         const SizedBox(height: 6),

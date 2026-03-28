@@ -282,7 +282,7 @@ class _BankScreenState extends ConsumerState<BankScreen> {
     if (confirmed != true) return;
     setState(() => _expanding = true);
     try {
-      await SupabaseService.client.rpc('expand_bank', params: {'p_gem_cost': gemCost});
+      await SupabaseService.client.rpc('expand_bank_slots', params: {'p_num_expansions': 1});
       await _loadData();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Banka slotları genişletildi!')));
