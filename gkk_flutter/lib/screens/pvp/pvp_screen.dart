@@ -261,7 +261,20 @@ class _PvpScreenState extends ConsumerState<PvpScreen> {
                         arena: arena,
                         mekanTypeLabel:
                             _mekanTypeLabel(arena['mekan_type']?.toString() ?? ''),
-                        onTap: () => context.go('/mekans/${arena['id']}/arena'),
+                        onTap: () {
+                          if (isHospitalized || isImprisoned) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(isHospitalized
+                                    ? '🏥 Hastanedeyken arenaya giremezsiniz!'
+                                    : '👮 Cezaevindeyken arenaya giremezsiniz!'),
+                                backgroundColor: Colors.redAccent,
+                              ),
+                            );
+                            return;
+                          }
+                          context.go('/mekans/${arena['id']}/arena');
+                        },
                       ),
                     )),
               const SizedBox(height: 20),

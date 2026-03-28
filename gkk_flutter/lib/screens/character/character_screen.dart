@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../components/layout/game_chrome.dart';
 import '../../core/services/supabase_service.dart';
+import '../../models/inventory_model.dart';
 import '../../models/player_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/inventory_provider.dart';
 import '../../providers/player_provider.dart';
 import '../../routing/app_router.dart';
 
@@ -109,6 +111,7 @@ class _CharacterScreenState extends ConsumerState<CharacterScreen> with SingleTi
     _tabCtrl = TabController(length: 3, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(playerProvider.notifier).loadProfile();
+      ref.read(inventoryProvider.notifier).loadInventory();
     });
   }
 
@@ -257,6 +260,8 @@ class _CharacterScreenState extends ConsumerState<CharacterScreen> with SingleTi
                     _buildCombatTable(baseHp, 0, lvlHp, finalHp, baseAtk, 0, lvlAtk, finalAtk, baseDef, 0, lvlDef, finalDef, baseSpeed, finalSpeed, baseLuck, finalLuck, critChance, critDamage, evasion),
                     const SizedBox(height: 10),
                     if (charClass != null) ...[_buildClassBonuses(charClass), const SizedBox(height: 10)],
+                    _buildToleranceSection(tolerance, addictionLevel),
+                    const SizedBox(height: 10),
                     _buildEquipmentSlots(context),
                     const SizedBox(height: 10),
                     _buildResources(gold, gems, energy, maxEnergy, tolerance, suspicion),
@@ -477,35 +482,105 @@ class _CharacterScreenState extends ConsumerState<CharacterScreen> with SingleTi
     );
   }
 
-  Widget _buildEquipmentSlots(BuildContext context) => Container(
-    decoration: BoxDecoration(color: const Color(0xFF1A2030), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white12)),
-    padding: const EdgeInsets.all(14),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          const Text('🛡️ Ekipman Slotları', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white70, fontSize: 13)),
-          const Text('0/6 kuşanıldı', style: TextStyle(color: Colors.white38, fontSize: 11)),
-        ]),
-        const SizedBox(height: 10),
-        for (final slot in _equipSlots) Container(
-          margin: const EdgeInsets.only(bottom: 6),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(8)),
-          child: Row(children: [
-            Text('${slot.icon} ${slot.label}', style: const TextStyle(color: Colors.white54, fontSize: 12)),
-            const Spacer(),
-            const Text('— Boş —', style: TextStyle(color: Colors.white24, fontSize: 12, fontStyle: FontStyle.italic)),
+  Widget _buildToleranceSection(int tolerance, int addictionLevel) {
+    final tolerancePct = (tolerance / 100).clamp(0.0, 1.0);
+    Color toleranceColor() {
+      if (tolerance < 40) return Colors.greenAccent;
+      if (tolerance < 70) return Colors.orange;
+      return Colors.redAccent;
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A2030),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: tolerance >= 70 ? Colors.redAccent.withValues(alpha: 0.4) : Colors.white12),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            const Text('🩺 Tolerans Durumu', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white70, fontSize: 13)),
+            Text('%$tolerance', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: toleranceColor())),
           ]),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton(onPressed: () => context.go(AppRoutes.inventory), child: const Text('Envantere Git →')),
-        ),
-      ],
-    ),
-  );
+          const SizedBox(height: 8),
+          LinearProgressIndicator(
+            value: tolerancePct,
+            backgroundColor: Colors.white12,
+            valueColor: AlwaysStoppedAnimation<Color>(toleranceColor()),
+            minHeight: 8,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          const SizedBox(height: 8),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text('Bağımlılık Seviyesi: $addictionLevel', style: const TextStyle(color: Colors.white54, fontSize: 11)),
+            Text('$tolerance / 100', style: TextStyle(color: toleranceColor(), fontSize: 11, fontWeight: FontWeight.w600)),
+          ]),
+          if (tolerance >= 70) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: Colors.redAccent.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3))),
+              child: const Row(children: [
+                Text('⚠️', style: TextStyle(fontSize: 16)),
+                SizedBox(width: 8),
+                Expanded(child: Text('Tolerans tehlikeli seviyede! İksir etkinliği düşük. Detox kullanmayı düşün.', style: TextStyle(color: Colors.redAccent, fontSize: 11))),
+              ]),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEquipmentSlots(BuildContext context) {
+    final invState = ref.watch(inventoryProvider);
+    final equippedItems = invState.equippedItems;
+    final int equippedCount = equippedItems.values.where((item) => item != null).length;
+
+    return Container(
+      decoration: BoxDecoration(color: const Color(0xFF1A2030), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white12)),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            const Text('🛡️ Ekipman Slotları', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white70, fontSize: 13)),
+            Text('$equippedCount/${_equipSlots.length} kuşanıldı', style: const TextStyle(color: Colors.white38, fontSize: 11)),
+          ]),
+          const SizedBox(height: 10),
+          for (final slot in _equipSlots) ...[
+            () {
+              final InventoryItem? equipped = equippedItems[slot.key];
+              return Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: equipped != null ? const Color(0xFF1E293B) : Colors.black26,
+                  borderRadius: BorderRadius.circular(8),
+                  border: equipped != null ? Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.3)) : null,
+                ),
+                child: Row(children: [
+                  Text('${slot.icon} ${slot.label}', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                  const Spacer(),
+                  if (equipped != null)
+                    Text(equipped.name, style: const TextStyle(color: Color(0xFF818CF8), fontSize: 12, fontWeight: FontWeight.w600))
+                  else
+                    const Text('— Boş —', style: TextStyle(color: Colors.white24, fontSize: 12, fontStyle: FontStyle.italic)),
+                ]),
+              );
+            }(),
+          ],
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(onPressed: () => context.go(AppRoutes.inventory), child: const Text('Envantere Git →')),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildResources(int gold, int gems, int energy, int maxEnergy, int tolerance, int suspicion) {
     final energyPct = maxEnergy > 0 ? (energy / maxEnergy).clamp(0.0, 1.0) : 0.0;
