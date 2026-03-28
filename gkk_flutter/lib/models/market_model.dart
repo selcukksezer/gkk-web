@@ -42,6 +42,7 @@ class MarketTicker {
     required this.lowestPrice,
     required this.volume,
     required this.priceChange,
+    this.cheapestOrderId,
   });
 
   final String itemId;
@@ -51,4 +52,5 @@ class MarketTicker {
   final int lowestPrice;
   final int volume;
   final int priceChange;
+  final String? cheapestOrderId;
 }

@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../components/common/gkk_action_tile.dart';
+import '../../components/common/gkk_badge.dart';
+import '../../components/common/gkk_card.dart';
+import '../../components/common/gkk_progress_bar.dart';
+import '../../components/common/gkk_section_header.dart';
+import '../../components/common/gkk_stat_tile.dart';
 import '../../components/layout/game_chrome.dart';
 import '../../models/inventory_model.dart';
 import '../../models/item_model.dart';
@@ -10,6 +16,9 @@ import '../../providers/auth_provider.dart';
 import '../../providers/inventory_provider.dart';
 import '../../providers/player_provider.dart';
 import '../../routing/app_router.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -162,24 +171,38 @@ class _HomeDashboardState extends ConsumerState<_HomeDashboard> {
 
     return Stack(
       children: <Widget>[
+        // ── Deep background gradient ────────────────────────────────────
         const Positioned.fill(
           child: DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: <Color>[
-                  Color(0xFF0F172A),
-                  Color(0xFF04060C),
-                  Color(0xFF000000),
-                ],
+                colors: <Color>[AppColors.bgBase, AppColors.bgDeep],
+              ),
+            ),
+          ),
+        ),
+        // ── Ambient glow orbs ───────────────────────────────────────────
+        Positioned(
+          top: -180,
+          left: -140,
+          child: IgnorePointer(
+            child: Container(
+              width: 480,
+              height: 480,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: <Color>[Color(0x2A5B8FFF), Color(0x005B8FFF)],
+                ),
               ),
             ),
           ),
         ),
         Positioned(
-          top: -220,
-          left: -160,
+          bottom: -220,
+          right: -160,
           child: IgnorePointer(
             child: Container(
               width: 520,
@@ -187,32 +210,23 @@ class _HomeDashboardState extends ConsumerState<_HomeDashboard> {
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: <Color>[Color(0x553B82F6), Color(0x003B82F6)],
+                  colors: <Color>[Color(0x2234D399), Color(0x0034D399)],
                 ),
               ),
             ),
           ),
         ),
-        Positioned(
-          bottom: -240,
-          right: -170,
-          child: IgnorePointer(
-            child: Container(
-              width: 560,
-              height: 560,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: <Color>[Color(0x4434D399), Color(0x0034D399)],
-                ),
-              ),
-            ),
-          ),
-        ),
+        // ── Scrollable content ──────────────────────────────────────────
         ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.base,
+            AppSpacing.md,
+            AppSpacing.base,
+            AppSpacing.xxl,
+          ),
           children: <Widget>[
+            // Status banners
             _WarningStack(
               inHospital: inHospital,
               inPrison: inPrison,
@@ -220,7 +234,9 @@ class _HomeDashboardState extends ConsumerState<_HomeDashboard> {
               maxEnergy: maxEnergy,
               tolerance: tolerance,
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.md),
+
+            // Hero card
             _HeroSection(
               profile: profile,
               displayName: displayName,
@@ -228,7 +244,9 @@ class _HomeDashboardState extends ConsumerState<_HomeDashboard> {
               tier: tier,
               xpPercent: xpPercent,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
+
+            // Stats grid
             _StatsGrid(
               gold: profile.gold,
               gems: profile.gems,
@@ -241,33 +259,66 @@ class _HomeDashboardState extends ConsumerState<_HomeDashboard> {
               tier: tier,
               totalPower: totalPower,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.base),
+
+            // Primary actions
+            GkkSectionHeader(title: 'Hızlı Erişim'),
+            const SizedBox(height: AppSpacing.sm),
             _PrimaryActions(
               inHospital: inHospital,
               inPrison: inPrison,
               onNavigateInventory: () => context.push(AppRoutes.inventory),
               onNavigateMarket: () => context.push(AppRoutes.market),
+              onNavigateQuests: () => context.push(AppRoutes.quests),
               onComingSoon: _showComingSoon,
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.base),
+
+            // Active quests
+            GkkSectionHeader(
+              title: 'Aktif Görevler',
+              trailing: TextButton(
+                onPressed: () => context.push(AppRoutes.quests),
+                child: const Text('Tümünü Gör'),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
             const _QuestSection(),
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.base),
+
+            // Potion action
             _PotionAction(
               potionCount: potionItems.length,
               onTap: () => _showPotionModal(context, potionItems, profile),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.base),
+
+            // Secondary actions
+            GkkSectionHeader(
+              title: 'Tüm Özellikler',
+              trailing: TextButton(
+                onPressed: () => setState(() => _showAllActions = !_showAllActions),
+                child: Text(_showAllActions ? '▲ Gizle' : '▼ Göster'),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
             _SecondaryActions(
               expanded: _showAllActions,
-              onToggle: () {
-                setState(() {
-                  _showAllActions = !_showAllActions;
-                });
-              },
+              onToggle: () => setState(() => _showAllActions = !_showAllActions),
+              onNavigateCrafting: () => context.push(AppRoutes.crafting),
+              onNavigateEquipment: () => context.push(AppRoutes.inventory),
+              onNavigateShop: () => context.push(AppRoutes.shop),
+              onNavigateBank: () => context.push(AppRoutes.bank),
+              onNavigateLeaderboard: () => context.push(AppRoutes.leaderboard),
+              onNavigatePvp: () => context.push(AppRoutes.pvp),
               onNavigateFacilities: () => context.push(AppRoutes.facilities),
-              onComingSoon: _showComingSoon,
+              onNavigateSeason: () => context.push(AppRoutes.season),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.base),
+
+            // Recent activity
+            GkkSectionHeader(title: 'Son Aktivite'),
+            const SizedBox(height: AppSpacing.sm),
             const _RecentActivitySection(),
           ],
         ),
@@ -324,9 +375,19 @@ class _HomeDashboardState extends ConsumerState<_HomeDashboard> {
                             '+${item.energyRestore} enerji • +${item.toleranceIncrease} tolerans • x${item.quantity}',
                           ),
                           trailing: FilledButton(
-                            onPressed: () {
+                            onPressed: () async {
                               Navigator.of(context).pop();
-                              _showComingSoon('İksir kullanma akışının mobil RPC bağlantısı bir sonraki adımda.');
+                              final bool ok = await ref
+                                  .read(inventoryProvider.notifier)
+                                  .useItem(item: item);
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(ok ? '${item.name} kullanıldı!' : '${item.name} kullanılamadı.'),
+                                  ),
+                                );
+                                if (ok) widget.onRefresh();
+                              }
                             },
                             child: const Text('Kullan'),
                           ),
@@ -376,7 +437,7 @@ class _WarningStack extends StatelessWidget {
           description: inHospital
               ? 'Tedavi süresi devam ediyor — Zindan ve PvP kısıtlandı'
               : 'Ceza süresi devam ediyor — Tüm aktiviteler kısıtlandı',
-          color: inHospital ? Colors.red : Colors.orange,
+          color: inHospital ? AppColors.danger : AppColors.warning,
         ),
       );
     }
@@ -387,7 +448,7 @@ class _WarningStack extends StatelessWidget {
           icon: '⚡',
           title: 'Enerji Kritik',
           description: '$energy/$maxEnergy enerji kaldı — İksir kullanmayı düşün',
-          color: Colors.amber,
+          color: AppColors.warning,
         ),
       );
     }
@@ -398,7 +459,7 @@ class _WarningStack extends StatelessWidget {
           icon: '⚠️',
           title: 'Yüksek Tolerans',
           description: '%$tolerance — İksir etkisi azalmakta',
-          color: tolerance >= 80 ? Colors.red : Colors.orange,
+          color: tolerance >= 80 ? AppColors.danger : AppColors.warning,
         ),
       );
     }
@@ -408,7 +469,7 @@ class _WarningStack extends StatelessWidget {
     return Column(
       children: banners
           .map((banner) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                 child: banner,
               ))
           .toList(),
@@ -431,26 +492,22 @@ class _WarningBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.45)),
-        color: color.withValues(alpha: 0.12),
-      ),
+    return GkkCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      accentColor: color,
+      borderGlow: true,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(icon, style: const TextStyle(fontSize: 20)),
-          const SizedBox(width: 10),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                Text(title, style: AppTextStyles.bodyBold.copyWith(color: color)),
                 const SizedBox(height: 2),
-                Text(description, style: Theme.of(context).textTheme.bodySmall),
+                Text(description, style: AppTextStyles.caption),
               ],
             ),
           ),
@@ -475,40 +532,59 @@ class _HeroSection extends StatelessWidget {
   final _ReputationTier tier;
   final double xpPercent;
 
+  String get _classEmoji => switch (profile.characterClass) {
+        CharacterClass.warrior => '⚔️',
+        CharacterClass.alchemist => '⚗️',
+        CharacterClass.shadow => '🗡️',
+        null => '🧙',
+      };
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: <Color>[
-            Theme.of(context).colorScheme.surface,
-            Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-          ],
-        ),
+    return GkkCard(
+      padding: const EdgeInsets.all(AppSpacing.base),
+      accentColor: AppColors.accentBlue,
+      borderGlow: true,
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: <Color>[AppColors.bgCard, Color(0xFF111D38)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: <Widget>[
+              // Avatar with gradient ring
               Container(
-                width: 72,
-                height: 72,
+                width: 68,
+                height: 68,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
-                  border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.45)),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: <Color>[AppColors.accentPurple, AppColors.accentBlue],
+                  ),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: AppColors.accentBlue.withValues(alpha: 0.45),
+                      blurRadius: 18,
+                    ),
+                  ],
                 ),
-                alignment: Alignment.center,
-                child: const Text('🧙', style: TextStyle(fontSize: 36)),
+                padding: const EdgeInsets.all(3),
+                child: Container(
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.bgCard,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(_classEmoji, style: const TextStyle(fontSize: 32)),
+                ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -517,74 +593,74 @@ class _HeroSection extends StatelessWidget {
                       displayName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                      style: AppTextStyles.h2,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: AppSpacing.xs),
                     Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.xs,
                       children: <Widget>[
                         if ((profile.guildName ?? '').trim().isNotEmpty)
-                          _MiniBadge(text: '⚔️ ${profile.guildName}', color: Colors.deepPurple),
-                        _MiniBadge(text: '👑 ${tier.title} • ${_compact(reputation)} Rep', color: tier.color),
-                        _MiniBadge(
-                          text: profile.globalSuspicionLevel > 60
-                              ? '🌟 Şüphe: ${profile.globalSuspicionLevel}%'
-                              : '🌟 Güvenli',
-                          color: Colors.blue,
+                          GkkBadge(
+                            text: '⚔️ ${profile.guildName}',
+                            color: AppColors.accentPurple,
+                            small: true,
+                          ),
+                        GkkBadge(
+                          text: '${tier.title} • ${_compact(reputation)} Rep',
+                          color: tier.color,
+                          small: true,
                         ),
+                        if (profile.globalSuspicionLevel > 60)
+                          GkkBadge(
+                            text: '⚠️ Şüphe ${profile.globalSuspicionLevel}%',
+                            color: AppColors.warning,
+                            small: true,
+                          ),
                       ],
                     ),
                   ],
                 ),
               ),
+              // Level badge
               Container(
-                width: 36,
-                height: 36,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.amber.withValues(alpha: 0.8),
+                  color: AppColors.gold.withValues(alpha: 0.15),
+                  border: Border.all(
+                    color: AppColors.gold.withValues(alpha: 0.7),
+                    width: 1.5,
+                  ),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: AppColors.goldGlow,
+                      blurRadius: 10,
+                    ),
+                  ],
                 ),
                 alignment: Alignment.center,
                 child: Text(
                   '${profile.level}',
-                  style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.black),
+                  style: AppTextStyles.h3.copyWith(
+                    color: AppColors.gold,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: <Widget>[
-              Text('Experience', style: Theme.of(context).textTheme.labelMedium),
-              Text('${_compact(profile.xp)} / 1.000', style: Theme.of(context).textTheme.labelMedium),
-            ],
+          const SizedBox(height: AppSpacing.base),
+          GkkProgressBar(
+            value: xpPercent,
+            color: AppColors.accentBlue,
+            height: 7,
+            label: 'Deneyim',
+            sublabel: '${_compact(profile.xp)} / 1.000',
           ),
-          const SizedBox(height: 6),
-          LinearProgressIndicator(value: xpPercent),
         ],
       ),
-    );
-  }
-}
-
-class _MiniBadge extends StatelessWidget {
-  const _MiniBadge({required this.text, required this.color});
-
-  final String text;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: color.withValues(alpha: 0.16),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
-      ),
-      child: Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
     );
   }
 }
@@ -616,30 +692,30 @@ class _StatsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final stats = <_StatItem>[
-      _StatItem(label: 'Gold', emoji: '💰', value: _gold(gold), color: Colors.amber),
-      _StatItem(label: 'Gems', emoji: '💎', value: _compact(gems), color: Colors.purpleAccent),
+    final List<_StatItem> stats = <_StatItem>[
+      _StatItem(label: 'GOLD', emoji: '💰', value: _gold(gold), color: AppColors.gold),
+      _StatItem(label: 'GEM', emoji: '💎', value: _compact(gems), color: AppColors.accentPurple),
       _StatItem(
-        label: 'Energy',
+        label: 'ENERJİ',
         emoji: '⚡',
         value: '$energy/$maxEnergy',
-        color: Colors.cyan,
+        color: AppColors.accentCyan,
         percent: energyPercent,
       ),
       _StatItem(
-        label: 'Tolerance',
+        label: 'TOLERANS',
         emoji: '🧪',
         value: '$tolerance%',
-        color: Colors.deepOrange,
+        color: AppColors.danger,
         percent: tolerancePercent,
       ),
       _StatItem(
-        label: 'Reputation',
+        label: 'İTİBAR',
         emoji: '⭐',
         value: '${_compact(reputation)} (${tier.title})',
         color: tier.color,
       ),
-      _StatItem(label: 'Power', emoji: '🔥', value: _compact(totalPower), color: Colors.indigoAccent),
+      _StatItem(label: 'GÜÇ', emoji: '🔥', value: _compact(totalPower), color: AppColors.accentBlue),
     ];
 
     return GridView.builder(
@@ -648,52 +724,20 @@ class _StatsGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
-        childAspectRatio: 1.35,
+        mainAxisSpacing: AppSpacing.sm,
+        crossAxisSpacing: AppSpacing.sm,
+        childAspectRatio: 1.55,
       ),
-      itemBuilder: (context, index) => _StatCard(stat: stats[index]),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({required this.stat});
-
-  final _StatItem stat;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: stat.color.withValues(alpha: 0.4)),
-        color: stat.color.withValues(alpha: 0.1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Text(stat.emoji, style: const TextStyle(fontSize: 20)),
-              const Spacer(),
-              Text(stat.label, style: Theme.of(context).textTheme.labelSmall),
-            ],
-          ),
-          const Spacer(),
-          Text(
-            stat.value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          if (stat.percent != null) ...<Widget>[
-            const SizedBox(height: 6),
-            LinearProgressIndicator(value: stat.percent),
-          ],
-        ],
-      ),
+      itemBuilder: (context, index) {
+        final _StatItem s = stats[index];
+        return GkkStatTile(
+          label: s.label,
+          value: s.value,
+          icon: s.emoji,
+          color: s.color,
+          percent: s.percent,
+        );
+      },
     );
   }
 }
@@ -704,6 +748,7 @@ class _PrimaryActions extends StatelessWidget {
     required this.inPrison,
     required this.onNavigateInventory,
     required this.onNavigateMarket,
+    required this.onNavigateQuests,
     required this.onComingSoon,
   });
 
@@ -711,31 +756,36 @@ class _PrimaryActions extends StatelessWidget {
   final bool inPrison;
   final VoidCallback onNavigateInventory;
   final VoidCallback onNavigateMarket;
+  final VoidCallback onNavigateQuests;
   final void Function(String message) onComingSoon;
 
   @override
   Widget build(BuildContext context) {
     final bool restricted = inHospital || inPrison;
-    final actions = <_ActionItem>[
+    final List<_ActionItem> actions = <_ActionItem>[
       _ActionItem(
         emoji: '⚔️',
         label: 'Koparma',
         onTap: restricted ? null : () => onComingSoon('Koparma ekrani siradaki adimda acilacak.'),
+        color: AppColors.danger,
       ),
       _ActionItem(
         emoji: '📜',
         label: 'Görevler',
-        onTap: () => onComingSoon('Görevler sayfası sıradaki adımda taşınacak.'),
+        onTap: onNavigateQuests,
+        color: AppColors.accentBlue,
       ),
       _ActionItem(
         emoji: '💰',
         label: 'Market',
         onTap: onNavigateMarket,
+        color: AppColors.gold,
       ),
       _ActionItem(
         emoji: '🔥',
         label: 'Geliştirme',
         onTap: onNavigateInventory,
+        color: AppColors.accentCyan,
       ),
     ];
 
@@ -745,40 +795,17 @@ class _PrimaryActions extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 4,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
+        mainAxisSpacing: AppSpacing.sm,
+        crossAxisSpacing: AppSpacing.sm,
         childAspectRatio: 0.82,
       ),
       itemBuilder: (context, index) {
-        final item = actions[index];
-        final bool enabled = item.onTap != null;
-        return InkWell(
+        final _ActionItem item = actions[index];
+        return GkkActionTile(
+          emoji: item.emoji,
+          label: item.label,
           onTap: item.onTap,
-          borderRadius: BorderRadius.circular(14),
-          child: Ink(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-              color: enabled
-                  ? Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35)
-                  : Theme.of(context).disabledColor.withValues(alpha: 0.1),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                Text(item.emoji, style: const TextStyle(fontSize: 26)),
-                const SizedBox(height: 8),
-                Text(
-                  item.label,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall,
-                ),
-              ],
-            ),
-          ),
+          accentColor: item.color,
         );
       },
     );
@@ -797,51 +824,53 @@ class _QuestSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: <Widget>[
-            Text('🎯 Aktif Görevler', style: Theme.of(context).textTheme.titleMedium),
-            TextButton(onPressed: () {}, child: const Text('Tümünü Gör')),
-          ],
-        ),
-        const SizedBox(height: 6),
-        ..._quests.map((quest) {
-          final double pct = quest.goal <= 0 ? 0 : (quest.progress / quest.goal).clamp(0.0, 1.0);
-          return Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.blue.withValues(alpha: 0.35)),
-              color: Colors.blue.withValues(alpha: 0.1),
-            ),
+      children: _quests.map((quest) {
+        final double pct = quest.goal <= 0 ? 0 : (quest.progress / quest.goal).clamp(0.0, 1.0);
+        return Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+          child: GkkCard(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            accentColor: AppColors.accentBlue,
             child: Column(
               children: <Widget>[
                 Row(
                   children: <Widget>[
-                    Text(quest.icon),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(quest.title, maxLines: 1, overflow: TextOverflow.ellipsis)),
-                    Text('${(pct * 100).round()}%'),
+                    Text(quest.icon, style: const TextStyle(fontSize: 18)),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        quest.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.bodyBold,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      '${(pct * 100).round()}%',
+                      style: AppTextStyles.captionBold.copyWith(color: AppColors.accentBlue),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                LinearProgressIndicator(value: pct),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.sm),
+                GkkProgressBar(
+                  value: pct,
+                  color: AppColors.accentBlue,
+                  height: 5,
+                ),
+                const SizedBox(height: AppSpacing.xs),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    '${quest.progress}/${quest.goal} completed',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    '${quest.progress}/${quest.goal} tamamlandı',
+                    style: AppTextStyles.micro.copyWith(color: AppColors.textTertiary),
                   ),
                 ),
               ],
             ),
-          );
-        }),
-      ],
+          ),
+        );
+      }).toList(),
     );
   }
 }
@@ -857,32 +886,31 @@ class _PotionAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return GkkCard(
+      accentColor: AppColors.success,
+      borderGlow: potionCount > 0,
       onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Ink(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.green.withValues(alpha: 0.5)),
-          color: Colors.green.withValues(alpha: 0.15),
-        ),
-        child: Row(
-          children: <Widget>[
-            const Text('🧪', style: TextStyle(fontSize: 28)),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text('İksir Kullan', style: Theme.of(context).textTheme.titleSmall),
-                  Text('$potionCount mevcut • Enerji yenile', style: Theme.of(context).textTheme.bodySmall),
-                ],
-              ),
+      child: Row(
+        children: <Widget>[
+          const Text('🧪', style: TextStyle(fontSize: 28)),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text('İksir Kullan', style: AppTextStyles.bodyBold),
+                Text(
+                  '$potionCount mevcut • Enerji yenile',
+                  style: AppTextStyles.caption.copyWith(color: AppColors.success),
+                ),
+              ],
             ),
-            const Icon(Icons.chevron_right),
-          ],
-        ),
+          ),
+          Icon(
+            Icons.chevron_right_rounded,
+            color: AppColors.textTertiary,
+          ),
+        ],
       ),
     );
   }
@@ -892,74 +920,64 @@ class _SecondaryActions extends StatelessWidget {
   const _SecondaryActions({
     required this.expanded,
     required this.onToggle,
+    required this.onNavigateCrafting,
+    required this.onNavigateEquipment,
+    required this.onNavigateShop,
+    required this.onNavigateBank,
+    required this.onNavigateLeaderboard,
+    required this.onNavigatePvp,
     required this.onNavigateFacilities,
-    required this.onComingSoon,
+    required this.onNavigateSeason,
   });
 
   final bool expanded;
   final VoidCallback onToggle;
+  final VoidCallback onNavigateCrafting;
+  final VoidCallback onNavigateEquipment;
+  final VoidCallback onNavigateShop;
+  final VoidCallback onNavigateBank;
+  final VoidCallback onNavigateLeaderboard;
+  final VoidCallback onNavigatePvp;
   final VoidCallback onNavigateFacilities;
-  final void Function(String message) onComingSoon;
+  final VoidCallback onNavigateSeason;
 
   @override
   Widget build(BuildContext context) {
-    final actions = <_ActionItem>[
-      _ActionItem(emoji: '🔨', label: 'Zanaat', onTap: () => onComingSoon('Zanaat sayfasi tasinacak.')),
-      _ActionItem(emoji: '🛡️', label: 'Teçhizat', onTap: () => onComingSoon('Teçhizat sayfası taşınacak.')),
-      _ActionItem(emoji: '🛒', label: 'Mağaza', onTap: () => onComingSoon('Mağaza sayfası taşınacak.')),
-      _ActionItem(emoji: '🏦', label: 'Banka', onTap: () => onComingSoon('Banka sayfası taşınacak.')),
-      _ActionItem(emoji: '🏆', label: 'Sıralama', onTap: () => onComingSoon('Sıralama sayfası taşınacak.')),
-      _ActionItem(emoji: '🥊', label: 'PvP', onTap: () => onComingSoon('PvP sayfası taşınacak.')),
-      _ActionItem(emoji: '🏭', label: 'Tesis', onTap: onNavigateFacilities),
-      _ActionItem(emoji: '✨', label: 'Sezon', onTap: () => onComingSoon('Sezon sayfası taşınacak.')),
+    final List<_ActionItem> actions = <_ActionItem>[
+      _ActionItem(emoji: '🔨', label: 'Zanaat', onTap: onNavigateCrafting, color: AppColors.warning),
+      _ActionItem(emoji: '🛡️', label: 'Teçhizat', onTap: onNavigateEquipment, color: AppColors.accentBlue),
+      _ActionItem(emoji: '🛒', label: 'Mağaza', onTap: onNavigateShop, color: AppColors.gold),
+      _ActionItem(emoji: '🏦', label: 'Banka', onTap: onNavigateBank, color: AppColors.accentTeal),
+      _ActionItem(emoji: '🏆', label: 'Sıralama', onTap: onNavigateLeaderboard, color: AppColors.accentPurple),
+      _ActionItem(emoji: '🥊', label: 'PvP', onTap: onNavigatePvp, color: AppColors.danger),
+      _ActionItem(emoji: '🏭', label: 'Tesis', onTap: onNavigateFacilities, color: AppColors.accentCyan),
+      _ActionItem(emoji: '✨', label: 'Sezon', onTap: onNavigateSeason, color: AppColors.accentPurple),
     ];
 
-    return Column(
-      children: <Widget>[
-        AnimatedCrossFade(
-          firstChild: const SizedBox.shrink(),
-          secondChild: GridView.builder(
-            itemCount: actions.length,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              childAspectRatio: 0.88,
-            ),
-            itemBuilder: (context, index) {
-              final item = actions[index];
-              return InkWell(
-                onTap: item.onTap,
-                borderRadius: BorderRadius.circular(12),
-                child: Ink(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-                    color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.4),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      Text(item.emoji, style: const TextStyle(fontSize: 24)),
-                      const SizedBox(height: 6),
-                      Text(item.label, textAlign: TextAlign.center, style: Theme.of(context).textTheme.labelSmall),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-          crossFadeState: expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-          duration: const Duration(milliseconds: 220),
+    return AnimatedCrossFade(
+      firstChild: const SizedBox.shrink(),
+      secondChild: GridView.builder(
+        itemCount: actions.length,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 4,
+          mainAxisSpacing: AppSpacing.sm,
+          crossAxisSpacing: AppSpacing.sm,
+          childAspectRatio: 0.88,
         ),
-        TextButton(
-          onPressed: onToggle,
-          child: Text(expanded ? '▲ Daha Az Göster' : '▼ Tüm Özellikler'),
-        ),
-      ],
+        itemBuilder: (context, index) {
+          final _ActionItem item = actions[index];
+          return GkkActionTile(
+            emoji: item.emoji,
+            label: item.label,
+            onTap: item.onTap,
+            accentColor: item.color,
+          );
+        },
+      ),
+      crossFadeState: expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+      duration: const Duration(milliseconds: 240),
     );
   }
 }
@@ -969,37 +987,52 @@ class _RecentActivitySection extends StatelessWidget {
 
   final List<_ActivityItem> _activities = const <_ActivityItem>[
     _ActivityItem(icon: '⚔️', text: 'Karanlık Orman Zindanı tamamlandı', time: '5 dk'),
-    _ActivityItem(icon: '🛒', text: 'Demir Kılıç satın alındı — 2.500 🪙', time: '18 dk'),
+    _ActivityItem(icon: '🛒', text: 'Demir Kılıç satın alındı — 2.500 altin', time: '18 dk'),
     _ActivityItem(icon: '🔥', text: 'Levha +7 Başarılı Geliştirme', time: '1 s'),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text('⏱️ Son Aktivite', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
-        ..._activities.map((activity) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-              color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.25),
+      children: _activities.map((activity) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+          child: GkkCard(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
             ),
             child: Row(
               children: <Widget>[
-                Text(activity.icon, style: const TextStyle(fontSize: 20)),
-                const SizedBox(width: 10),
-                Expanded(child: Text(activity.text, maxLines: 1, overflow: TextOverflow.ellipsis)),
-                Text(activity.time, style: Theme.of(context).textTheme.bodySmall),
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                    color: AppColors.borderFaint,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(activity.icon, style: const TextStyle(fontSize: 18)),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Text(
+                    activity.text,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.body,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  activity.time,
+                  style: AppTextStyles.micro.copyWith(color: AppColors.textTertiary),
+                ),
               ],
             ),
-          );
-        }),
-      ],
+          ),
+        );
+      }).toList(),
     );
   }
 }
@@ -1025,11 +1058,13 @@ class _ActionItem {
     required this.emoji,
     required this.label,
     this.onTap,
+    this.color,
   });
 
   final String emoji;
   final String label;
   final VoidCallback? onTap;
+  final Color? color;
 }
 
 class _QuestItem {
@@ -1122,24 +1157,24 @@ int _calculateTotalPower({
 _ReputationTier _getReputationTier(int reputation) {
   final int rep = reputation < 0 ? 0 : reputation;
   if (rep <= 5000) {
-    return const _ReputationTier(title: 'Acemi', color: Colors.grey);
+    return const _ReputationTier(title: 'Acemi', color: AppColors.rarityCommon);
   }
   if (rep <= 20000) {
-    return const _ReputationTier(title: 'Taninan', color: Colors.green);
+    return const _ReputationTier(title: 'Tanınan', color: AppColors.rarityUncommon);
   }
   if (rep <= 80000) {
-    return const _ReputationTier(title: 'Saygin', color: Colors.blue);
+    return const _ReputationTier(title: 'Saygın', color: AppColors.rarityRare);
   }
   if (rep <= 170000) {
-    return const _ReputationTier(title: 'Unlu', color: Colors.purple);
+    return const _ReputationTier(title: 'Ünlü', color: AppColors.rarityEpic);
   }
   if (rep <= 280000) {
-    return const _ReputationTier(title: 'Efsanevi', color: Colors.orange);
+    return const _ReputationTier(title: 'Efsanevi', color: AppColors.warning);
   }
   if (rep <= 356000) {
-    return const _ReputationTier(title: 'Destansi', color: Colors.red);
+    return const _ReputationTier(title: 'Destansı', color: AppColors.danger);
   }
-  return const _ReputationTier(title: 'Imparator', color: Colors.amber);
+  return const _ReputationTier(title: 'İmparator', color: AppColors.gold);
 }
 
 bool _isFuture(String? value, DateTime now) {

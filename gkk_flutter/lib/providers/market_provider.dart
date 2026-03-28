@@ -121,6 +121,29 @@ class MarketNotifier extends Notifier<MarketState> {
       return false;
     }
   }
+
+  Future<bool> purchaseListing({
+    required String orderId,
+    required int quantity,
+  }) async {
+    try {
+      final bool ok = await _repository.purchaseListing(
+        orderId: orderId,
+        quantity: quantity,
+      );
+      if (ok) {
+        await loadTickers();
+        await loadMyOrders();
+      }
+      return ok;
+    } on AppException catch (e) {
+      state = state.copyWith(errorMessage: e.message);
+      return false;
+    } catch (_) {
+      state = state.copyWith(errorMessage: 'Satin alma basarisiz.');
+      return false;
+    }
+  }
 }
 
 final NotifierProvider<MarketNotifier, MarketState> marketProvider =

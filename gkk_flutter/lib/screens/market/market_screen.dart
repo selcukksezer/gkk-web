@@ -172,6 +172,9 @@ class _MarketScreenState extends ConsumerState<MarketScreen> {
               else
                 ...filteredTickers.map((ticker) => Card(
                       child: ListTile(
+                        onTap: ticker.cheapestOrderId != null
+                            ? () => _openBuyDialog(context, ticker: ticker, gold: gold)
+                            : null,
                         title: Text(
                           ticker.itemName,
                           style: TextStyle(
@@ -303,6 +306,72 @@ class _MarketScreenState extends ConsumerState<MarketScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _openBuyDialog(
+    BuildContext context, {
+    required MarketTicker ticker,
+    required int gold,
+  }) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext ctx) {
+        final bool canAfford = gold >= ticker.lowestPrice;
+        return AlertDialog(
+          backgroundColor: const Color(0xFF0F1722),
+          title: Text(
+            ticker.itemName,
+            style: TextStyle(
+              color: _rarityColorFromName(ticker.rarity),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text('Fiyat: 🪙 ${_formatGold(ticker.lowestPrice)}'),
+              const SizedBox(height: 4),
+              Text('Altınınız: 🪙 ${_formatGold(gold)}'),
+              if (!canAfford) ...<Widget>[
+                const SizedBox(height: 8),
+                const Text(
+                  'Yeterli altınınız yok!',
+                  style: TextStyle(color: Colors.redAccent),
+                ),
+              ],
+            ],
+          ),
+          actions: <Widget>[
+            OutlinedButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Vazgeç'),
+            ),
+            FilledButton(
+              onPressed: canAfford ? () => Navigator.of(ctx).pop(true) : null,
+              child: const Text('Satın Al'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final bool ok = await ref.read(marketProvider.notifier).purchaseListing(
+          orderId: ticker.cheapestOrderId!,
+          quantity: 1,
+        );
+
+    if (!mounted) return;
+
+    if (ok) {
+      ref.read(playerProvider.notifier).loadProfile();
+      ref.read(inventoryProvider.notifier).loadInventory(silent: true);
+      _toast('Satın alma başarılı!');
+    } else {
+      _toast(ref.read(marketProvider).errorMessage ?? 'Satın alma başarısız');
+    }
   }
 
   Future<void> _openSellModal(

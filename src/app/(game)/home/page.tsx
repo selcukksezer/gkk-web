@@ -81,14 +81,14 @@ const pulseVariants: Variants = {
 
 const PRIMARY_ACTIONS = [
   { path: "/dungeon", label: "Koparma", icon: "⚔️", color: "from-red-600 to-red-700" },
-  { path: "/quest", label: "Görevler", icon: "📜", color: "from-blue-600 to-blue-700" },
+  { path: "/quests", label: "Görevler", icon: "📜", color: "from-blue-600 to-blue-700" },
   { path: "/market", label: "Market", icon: "💰", color: "from-purple-600 to-purple-700" },
   { path: "/enhancement", label: "Geliştirme", icon: "🔥", color: "from-orange-600 to-orange-700" },
 ];
 
 const SECONDARY_ACTIONS = [
   { path: "/crafting", label: "Zanaat", icon: "🔨", color: "from-amber-600 to-amber-700" },
-  { path: "/equipment", label: "Teçhizat", icon: "🛡️", color: "from-slate-600 to-slate-700" },
+  { path: "/inventory", label: "Teçhizat", icon: "🛡️", color: "from-slate-600 to-slate-700" },
   { path: "/shop", label: "Mağaza", icon: "🛒", color: "from-cyan-600 to-cyan-700" },
   { path: "/bank", label: "Banka", icon: "🏦", color: "from-gray-600 to-gray-700" },
   { path: "/leaderboard", label: "Sıralama", icon: "🏆", color: "from-yellow-600 to-yellow-700" },
@@ -574,7 +574,7 @@ export default function HomePage() {
               <h2 className="text-lg font-black bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent flex items-center gap-2">
                 🎯 Aktif Görevler
               </h2>
-              <Link href="/quest" className="text-xs text-blue-400 hover:text-blue-300 transition-colors font-bold uppercase tracking-wider">
+              <Link href="/quests" className="text-xs text-blue-400 hover:text-blue-300 transition-colors font-bold uppercase tracking-wider">
                 Tümünü Gör →
               </Link>
             </div>
