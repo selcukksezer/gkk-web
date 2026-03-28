@@ -11,6 +11,10 @@ abstract class MarketRepository {
     required int price,
   });
   Future<bool> cancelOrder({required String orderId});
+  Future<bool> purchaseListing({
+    required String orderId,
+    required int quantity,
+  });
 }
 
 class SupabaseMarketRepository implements MarketRepository {
@@ -32,6 +36,7 @@ class SupabaseMarketRepository implements MarketRepository {
         final String itemId = (data['item_id'] ?? '').toString();
         if (itemId.isEmpty) continue;
 
+        final String orderId = (data['order_id'] ?? data['id'] ?? '').toString();
         final String itemName = (data['item_name'] ?? 'Bilinmeyen Eşya').toString();
         final int price = (data['price'] as num?)?.toInt() ?? 0;
         final int quantity = (data['quantity'] as num?)?.toInt() ?? 0;
@@ -47,11 +52,13 @@ class SupabaseMarketRepository implements MarketRepository {
             rarity: rarity,
             lowestPrice: price,
             volume: 0,
+            cheapestOrderId: orderId,
           ),
         );
 
         if (price < agg.lowestPrice) {
           agg.lowestPrice = price;
+          agg.cheapestOrderId = orderId;
         }
         agg.volume += quantity;
       }
@@ -65,6 +72,7 @@ class SupabaseMarketRepository implements MarketRepository {
                 lowestPrice: agg.lowestPrice,
                 volume: agg.volume,
                 priceChange: 0,
+                cheapestOrderId: agg.cheapestOrderId,
               ))
           .toList();
     } catch (_) {
@@ -130,6 +138,27 @@ class SupabaseMarketRepository implements MarketRepository {
     }
   }
 
+  @override
+  Future<bool> purchaseListing({
+    required String orderId,
+    required int quantity,
+  }) async {
+    _ensureReady();
+
+    try {
+      await SupabaseService.client.rpc(
+        'purchase_market_listing',
+        params: <String, dynamic>{
+          'p_order_id': orderId,
+          'p_quantity': quantity,
+        },
+      );
+      return true;
+    } catch (_) {
+      throw AppException('Satin alma basarisiz.', code: 'MARKET_PURCHASE_FAILED');
+    }
+  }
+
   void _ensureReady() {
     if (!SupabaseService.isConfigured || !SupabaseService.isInitialized) {
       throw AppException(
@@ -148,6 +177,7 @@ class _TickerAgg {
     required this.rarity,
     required this.lowestPrice,
     required this.volume,
+    required this.cheapestOrderId,
   });
 
   final String itemId;
@@ -156,4 +186,5 @@ class _TickerAgg {
   final String rarity;
   int lowestPrice;
   int volume;
+  String cheapestOrderId;
 }
