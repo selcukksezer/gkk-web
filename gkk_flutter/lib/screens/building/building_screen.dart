@@ -69,6 +69,26 @@ String _formatCost(int v) {
   return '$v';
 }
 
+_Building _buildingFromMap(Map<String, dynamic> m) => _Building(
+      id: (m['type'] ?? '') as String,
+      type: (m['type'] ?? '') as String,
+      name: (m['name'] ?? '') as String,
+      icon: (m['icon'] ?? '🏠') as String,
+      level: (m['level'] as num?)?.toInt() ?? 0,
+      maxLevel: (m['max_level'] as num?)?.toInt() ?? 10,
+      isBuilt: (m['is_built'] as bool?) ?? false,
+      resourceType: (m['resource_type'] ?? '') as String,
+      resourceIcon: (m['resource_icon'] ?? '📦') as String,
+      capacity: (m['capacity'] as num?)?.toInt() ?? 100,
+      productionRate: (m['production_rate'] as num?)?.toInt() ?? 0,
+      upgradeCostGold: (m['upgrade_cost_gold'] as num?)?.toInt() ?? 0,
+      buildCostGold: (m['build_cost_gold'] as num?)?.toInt() ?? 0,
+      collectedAmount: (m['collected_amount'] as num?)?.toInt() ?? 0,
+      lastCollectedAt: m['last_collected_at'] != null
+          ? DateTime.tryParse(m['last_collected_at'].toString())
+          : null,
+    );
+
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 class BuildingScreen extends ConsumerStatefulWidget {
@@ -96,26 +116,33 @@ class _BuildingScreenState extends ConsumerState<BuildingScreen> {
     super.dispose();
   }
 
-  Future<void> _load() async {
+  Future<bool> _load() async {
     setState(() => _loading = true);
     try {
       final dynamic result = await SupabaseService.client.rpc('get_buildings');
       if (result is List && result.isNotEmpty) {
-        setState(() {
-          _buildings = _defaultBuildings();
-          _loading = false;
-        });
-        _tick();
-        return;
+        final List<_Building> parsed = (result as List<dynamic>)
+            .whereType<Map<String, dynamic>>()
+            .map(_buildingFromMap)
+            .toList();
+        if (parsed.isNotEmpty) {
+          setState(() {
+            _buildings = parsed;
+            _loading = false;
+          });
+          _tick();
+          return true;
+        }
       }
     } catch (_) {
-      // fall through
+      // fall through to defaults
     }
     setState(() {
       _buildings = _defaultBuildings();
       _loading = false;
     });
     _tick();
+    return false;
   }
 
   void _tick() {
@@ -132,46 +159,64 @@ class _BuildingScreenState extends ConsumerState<BuildingScreen> {
   }
 
   Future<void> _collect(_Building b) async {
+    final int amount = b.collectedAmount;
     try {
       await SupabaseService.client.rpc('collect_building_resources', params: <String, dynamic>{'p_building_type': b.type});
-    } catch (_) {
-      // ignore rpc error
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Toplama başarısız: $e'), backgroundColor: Colors.red));
+      }
+      return;
     }
-    final int amount = b.collectedAmount;
-    setState(() {
-      b.collectedAmount = 0;
-      b.lastCollectedAt = DateTime.now();
-    });
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$amount ${b.resourceType} toplandı!')));
+    }
+    final bool reloaded = await _load();
+    if (!reloaded) {
+      setState(() {
+        b.collectedAmount = 0;
+        b.lastCollectedAt = DateTime.now();
+      });
     }
   }
 
   Future<void> _upgrade(_Building b) async {
     try {
       await SupabaseService.client.rpc('upgrade_building', params: <String, dynamic>{'p_building_type': b.type});
-    } catch (_) {
-      // ignore
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Yükseltme başarısız: $e'), backgroundColor: Colors.red));
+      }
+      return;
     }
-    setState(() => b.level++);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Bina Lv.${b.level} yükseltildi!')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${b.name} Lv.${b.level + 1} yükseltildi!')));
+    }
+    final bool reloaded = await _load();
+    if (!reloaded) {
+      setState(() => b.level++);
     }
   }
 
   Future<void> _build(_Building b) async {
     try {
       await SupabaseService.client.rpc('build_building', params: <String, dynamic>{'p_building_type': b.type});
-    } catch (_) {
-      // ignore
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('İnşa başarısız: $e'), backgroundColor: Colors.red));
+      }
+      return;
     }
-    setState(() {
-      b.isBuilt = true;
-      b.level = 1;
-      b.lastCollectedAt = DateTime.now();
-    });
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bina inşa edildi!')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${b.name} inşa edildi!')));
+    }
+    final bool reloaded = await _load();
+    if (!reloaded) {
+      setState(() {
+        b.isBuilt = true;
+        b.level = 1;
+        b.lastCollectedAt = DateTime.now();
+      });
     }
   }
 
