@@ -59,6 +59,24 @@ Color _tierColor(int rep) {
   return const Color(0xFFFBBF24);
 }
 
+// Tier system
+const _tierDefs = <(int, String, Color)>[
+  (0,  'Düşman',   Color(0xFFEF4444)),
+  (20, 'Nötr',     Color(0xFF9CA3AF)),
+  (40, 'Dostane',  Color(0xFF60A5FA)),
+  (60, 'Saygın',   Color(0xFF4ADE80)),
+  (80, 'Onurlu',   Color(0xFFFBBF24)),
+];
+
+// Tier rewards per faction
+const _tierRewards = <String, List<String>>{
+  'tuccarlar':  ['Erişim yok', 'Pazar indirimi %5', 'Özel tüccar paketi', 'VIP pazar erişimi', 'Nadir eşya kataloğu'],
+  'gizli':      ['Erişim yok', 'Bilgi parçaları', 'Gizli görevler', 'Özel silahlar', 'Ajan kıyafeti'],
+  'tapınak':    ['Erişim yok', 'Küçük iyileştirme', 'Büyü kitapları', 'Kutsal zırh', 'Tanrı lütfu'],
+  'hapisane':   ['Erişim yok', 'Avantaj %5', 'Düşük ceza riski', 'Özel hücre', 'Erken tahliye'],
+  'hastane':    ['Erişim yok', 'Tedavi indirimi', 'Öncelikli bakım', 'Özel ilaçlar', 'Tam bağışıklık'],
+};
+
 List<_Faction> _defaultFactions() => <_Faction>[
       _Faction(
         id: 'tuccarlar',
@@ -162,46 +180,103 @@ class _ReputationScreenState extends ConsumerState<ReputationScreen> {
   }
 
   Future<void> _showDonateDialog(_Faction faction) async {
-    final TextEditingController ctrl = TextEditingController();
+    int repAmount = 5;
+    const goldPerRep = 100;
     final int playerGold = ref.read(playerProvider).profile?.gold ?? 0;
+    final int maxRep = 100 - faction.rep;
 
     await showDialog<void>(
       context: context,
-      builder: (BuildContext ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A2035),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('${faction.icon} ${faction.name}\'e Bağış Yap'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text('Altın: 🪙 $playerGold', style: const TextStyle(color: Colors.amber, fontSize: 13)),
-            const SizedBox(height: 4),
-            const Text('100 altın = 1 itibar puanı', style: TextStyle(color: Colors.white54, fontSize: 12)),
-            const SizedBox(height: 12),
-            TextField(
-              controller: ctrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Bağış miktarı (altın)',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
+      builder: (BuildContext ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final goldCost = repAmount * goldPerRep;
+          final canAfford = playerGold >= goldCost;
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1A2035),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Text('🪙 ${faction.name} — Bağış', style: const TextStyle(color: Colors.white)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                // Faction mini-card
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(10)),
+                  child: Row(children: [
+                    Text(faction.icon, style: const TextStyle(fontSize: 22)),
+                    const SizedBox(width: 10),
+                    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(faction.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      Text('Mevcut: ${faction.rep}/100 — ${_tierLabel(faction.rep)}', style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                    ]),
+                  ]),
+                ),
+                const SizedBox(height: 14),
+                const Text('Kazanılacak İtibar Miktarı', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                const SizedBox(height: 6),
+                Row(children: [
+                  IconButton(
+                    onPressed: repAmount > 1 ? () => setDialogState(() => repAmount--) : null,
+                    icon: const Icon(Icons.remove_circle_outline, color: Color(0xFFFBBF24)),
+                    iconSize: 20,
+                  ),
+                  Expanded(
+                    child: TextField(
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFFFBBF24)),
+                      decoration: const InputDecoration(border: OutlineInputBorder(), enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)), isDense: true, contentPadding: EdgeInsets.symmetric(vertical: 8)),
+                      controller: TextEditingController(text: '$repAmount')..selection = TextSelection.collapsed(offset: '$repAmount'.length),
+                      onChanged: (v) => setDialogState(() => repAmount = (int.tryParse(v) ?? 1).clamp(1, maxRep.clamp(1, 100))),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: repAmount < maxRep ? () => setDialogState(() => repAmount++) : null,
+                    icon: const Icon(Icons.add_circle_outline, color: Color(0xFFFBBF24)),
+                    iconSize: 20,
+                  ),
+                ]),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(10)),
+                  child: Column(children: [
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      const Text('İtibar kazancı:', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                      Text('+$repAmount', style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 13)),
+                    ]),
+                    const SizedBox(height: 4),
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      const Text('Altın maliyeti:', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                      Text('🪙 $goldCost', style: const TextStyle(color: Color(0xFFFBBF24), fontWeight: FontWeight.bold, fontSize: 13)),
+                    ]),
+                    const SizedBox(height: 4),
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      const Text('Kalan altın:', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                      Text('🪙 ${playerGold - goldCost}', style: TextStyle(color: canAfford ? Colors.greenAccent : Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13)),
+                    ]),
+                  ]),
+                ),
+                if (!canAfford) ...[
+                  const SizedBox(height: 6),
+                  const Text('⚠️ Yetersiz altın!', style: TextStyle(color: Colors.redAccent, fontSize: 12), textAlign: TextAlign.center),
+                ],
+              ],
             ),
-          ],
-        ),
-        actions: <Widget>[
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('İptal')),
-          FilledButton(
-            onPressed: () async {
-              final int amount = int.tryParse(ctrl.text) ?? 0;
-              if (amount <= 0) return;
-              Navigator.pop(ctx);
-              await _donate(faction, amount);
-            },
-            child: const Text('Bağışla'),
-          ),
-        ],
+            actions: <Widget>[
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Vazgeç', style: TextStyle(color: Colors.white54))),
+              FilledButton(
+                onPressed: (!canAfford || maxRep <= 0) ? null : () async {
+                  Navigator.pop(ctx);
+                  await _donate(faction, goldCost);
+                },
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFBBF24), foregroundColor: Colors.black),
+                child: const Text('Bağışla'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -299,20 +374,43 @@ class _ReputationScreenState extends ConsumerState<ReputationScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(faction.description, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                    const SizedBox(height: 14),
+                    // Tier rewards
+                    const Text('🎁 Kademe Ödülleri', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    ...List.generate(_tierDefs.length, (i) {
+                      final (minRep, label, color) = _tierDefs[i];
+                      final rewards = _tierRewards[faction.id] ?? [];
+                      final reward = i < rewards.length ? rewards[i] : '—';
+                      final unlocked = faction.rep >= minRep;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: unlocked ? Colors.white.withValues(alpha: 0.06) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(children: [
+                          SizedBox(width: 60, child: Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700))),
+                          Expanded(child: Text(reward, style: TextStyle(color: unlocked ? Colors.white70 : Colors.white24, fontSize: 10))),
+                          if (unlocked) const Text('✓', style: TextStyle(color: Colors.greenAccent, fontSize: 11)),
+                        ]),
+                      );
+                    }),
                     const SizedBox(height: 12),
-                    const Text('Görevler', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    const Text('📋 Fraksiyon Görevleri', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                     const SizedBox(height: 8),
                     ...faction.tasks.map((_FactionTask t) => _buildTask(t)),
                     const SizedBox(height: 8),
                     SizedBox(
                       width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () => _showDonateDialog(faction),
+                      child: ElevatedButton.icon(
+                        onPressed: faction.rep >= 100 ? null : () => _showDonateDialog(faction),
                         icon: const Text('🪙', style: TextStyle(fontSize: 14)),
-                        label: const Text('Altın Bağışla'),
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: tierColor.withValues(alpha: 0.5)),
-                          foregroundColor: tierColor,
+                        label: Text(faction.rep >= 100 ? '✅ Maksimum İtibar' : 'Altın Bağışla (+İtibar)'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: faction.rep >= 100 ? Colors.green.withValues(alpha: 0.3) : const Color(0xFFFBBF24),
+                          foregroundColor: faction.rep >= 100 ? Colors.greenAccent : Colors.black,
                         ),
                       ),
                     ),
