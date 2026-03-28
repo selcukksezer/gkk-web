@@ -28,7 +28,10 @@ class _SeasonScreenState extends ConsumerState<SeasonScreen> {
     'weekly_quests_completed': 0,
   };
   List<Map<String, dynamic>> _rewards = [];
+  List<Map<String, dynamic>> _challenges = [];
+  List<Map<String, dynamic>> _leaderboardData = [];
   Set<String> _claimingRewards = {};
+  Set<String> _claimingChallenges = {};
 
   static const Map<int, String> _freeRewards = {
     1: '🪙 200 Altın',
@@ -58,7 +61,7 @@ class _SeasonScreenState extends ConsumerState<SeasonScreen> {
 
   static const int _seasonTiers = 10;
 
-  static final List<Map<String, dynamic>> _leaderboard = [
+  static final List<Map<String, dynamic>> _fallbackLeaderboard = [
     {'rank': 1, 'username': 'KaanWarrior', 'season_xp': 48500, 'tier': 10, 'is_premium': true},
     {'rank': 2, 'username': 'ElfHunter', 'season_xp': 43200, 'tier': 9, 'is_premium': true},
     {'rank': 3, 'username': 'SilverArrow', 'season_xp': 38100, 'tier': 8, 'is_premium': false},
@@ -124,6 +127,10 @@ class _SeasonScreenState extends ConsumerState<SeasonScreen> {
   }
 
   Future<void> _loadData() async {
+    // Initialize mutable lists from fallbacks
+    _challenges = _fallbackChallenges.map((c) => Map<String, dynamic>.from(c)).toList();
+    _leaderboardData = _fallbackLeaderboard.map((e) => Map<String, dynamic>.from(e)).toList();
+
     try {
       final seasonRaw = await SupabaseService.client.rpc('get_season_data');
       if (seasonRaw is Map) {
@@ -145,14 +152,40 @@ class _SeasonScreenState extends ConsumerState<SeasonScreen> {
           };
         });
       }
+    } catch (_) {
+      // keep fallback season data
+    }
+
+    try {
       final rewardsRaw = await SupabaseService.client.rpc('get_battle_pass_rewards');
       if (rewardsRaw is List) {
         setState(() =>
             _rewards = rewardsRaw.map((e) => Map<String, dynamic>.from(e as Map)).toList());
       }
     } catch (_) {
-      // keep fallback data
+      // keep empty rewards list
     }
+
+    try {
+      final challengesRaw = await SupabaseService.client.rpc('get_season_challenges');
+      if (challengesRaw is List && challengesRaw.isNotEmpty) {
+        setState(() => _challenges =
+            challengesRaw.map((e) => Map<String, dynamic>.from(e as Map)).toList());
+      }
+    } catch (_) {
+      // keep fallback challenges
+    }
+
+    try {
+      final leaderboardRaw = await SupabaseService.client.rpc('get_season_leaderboard');
+      if (leaderboardRaw is List && leaderboardRaw.isNotEmpty) {
+        setState(() => _leaderboardData =
+            leaderboardRaw.map((e) => Map<String, dynamic>.from(e as Map)).toList());
+      }
+    } catch (_) {
+      // keep fallback leaderboard
+    }
+
     if (!mounted) return;
     setState(() => _loading = false);
   }
@@ -190,6 +223,25 @@ class _SeasonScreenState extends ConsumerState<SeasonScreen> {
     }
     if (!mounted) return;
     setState(() => _claimingRewards.remove(key));
+  }
+
+  Future<void> _claimChallenge(Map<String, dynamic> challenge) async {
+    final id = (challenge['id'] as String?) ?? '';
+    if (id.isEmpty || _claimingChallenges.contains(id)) return;
+    setState(() => _claimingChallenges.add(id));
+    try {
+      await SupabaseService.client
+          .rpc('claim_season_challenge', params: {'p_challenge_id': id});
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('${challenge['name']} ödülü alındı!')));
+      _loadData();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hata: $e')));
+    }
+    if (!mounted) return;
+    setState(() => _claimingChallenges.remove(id));
   }
 
   Color _rarityColor(String rarity) {
@@ -549,8 +601,8 @@ class _SeasonScreenState extends ConsumerState<SeasonScreen> {
   }
 
   Widget _buildChallengesTab() {
-    final daily = _fallbackChallenges.where((c) => c['type'] == 'daily').toList();
-    final weekly = _fallbackChallenges.where((c) => c['type'] == 'weekly').toList();
+    final daily = _challenges.where((c) => c['type'] == 'daily').toList();
+    final weekly = _challenges.where((c) => c['type'] == 'weekly').toList();
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const Text('📅 Günlük Görevler',
@@ -590,19 +642,23 @@ class _SeasonScreenState extends ConsumerState<SeasonScreen> {
           if (claimed)
             const Text('✓ Alındı', style: TextStyle(color: Color(0xFF22C55E), fontSize: 11))
           else if (completed)
-            ElevatedButton(
-              onPressed: () => ScaffoldMessenger.of(context)
-                  .showSnackBar(SnackBar(content: Text('${c['name']} ödülü alındı!'))),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF22C55E),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                textStyle: const TextStyle(fontSize: 11),
-              ),
-              child: const Text('Al'),
-            ),
+            _claimingChallenges.contains(c['id'] as String? ?? '')
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : ElevatedButton(
+                    onPressed: () => _claimChallenge(c),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF22C55E),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      textStyle: const TextStyle(fontSize: 11),
+                    ),
+                    child: const Text('Al'),
+                  ),
         ]),
         const SizedBox(height: 4),
         Text(c['description'] as String? ?? '',
@@ -642,7 +698,7 @@ class _SeasonScreenState extends ConsumerState<SeasonScreen> {
       const Text("Bu sezonun en yüksek XP'sine sahip oyuncuları",
           style: TextStyle(color: Colors.white38, fontSize: 11)),
       const SizedBox(height: 8),
-      ..._leaderboard.map((entry) {
+      ..._leaderboardData.map((entry) {
         final rank = entry['rank'] as int;
         final isPremium = (entry['is_premium'] as bool?) ?? false;
         String medal;
