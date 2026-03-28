@@ -296,22 +296,23 @@ class GameDrawer extends StatelessWidget {
               title: const Text('Ayarlar'),
               onTap: () => _go(context, AppRoutes.settings),
             ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            if (onLogout != null)
+              ListTile(
+                leading: const Icon(Icons.logout_rounded),
+                title: const Text('Çıkış Yap'),
+                onTap: () async {
+                  Navigator.of(context).pop();
+                  await onLogout!.call();
+                },
+              ),
           ],
         ),
       ),
-    ),
-    const Divider(height: 1),
-    if (onLogout != null)
-      ListTile(
-        leading: const Icon(Icons.logout_rounded),
-        title: const Text('Çıkış Yap'),
-        onTap: () async {
-          Navigator.of(context).pop();
-          await onLogout!.call();
-        },
-      ),
-  ],
-),
+    );
   }
 
   Widget _sectionHeader(String title) {
