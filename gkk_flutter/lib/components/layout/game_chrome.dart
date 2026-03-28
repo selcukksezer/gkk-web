@@ -4,8 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../models/player_model.dart';
 import '../../providers/player_provider.dart';
 import '../../routing/app_router.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GameTopBar
+// ─────────────────────────────────────────────────────────────────────────────
 
 class GameTopBar extends ConsumerWidget implements PreferredSizeWidget {
   const GameTopBar({
@@ -43,51 +51,37 @@ class GameTopBar extends ConsumerWidget implements PreferredSizeWidget {
       toolbarHeight: 72,
       titleSpacing: 12,
       title: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: Container(
             height: 52,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              color: const Color(0xCC070914),
-              border: Border.all(color: const Color(0x5C5296FF)),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+              color: AppColors.chromeBg,
+              border: Border.all(color: AppColors.chromeBorder),
               boxShadow: const <BoxShadow>[
-                BoxShadow(color: Color(0x8C000000), blurRadius: 18, offset: Offset(0, 8)),
+                BoxShadow(color: Color(0x66000000), blurRadius: 20, offset: Offset(0, 8)),
               ],
             ),
             child: Row(
               children: <Widget>[
                 Builder(
-                  builder: (context) {
-                    return IconButton(
-                      onPressed: () => Scaffold.of(context).openDrawer(),
-                      icon: const Icon(Icons.menu_rounded),
-                      tooltip: 'Menü',
-                      color: const Color(0xC8649BFF),
-                    );
-                  },
-                ),
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      colors: <Color>[Color(0xE45A32DC), Color(0xCC3C5AFF)],
-                    ),
-                    boxShadow: const <BoxShadow>[
-                      BoxShadow(color: Color(0x995064FF), blurRadius: 8),
-                    ],
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    '$level',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+                  builder: (ctx) => IconButton(
+                    onPressed: () => Scaffold.of(ctx).openDrawer(),
+                    icon: const Icon(Icons.menu_rounded, size: 22),
+                    tooltip: 'Menü',
+                    color: AppColors.accentBlue,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints.tightFor(width: 36, height: 36),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.xs),
+                // Level badge
+                _LevelBadge(level: level),
+                const SizedBox(width: AppSpacing.sm),
+                // Name + XP bar
                 Expanded(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -97,31 +91,44 @@ class GameTopBar extends ConsumerWidget implements PreferredSizeWidget {
                         displayName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xE8B9D2FF)),
-                      ),
-                      const SizedBox(height: 4),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(999),
-                        child: LinearProgressIndicator(
-                          minHeight: 2,
-                          value: xpPercent,
-                          backgroundColor: const Color(0x59324B8C),
+                        style: AppTextStyles.label.copyWith(
+                          color: AppColors.textPrimary.withValues(alpha: 0.9),
+                          fontSize: 11,
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      _XpBar(percent: xpPercent),
                     ],
                   ),
                 ),
-                _ResourceChip(icon: Icons.flash_on_rounded, value: '$energy/$maxEnergy', color: const Color(0xE600D7D7)),
-                const SizedBox(width: 6),
-                _ResourceChip(icon: Icons.paid_rounded, value: _compact(gold), color: const Color(0xE6DDB200)),
-                const SizedBox(width: 6),
-                _ResourceChip(icon: Icons.diamond_rounded, value: _compact(gems), color: const Color(0xE6C34BFF)),
+                const SizedBox(width: AppSpacing.sm),
+                // Resources
+                _ResourceChip(
+                  icon: Icons.flash_on_rounded,
+                  value: '$energy/$maxEnergy',
+                  color: AppColors.accentCyan,
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                _ResourceChip(
+                  icon: Icons.paid_rounded,
+                  value: _compact(gold),
+                  color: AppColors.gold,
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                _ResourceChip(
+                  icon: Icons.diamond_rounded,
+                  value: _compact(gems),
+                  color: AppColors.accentPurple,
+                ),
                 if (onLogout != null) ...<Widget>[
-                  const SizedBox(width: 4),
+                  const SizedBox(width: AppSpacing.xs),
                   IconButton(
                     onPressed: onLogout,
-                    icon: const Icon(Icons.logout_rounded),
+                    icon: const Icon(Icons.logout_rounded, size: 18),
                     tooltip: 'Çıkış Yap',
+                    color: AppColors.textTertiary,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints.tightFor(width: 32, height: 32),
                   ),
                 ],
               ],
@@ -136,7 +143,84 @@ class GameTopBar extends ConsumerWidget implements PreferredSizeWidget {
   }
 }
 
-class GameDrawer extends StatelessWidget {
+class _LevelBadge extends StatelessWidget {
+  const _LevelBadge({required this.level});
+  final int level;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[AppColors.accentPurple, AppColors.accentBlue],
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: AppColors.accentBlue.withValues(alpha: 0.45),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        '$level',
+        style: AppTextStyles.micro.copyWith(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _XpBar extends StatelessWidget {
+  const _XpBar({required this.percent});
+  final double percent;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+      child: Stack(
+        children: <Widget>[
+          Container(
+            height: 3,
+            color: AppColors.accentBlue.withValues(alpha: 0.15),
+          ),
+          FractionallySizedBox(
+            widthFactor: percent.clamp(0.0, 1.0),
+            child: Container(
+              height: 3,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: <Color>[AppColors.accentPurple, AppColors.accentBlue],
+                ),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: AppColors.accentBlue.withValues(alpha: 0.55),
+                    blurRadius: 6,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GameDrawer
+// ─────────────────────────────────────────────────────────────────────────────
+
+class GameDrawer extends ConsumerWidget {
   const GameDrawer({
     super.key,
     this.onLogout,
@@ -145,194 +229,283 @@ class GameDrawer extends StatelessWidget {
   final Future<void> Function()? onLogout;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(playerProvider).profile;
+    final String displayName = profile == null
+        ? 'Oyuncu'
+        : ((profile.displayName ?? profile.username).trim().isEmpty
+            ? profile.username
+            : (profile.displayName ?? profile.username));
+    final int level = profile?.level ?? 1;
+    final int gold = profile?.gold ?? 0;
+    final int gems = profile?.gems ?? 0;
+
     return Drawer(
-      child: SafeArea(
-        child: Column(
-          children: <Widget>[
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: <Widget>[
-                  ListTile(
-                    leading: const Icon(Icons.home_rounded),
-                    title: const Text('Ana Sayfa'),
-                    onTap: () => _go(context, AppRoutes.home),
-                  ),
-            _sectionHeader('KARAKTER'),
+      child: Column(
+        children: <Widget>[
+          // ── Header ──────────────────────────────────────────────────────
+          _DrawerHeader(
+            displayName: displayName,
+            level: level,
+            gold: gold,
+            gems: gems,
+            characterClass: profile?.characterClass,
+          ),
+          // ── Nav items ───────────────────────────────────────────────────
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: <Widget>[
+                _navItem(context, icon: Icons.home_rounded, label: 'Ana Sayfa', route: AppRoutes.home),
+                _sectionHeader('KARAKTER'),
+                _navItem(context, icon: Icons.person_outline_rounded, label: 'Karakter', route: AppRoutes.character),
+                _navItem(context, icon: Icons.emoji_events_outlined, label: 'Başarımlar', route: AppRoutes.achievements),
+                _navItem(context, icon: Icons.stars_outlined, label: 'İtibar', route: AppRoutes.reputation),
+                _sectionHeader('SAVAŞ'),
+                _navItem(context, icon: Icons.shield_moon_outlined, label: 'Zindan', route: AppRoutes.dungeon),
+                _navItem(context, icon: Icons.sports_kabaddi_rounded, label: 'PvP', route: AppRoutes.pvp),
+                _navItem(context, icon: Icons.leaderboard_rounded, label: 'Sıralama', route: AppRoutes.leaderboard),
+                _navItem(context, icon: Icons.ac_unit_rounded, label: 'Mevsim', route: AppRoutes.season),
+                _sectionHeader('LONCA'),
+                _navItem(context, icon: Icons.groups_outlined, label: 'Lonca', route: AppRoutes.guild),
+                _navItem(context, icon: Icons.flag_outlined, label: 'Lonca Savaşı', route: AppRoutes.guildWar),
+                _navItem(context, icon: Icons.account_balance_outlined, label: 'Anıt', route: AppRoutes.guildMonument),
+                _sectionHeader('EKONOMİ'),
+                _navItem(context, icon: Icons.storefront_outlined, label: 'Pazar', route: AppRoutes.market),
+                _navItem(context, icon: Icons.shopping_bag_outlined, label: 'Mağaza', route: AppRoutes.shop),
+                _navItem(context, icon: Icons.account_balance_wallet_outlined, label: 'Banka', route: AppRoutes.bank),
+                _navItem(context, icon: Icons.swap_horiz_rounded, label: 'Ticaret', route: AppRoutes.trade),
+                _sectionHeader('ÜRETİM'),
+                _navItem(context, icon: Icons.handyman_outlined, label: 'El Sanatları', route: AppRoutes.crafting),
+                _navItem(context, icon: Icons.auto_fix_high_outlined, label: 'Güçlendirme', route: AppRoutes.enhancement),
+                _navItem(context, icon: Icons.construction_outlined, label: 'İnşaat', route: AppRoutes.building),
+                _navItem(context, icon: Icons.factory_outlined, label: 'Tesisler', route: AppRoutes.facilities),
+                _sectionHeader('DÜNYA'),
+                _navItem(context, icon: Icons.map_outlined, label: 'Harita', route: AppRoutes.map),
+                _navItem(context, icon: Icons.location_city_outlined, label: 'Mekanlar', route: AppRoutes.mekans),
+                _navItem(context, icon: Icons.event_outlined, label: 'Etkinlikler', route: AppRoutes.events),
+                _navItem(context, icon: Icons.task_alt_rounded, label: 'Görevler', route: AppRoutes.quests),
+                _sectionHeader('DİĞER'),
+                _navItem(context, icon: Icons.local_hospital_outlined, label: 'Hastane', route: AppRoutes.hospital),
+                _navItem(context, icon: Icons.gavel_rounded, label: 'Hapishane', route: AppRoutes.prison),
+                _navItem(context, icon: Icons.chat_outlined, label: 'Sohbet', route: AppRoutes.chat),
+                _navItem(context, icon: Icons.settings_outlined, label: 'Ayarlar', route: AppRoutes.settings),
+              ],
+            ),
+          ),
+          // ── Footer ──────────────────────────────────────────────────────
+          const Divider(height: 1, color: AppColors.borderFaint),
+          if (onLogout != null)
             ListTile(
-              leading: const Icon(Icons.person_outline_rounded),
-              title: const Text('Karakter'),
-              onTap: () => _go(context, AppRoutes.character),
+              leading: const Icon(Icons.logout_rounded, color: AppColors.danger),
+              title: const Text('Çıkış Yap', style: TextStyle(color: AppColors.danger)),
+              onTap: () async {
+                Navigator.of(context).pop();
+                await onLogout!.call();
+              },
             ),
-            ListTile(
-              leading: const Icon(Icons.emoji_events_outlined),
-              title: const Text('Başarımlar'),
-              onTap: () => _go(context, AppRoutes.achievements),
-            ),
-            ListTile(
-              leading: const Icon(Icons.stars_outlined),
-              title: const Text('İtibar'),
-              onTap: () => _go(context, AppRoutes.reputation),
-            ),
-            _sectionHeader('SAVAŞ'),
-            ListTile(
-              leading: const Icon(Icons.shield_moon_outlined),
-              title: const Text('Zindan'),
-              onTap: () => _go(context, AppRoutes.dungeon),
-            ),
-            ListTile(
-              leading: const Icon(Icons.sports_kabaddi_rounded),
-              title: const Text('PvP'),
-              onTap: () => _go(context, AppRoutes.pvp),
-            ),
-            ListTile(
-              leading: const Icon(Icons.leaderboard_rounded),
-              title: const Text('Sıralama'),
-              onTap: () => _go(context, AppRoutes.leaderboard),
-            ),
-            ListTile(
-              leading: const Icon(Icons.ac_unit_rounded),
-              title: const Text('Mevsim'),
-              onTap: () => _go(context, AppRoutes.season),
-            ),
-            _sectionHeader('LONCA'),
-            ListTile(
-              leading: const Icon(Icons.groups_outlined),
-              title: const Text('Lonca'),
-              onTap: () => _go(context, AppRoutes.guild),
-            ),
-            ListTile(
-              leading: const Icon(Icons.flag_outlined),
-              title: const Text('Lonca Savaşı'),
-              onTap: () => _go(context, AppRoutes.guildWar),
-            ),
-            ListTile(
-              leading: const Icon(Icons.account_balance_outlined),
-              title: const Text('Anıt'),
-              onTap: () => _go(context, AppRoutes.guildMonument),
-            ),
-            _sectionHeader('EKONOMİ'),
-            ListTile(
-              leading: const Icon(Icons.storefront_outlined),
-              title: const Text('Pazar'),
-              onTap: () => _go(context, AppRoutes.market),
-            ),
-            ListTile(
-              leading: const Icon(Icons.shopping_bag_outlined),
-              title: const Text('Mağaza'),
-              onTap: () => _go(context, AppRoutes.shop),
-            ),
-            ListTile(
-              leading: const Icon(Icons.account_balance_wallet_outlined),
-              title: const Text('Banka'),
-              onTap: () => _go(context, AppRoutes.bank),
-            ),
-            ListTile(
-              leading: const Icon(Icons.swap_horiz_rounded),
-              title: const Text('Ticaret'),
-              onTap: () => _go(context, AppRoutes.trade),
-            ),
-            _sectionHeader('ÜRETİM'),
-            ListTile(
-              leading: const Icon(Icons.handyman_outlined),
-              title: const Text('El Sanatları'),
-              onTap: () => _go(context, AppRoutes.crafting),
-            ),
-            ListTile(
-              leading: const Icon(Icons.auto_fix_high_outlined),
-              title: const Text('Güçlendirme'),
-              onTap: () => _go(context, AppRoutes.enhancement),
-            ),
-            ListTile(
-              leading: const Icon(Icons.construction_outlined),
-              title: const Text('İnşaat'),
-              onTap: () => _go(context, AppRoutes.building),
-            ),
-            ListTile(
-              leading: const Icon(Icons.factory_outlined),
-              title: const Text('Tesisler'),
-              onTap: () => _go(context, AppRoutes.facilities),
-            ),
-            _sectionHeader('DÜNYA'),
-            ListTile(
-              leading: const Icon(Icons.map_outlined),
-              title: const Text('Harita'),
-              onTap: () => _go(context, AppRoutes.map),
-            ),
-            ListTile(
-              leading: const Icon(Icons.location_city_outlined),
-              title: const Text('Mekanlar'),
-              onTap: () => _go(context, AppRoutes.mekans),
-            ),
-            ListTile(
-              leading: const Icon(Icons.event_outlined),
-              title: const Text('Etkinlikler'),
-              onTap: () => _go(context, AppRoutes.events),
-            ),
-            ListTile(
-              leading: const Icon(Icons.task_alt_rounded),
-              title: const Text('Görevler'),
-              onTap: () => _go(context, AppRoutes.quests),
-            ),
-            _sectionHeader('DİĞER'),
-            ListTile(
-              leading: const Icon(Icons.local_hospital_outlined),
-              title: const Text('Hastane'),
-              onTap: () => _go(context, AppRoutes.hospital),
-            ),
-            ListTile(
-              leading: const Icon(Icons.gavel_rounded),
-              title: const Text('Hapishane'),
-              onTap: () => _go(context, AppRoutes.prison),
-            ),
-            ListTile(
-              leading: const Icon(Icons.chat_outlined),
-              title: const Text('Sohbet'),
-              onTap: () => _go(context, AppRoutes.chat),
-            ),
-            ListTile(
-              leading: const Icon(Icons.settings_outlined),
-              title: const Text('Ayarlar'),
-              onTap: () => _go(context, AppRoutes.settings),
-            ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            if (onLogout != null)
-              ListTile(
-                leading: const Icon(Icons.logout_rounded),
-                title: const Text('Çıkış Yap'),
-                onTap: () async {
-                  Navigator.of(context).pop();
-                  await onLogout!.call();
-                },
-              ),
-          ],
-        ),
+          const SizedBox(height: AppSpacing.sm),
+        ],
       ),
     );
   }
 
   Widget _sectionHeader(String title) {
-    return ListTile(
-      dense: true,
-      enabled: false,
-      title: Text(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.base, AppSpacing.md, AppSpacing.base, AppSpacing.xs),
+      child: Text(
         title,
-        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: Colors.white38),
+        style: AppTextStyles.micro.copyWith(
+          color: AppColors.textTertiary,
+          letterSpacing: 1.5,
+        ),
       ),
     );
   }
 
-  void _go(BuildContext context, String route) {
-    Navigator.of(context).pop();
-    context.go(route);
+  Widget _navItem(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String route,
+  }) {
+    return ListTile(
+      dense: true,
+      leading: Icon(icon, size: 20),
+      title: Text(label, style: AppTextStyles.body.copyWith(color: AppColors.textPrimary)),
+      onTap: () {
+        Navigator.of(context).pop();
+        context.go(route);
+      },
+    );
   }
 }
 
-class GameBottomBar extends StatelessWidget {
+class _DrawerHeader extends StatelessWidget {
+  const _DrawerHeader({
+    required this.displayName,
+    required this.level,
+    required this.gold,
+    required this.gems,
+    this.characterClass,
+  });
+
+  final String displayName;
+  final int level;
+  final int gold;
+  final int gems;
+  final CharacterClass? characterClass;
+
+  String get _classEmoji => switch (characterClass) {
+        CharacterClass.warrior => '⚔️',
+        CharacterClass.alchemist => '⚗️',
+        CharacterClass.shadow => '🗡️',
+        null => '🧙',
+      };
+
+  String get _classLabel => switch (characterClass) {
+        CharacterClass.warrior => 'Savaşçı',
+        CharacterClass.alchemist => 'Simyacı',
+        CharacterClass.shadow => 'Gölge',
+        null => 'Karakter',
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.base,
+        MediaQuery.of(context).padding.top + AppSpacing.base,
+        AppSpacing.base,
+        AppSpacing.base,
+      ),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[
+            Color(0xFF121B33),
+            AppColors.bgSurface,
+          ],
+        ),
+        border: Border(bottom: BorderSide(color: AppColors.borderFaint)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          // Avatar + level
+          Row(
+            children: <Widget>[
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: <Color>[AppColors.accentPurple, AppColors.accentBlue],
+                  ),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: AppColors.accentBlue.withValues(alpha: 0.4),
+                      blurRadius: 14,
+                    ),
+                  ],
+                ),
+                alignment: Alignment.center,
+                child: Text(_classEmoji, style: const TextStyle(fontSize: 26)),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.titleBold,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _classLabel,
+                      style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              // Level bubble
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+                  color: AppColors.gold.withValues(alpha: 0.18),
+                  border: Border.all(color: AppColors.gold.withValues(alpha: 0.55)),
+                ),
+                child: Text(
+                  'Lv.$level',
+                  style: AppTextStyles.captionBold.copyWith(color: AppColors.gold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          // Quick resource row
+          Row(
+            children: <Widget>[
+              _QuickResource(icon: Icons.paid_rounded, value: _compact(gold), color: AppColors.gold),
+              const SizedBox(width: AppSpacing.sm),
+              _QuickResource(icon: Icons.diamond_rounded, value: _compact(gems), color: AppColors.accentPurple),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickResource extends StatelessWidget {
+  const _QuickResource({
+    required this.icon,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+        color: color.withValues(alpha: 0.12),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            value,
+            style: AppTextStyles.captionBold.copyWith(color: AppColors.textPrimary),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GameBottomBar  (animated active indicator)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class GameBottomBar extends StatefulWidget {
   const GameBottomBar({
     super.key,
     required this.currentRoute,
@@ -341,64 +514,27 @@ class GameBottomBar extends StatelessWidget {
   final String currentRoute;
 
   @override
-  Widget build(BuildContext context) {
-    final List<_BottomItem> items = <_BottomItem>[
-      const _BottomItem(path: AppRoutes.home, label: 'Home', icon: Icons.home_rounded),
-      const _BottomItem(path: AppRoutes.inventory, label: 'Inventory', icon: Icons.inventory_2_rounded),
-      const _BottomItem(path: AppRoutes.dungeon, label: 'Dungeon', icon: Icons.sports_martial_arts_rounded),
-      const _BottomItem(path: AppRoutes.character, label: 'Skills', icon: Icons.bolt_rounded),
-      const _BottomItem(path: AppRoutes.profile, label: 'Profile', icon: Icons.person_rounded),
-    ];
+  State<GameBottomBar> createState() => _GameBottomBarState();
+}
 
-    return SafeArea(
-      minimum: const EdgeInsets.fromLTRB(12, 6, 12, 10),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: Container(
-            height: 72,
-            decoration: BoxDecoration(
-              color: const Color(0xBC070914),
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: const Color(0x5C5296FF)),
-            ),
-            child: Row(
-              children: items.map((item) {
-                final bool isActive = _matches(currentRoute, item.path);
-                return Expanded(
-                  child: InkWell(
-                    onTap: () {
-                      context.go(item.path);
-                    },
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: <Widget>[
-                        Icon(
-                          item.icon,
-                          size: 22,
-                          color: isActive ? const Color(0xFFA8D6FF) : const Color(0xCC5570A2),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          item.label,
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.6,
-                            color: isActive ? const Color(0xD6A8D6FF) : const Color(0xAA4B6496),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ),
-      ),
-    );
+class _GameBottomBarState extends State<GameBottomBar>
+    with SingleTickerProviderStateMixin {
+  static const List<_BottomItem> _items = <_BottomItem>[
+    _BottomItem(path: AppRoutes.home, label: 'Home', icon: Icons.home_rounded),
+    _BottomItem(path: AppRoutes.inventory, label: 'Envanter', icon: Icons.inventory_2_rounded),
+    _BottomItem(path: AppRoutes.dungeon, label: 'Zindan', icon: Icons.sports_martial_arts_rounded),
+    _BottomItem(path: AppRoutes.character, label: 'Karakter', icon: Icons.bolt_rounded),
+    _BottomItem(path: AppRoutes.profile, label: 'Profil', icon: Icons.person_rounded),
+  ];
+
+  late final AnimationController _indicatorCtrl;
+  late Animation<double> _indicatorAnim;
+
+  int _activeIndex(String route) {
+    for (int i = 0; i < _items.length; i++) {
+      if (_matches(route, _items[i].path)) return i;
+    }
+    return 0;
   }
 
   bool _matches(String current, String route) {
@@ -406,7 +542,135 @@ class GameBottomBar extends StatelessWidget {
     if (route == AppRoutes.home) return current == AppRoutes.home;
     return current.startsWith(route);
   }
+
+  @override
+  void initState() {
+    super.initState();
+    final int initial = _activeIndex(widget.currentRoute);
+    _indicatorCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 280),
+    );
+    _indicatorAnim = Tween<double>(
+      begin: initial.toDouble(),
+      end: initial.toDouble(),
+    ).animate(CurvedAnimation(parent: _indicatorCtrl, curve: Curves.easeOutCubic));
+  }
+
+  @override
+  void didUpdateWidget(GameBottomBar old) {
+    super.didUpdateWidget(old);
+    if (old.currentRoute != widget.currentRoute) {
+      final int newIdx = _activeIndex(widget.currentRoute);
+      _indicatorAnim = Tween<double>(
+        begin: _indicatorAnim.value,
+        end: newIdx.toDouble(),
+      ).animate(CurvedAnimation(parent: _indicatorCtrl, curve: Curves.easeOutCubic));
+      _indicatorCtrl
+        ..reset()
+        ..forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _indicatorCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final int activeIdx = _activeIndex(widget.currentRoute);
+
+    return SafeArea(
+      minimum: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXxl),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          child: Container(
+            height: 64,
+            decoration: BoxDecoration(
+              color: AppColors.chromeBg,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusXxl),
+              border: Border.all(color: AppColors.chromeBorder),
+            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final double itemW = constraints.maxWidth / _items.length;
+                return Stack(
+                  children: <Widget>[
+                    // Animated active indicator pill
+                    AnimatedBuilder(
+                      animation: _indicatorAnim,
+                      builder: (context, _) {
+                        return Positioned(
+                          top: 8,
+                          left: _indicatorAnim.value * itemW + itemW * 0.15,
+                          width: itemW * 0.70,
+                          height: 36,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                              color: AppColors.accentBlue.withValues(alpha: 0.18),
+                              border: Border.all(
+                                color: AppColors.accentBlue.withValues(alpha: 0.35),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    // Tap targets + labels
+                    Row(
+                      children: List<Widget>.generate(_items.length, (i) {
+                        final _BottomItem item = _items[i];
+                        final bool isActive = i == activeIdx;
+                        return Expanded(
+                          child: GestureDetector(
+                            onTap: () => context.go(item.path),
+                            behavior: HitTestBehavior.opaque,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: <Widget>[
+                                AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  child: Icon(
+                                    item.icon,
+                                    size: isActive ? 22 : 20,
+                                    color: isActive ? AppColors.accentBlue : AppColors.textTertiary,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                AnimatedDefaultTextStyle(
+                                  duration: const Duration(milliseconds: 200),
+                                  style: AppTextStyles.micro.copyWith(
+                                    color: isActive ? AppColors.accentBlue : AppColors.textTertiary,
+                                    fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
+                                    fontSize: 9,
+                                  ),
+                                  child: Text(item.label),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Private helpers
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _BottomItem {
   const _BottomItem({
@@ -434,16 +698,24 @@ class _ResourceChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+        color: color.withValues(alpha: 0.14),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Icon(icon, size: 12, color: color),
+          Icon(icon, size: 11, color: color),
           const SizedBox(width: 3),
-          Text(value, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
+          Text(
+            value,
+            style: AppTextStyles.micro.copyWith(
+              color: AppColors.textPrimary,
+              fontSize: 10,
+              letterSpacing: 0.3,
+            ),
+          ),
         ],
       ),
     );
@@ -452,10 +724,7 @@ class _ResourceChip extends StatelessWidget {
 
 double _xpPercent(int xp, int nextLevelXp) {
   if (nextLevelXp <= 0) return 0;
-  final value = xp / nextLevelXp;
-  if (value < 0) return 0;
-  if (value > 1) return 1;
-  return value;
+  return (xp / nextLevelXp).clamp(0.0, 1.0);
 }
 
 String _compact(int value) {
