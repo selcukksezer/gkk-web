@@ -195,6 +195,23 @@ class CraftingNotifier extends Notifier<CraftingState> {
     }
   }
 
+  Future<bool> finalizeCraftedItem(String queueItemId) async {
+    try {
+      await SupabaseService.client
+          .rpc('finalize_crafted_item', params: <String, dynamic>{
+        'p_queue_item_id': queueItemId,
+      });
+
+      await loadQueue();
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        error: 'Uretim sonuclandirilirken bir hata olustu: ${e.toString()}',
+      );
+      return false;
+    }
+  }
+
   Future<bool> claimItem(String queueItemId) async {
     try {
       await SupabaseService.client

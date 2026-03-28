@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../components/layout/game_chrome.dart';
+import '../../core/services/supabase_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/player_provider.dart';
 import '../../routing/app_router.dart';
@@ -15,6 +16,18 @@ class _TournamentMatch {
     required this.s2,
     required this.winner,
   });
+
+  factory _TournamentMatch.fromJson(Map<String, dynamic> json) {
+    return _TournamentMatch(
+      id: json['id'] as int? ?? 0,
+      p1: json['player1_name'] as String? ?? json['p1'] as String? ?? '?',
+      p2: json['player2_name'] as String? ?? json['p2'] as String? ?? '?',
+      s1: json['player1_score'] as int? ?? json['s1'] as int? ?? 0,
+      s2: json['player2_score'] as int? ?? json['s2'] as int? ?? 0,
+      winner: json['winner_name'] as String? ?? json['winner'] as String? ?? '',
+    );
+  }
+
   final int id;
   final String p1, p2;
   final int s1, s2;
@@ -23,11 +36,23 @@ class _TournamentMatch {
 
 class _Round {
   const _Round({required this.title, required this.matches});
+
+  factory _Round.fromJson(Map<String, dynamic> json) {
+    final matchList = (json['matches'] as List<dynamic>? ?? [])
+        .whereType<Map<String, dynamic>>()
+        .map(_TournamentMatch.fromJson)
+        .toList();
+    return _Round(
+      title: json['title'] as String? ?? json['round_name'] as String? ?? '',
+      matches: matchList,
+    );
+  }
+
   final String title;
   final List<_TournamentMatch> matches;
 }
 
-const List<_Round> _kRounds = [
+const List<_Round> _kFallbackRounds = [
   _Round(title: 'Çeyrek Final', matches: [
     _TournamentMatch(id: 1, p1: 'KralŞövalye', p2: 'KaranlıkOkçu', s1: 2, s2: 1, winner: 'KralŞövalye'),
     _TournamentMatch(id: 2, p1: 'BüyücüGandalf', p2: 'GölgeSuikastçi', s1: 0, s2: 2, winner: 'GölgeSuikastçi'),
@@ -43,11 +68,87 @@ const List<_Round> _kRounds = [
   ]),
 ];
 
-class PvpTournamentScreen extends ConsumerWidget {
+class PvpTournamentScreen extends ConsumerStatefulWidget {
   const PvpTournamentScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PvpTournamentScreen> createState() => _PvpTournamentScreenState();
+}
+
+class _PvpTournamentScreenState extends ConsumerState<PvpTournamentScreen> {
+  List<_Round> _rounds = _kFallbackRounds.toList();
+  String _championName = 'KralŞövalye';
+  String _tournamentTitle = 'Sezon Ortası Şampiyonası';
+  bool _isLoading = true;
+  bool _isRegistrationOpen = false;
+  bool _isJoining = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadTournament());
+  }
+
+  Future<void> _loadTournament() async {
+    setState(() => _isLoading = true);
+    try {
+      final response = await SupabaseService.client.rpc('get_tournament_bracket');
+
+      if (response != null) {
+        final Map<String, dynamic> data;
+        if (response is Map<String, dynamic>) {
+          data = response;
+        } else if (response is List && response.isNotEmpty && response[0] is Map<String, dynamic>) {
+          data = response[0] as Map<String, dynamic>;
+        } else {
+          // Unrecognised shape – keep fallback
+          setState(() => _isLoading = false);
+          return;
+        }
+
+        final roundsList = (data['rounds'] as List<dynamic>? ?? [])
+            .whereType<Map<String, dynamic>>()
+            .map(_Round.fromJson)
+            .toList();
+
+        if (roundsList.isNotEmpty) {
+          _rounds = roundsList;
+        }
+
+        _championName = data['champion_name'] as String? ?? _championName;
+        _tournamentTitle = data['tournament_name'] as String? ?? _tournamentTitle;
+        _isRegistrationOpen = data['registration_open'] as bool? ?? false;
+      }
+    } catch (_) {
+      // RPC not available yet – use fallback data
+    }
+
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  Future<void> _joinTournament() async {
+    if (_isJoining) return;
+    setState(() => _isJoining = true);
+    try {
+      await SupabaseService.client.rpc('join_pvp_tournament');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Turnuvaya başarıyla katıldınız!')),
+        );
+        await _loadTournament();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Katılım başarısız: ${e.toString()}')),
+        );
+      }
+    }
+    if (mounted) setState(() => _isJoining = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     void logout() async {
       await ref.read(authProvider.notifier).logout();
       ref.read(playerProvider.notifier).clear();
@@ -65,13 +166,15 @@ class PvpTournamentScreen extends ConsumerWidget {
             colors: [Color(0xFF10131D), Color(0xFF171E2C), Color(0xFF10131D)],
           ),
         ),
-        child: ListView(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            const Text(
-              'Sezon Ortası Şampiyonası',
+            Text(
+              _tournamentTitle,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFFBBF24)),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFFBBF24)),
             ),
             const SizedBox(height: 16),
             // Bracket
@@ -87,7 +190,7 @@ class PvpTournamentScreen extends ConsumerWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    for (final round in _kRounds) ...[
+                    for (final round in _rounds) ...[
                       _BracketColumn(round: round),
                       const SizedBox(width: 12),
                     ],
@@ -105,11 +208,11 @@ class PvpTournamentScreen extends ConsumerWidget {
                             border: Border.all(color: const Color(0xFFFBBF24), width: 2),
                             boxShadow: [BoxShadow(color: const Color(0xFFFBBF24).withValues(alpha: 0.4), blurRadius: 16)],
                           ),
-                          child: const Column(
+                          child: Column(
                             children: [
-                              Text('👑', style: TextStyle(fontSize: 28)),
-                              SizedBox(height: 4),
-                              Text('KralŞövalye', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              const Text('👑', style: TextStyle(fontSize: 28)),
+                              const SizedBox(height: 4),
+                              Text(_championName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                             ],
                           ),
                         ),
@@ -149,11 +252,26 @@ class PvpTournamentScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
-                onPressed: null, // Kayıtlar kapalı
-                style: ElevatedButton.styleFrom(disabledBackgroundColor: Colors.white12, padding: const EdgeInsets.symmetric(vertical: 14)),
-                child: const Text('Turnuvaya Katıl (Kayıtlar Kapalı)', style: TextStyle(color: Colors.white38)),
-              ),
+              child: _isRegistrationOpen
+                  ? ElevatedButton(
+                      onPressed: _isJoining ? null : _joinTournament,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFD97706),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: _isJoining
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Text('Turnuvaya Katıl', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    )
+                  : ElevatedButton(
+                      onPressed: null,
+                      style: ElevatedButton.styleFrom(disabledBackgroundColor: Colors.white12, padding: const EdgeInsets.symmetric(vertical: 14)),
+                      child: const Text('Turnuvaya Katıl (Kayıtlar Kapalı)', style: TextStyle(color: Colors.white38)),
+                    ),
             ),
           ],
         ),

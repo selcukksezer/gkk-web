@@ -64,6 +64,7 @@ class _CraftingScreenState extends ConsumerState<CraftingScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   Timer? _queueTimer;
+  final Set<String> _pendingFinalizations = <String>{};
 
   @override
   void initState() {
@@ -84,8 +85,28 @@ class _CraftingScreenState extends ConsumerState<CraftingScreen>
   void _startQueueTimer() {
     _queueTimer?.cancel();
     _queueTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
+      if (!mounted) return;
+      _autoFinalizeCompletedItems();
+      setState(() {});
     });
+  }
+
+  void _autoFinalizeCompletedItems() {
+    final queue = ref.read(craftingProvider).queue;
+    for (final item in queue) {
+      if (item.isCompleted || item.claimed || (item.failed == true)) continue;
+      if (_pendingFinalizations.contains(item.id)) continue;
+
+      final DateTime? completesAt = DateTime.tryParse(item.completesAt);
+      if (completesAt == null) continue;
+      if (completesAt.isAfter(DateTime.now())) continue;
+
+      // Timer has passed – finalize on the server
+      _pendingFinalizations.add(item.id);
+      ref.read(craftingProvider.notifier).finalizeCraftedItem(item.id).then((_) {
+        _pendingFinalizations.remove(item.id);
+      });
+    }
   }
 
   void _onTabChanged() {
@@ -115,6 +136,9 @@ class _CraftingScreenState extends ConsumerState<CraftingScreen>
     final authId = authState.user?.id ??
         SupabaseService.client.auth.currentUser?.id ?? '';
     if (authId.isEmpty || craftState.selectedRecipeId == null) return;
+
+    // Refresh inventory before crafting to validate materials are still available
+    await ref.read(inventoryProvider.notifier).loadInventory();
 
     final bool ok = await ref.read(craftingProvider.notifier).craftItem(
           authId: authId,
