@@ -247,6 +247,7 @@ class _HomeDashboardState extends ConsumerState<_HomeDashboard> {
               inPrison: inPrison,
               onNavigateInventory: () => context.push(AppRoutes.inventory),
               onNavigateMarket: () => context.push(AppRoutes.market),
+              onNavigateQuests: () => context.push(AppRoutes.quests),
               onComingSoon: _showComingSoon,
             ),
             const SizedBox(height: 14),
@@ -264,8 +265,14 @@ class _HomeDashboardState extends ConsumerState<_HomeDashboard> {
                   _showAllActions = !_showAllActions;
                 });
               },
+              onNavigateCrafting: () => context.push(AppRoutes.crafting),
+              onNavigateEquipment: () => context.push(AppRoutes.inventory),
+              onNavigateShop: () => context.push(AppRoutes.shop),
+              onNavigateBank: () => context.push(AppRoutes.bank),
+              onNavigateLeaderboard: () => context.push(AppRoutes.leaderboard),
+              onNavigatePvp: () => context.push(AppRoutes.pvp),
               onNavigateFacilities: () => context.push(AppRoutes.facilities),
-              onComingSoon: _showComingSoon,
+              onNavigateSeason: () => context.push(AppRoutes.season),
             ),
             const SizedBox(height: 14),
             const _RecentActivitySection(),
@@ -704,6 +711,7 @@ class _PrimaryActions extends StatelessWidget {
     required this.inPrison,
     required this.onNavigateInventory,
     required this.onNavigateMarket,
+    required this.onNavigateQuests,
     required this.onComingSoon,
   });
 
@@ -711,6 +719,7 @@ class _PrimaryActions extends StatelessWidget {
   final bool inPrison;
   final VoidCallback onNavigateInventory;
   final VoidCallback onNavigateMarket;
+  final VoidCallback onNavigateQuests;
   final void Function(String message) onComingSoon;
 
   @override
@@ -725,7 +734,7 @@ class _PrimaryActions extends StatelessWidget {
       _ActionItem(
         emoji: '📜',
         label: 'Görevler',
-        onTap: () => onComingSoon('Görevler sayfası sıradaki adımda taşınacak.'),
+        onTap: onNavigateQuests,
       ),
       _ActionItem(
         emoji: '💰',
@@ -892,26 +901,38 @@ class _SecondaryActions extends StatelessWidget {
   const _SecondaryActions({
     required this.expanded,
     required this.onToggle,
+    required this.onNavigateCrafting,
+    required this.onNavigateEquipment,
+    required this.onNavigateShop,
+    required this.onNavigateBank,
+    required this.onNavigateLeaderboard,
+    required this.onNavigatePvp,
     required this.onNavigateFacilities,
-    required this.onComingSoon,
+    required this.onNavigateSeason,
   });
 
   final bool expanded;
   final VoidCallback onToggle;
+  final VoidCallback onNavigateCrafting;
+  final VoidCallback onNavigateEquipment;
+  final VoidCallback onNavigateShop;
+  final VoidCallback onNavigateBank;
+  final VoidCallback onNavigateLeaderboard;
+  final VoidCallback onNavigatePvp;
   final VoidCallback onNavigateFacilities;
-  final void Function(String message) onComingSoon;
+  final VoidCallback onNavigateSeason;
 
   @override
   Widget build(BuildContext context) {
     final actions = <_ActionItem>[
-      _ActionItem(emoji: '🔨', label: 'Zanaat', onTap: () => onComingSoon('Zanaat sayfasi tasinacak.')),
-      _ActionItem(emoji: '🛡️', label: 'Teçhizat', onTap: () => onComingSoon('Teçhizat sayfası taşınacak.')),
-      _ActionItem(emoji: '🛒', label: 'Mağaza', onTap: () => onComingSoon('Mağaza sayfası taşınacak.')),
-      _ActionItem(emoji: '🏦', label: 'Banka', onTap: () => onComingSoon('Banka sayfası taşınacak.')),
-      _ActionItem(emoji: '🏆', label: 'Sıralama', onTap: () => onComingSoon('Sıralama sayfası taşınacak.')),
-      _ActionItem(emoji: '🥊', label: 'PvP', onTap: () => onComingSoon('PvP sayfası taşınacak.')),
+      _ActionItem(emoji: '🔨', label: 'Zanaat', onTap: onNavigateCrafting),
+      _ActionItem(emoji: '🛡️', label: 'Teçhizat', onTap: onNavigateEquipment),
+      _ActionItem(emoji: '🛒', label: 'Mağaza', onTap: onNavigateShop),
+      _ActionItem(emoji: '🏦', label: 'Banka', onTap: onNavigateBank),
+      _ActionItem(emoji: '🏆', label: 'Sıralama', onTap: onNavigateLeaderboard),
+      _ActionItem(emoji: '🥊', label: 'PvP', onTap: onNavigatePvp),
       _ActionItem(emoji: '🏭', label: 'Tesis', onTap: onNavigateFacilities),
-      _ActionItem(emoji: '✨', label: 'Sezon', onTap: () => onComingSoon('Sezon sayfası taşınacak.')),
+      _ActionItem(emoji: '✨', label: 'Sezon', onTap: onNavigateSeason),
     ];
 
     return Column(

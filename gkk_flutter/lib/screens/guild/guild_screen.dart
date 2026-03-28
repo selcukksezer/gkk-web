@@ -260,7 +260,7 @@ class _GuildScreenState extends ConsumerState<GuildScreen> {
     setState(() => _memberActionLoading = true);
     try {
       await SupabaseService.client.rpc(rpcName, params: <String, dynamic>{
-        'p_member_player_id': memberId,
+        'p_member_id': memberId,
       });
       await ref.read(guildProvider.notifier).loadGuild();
       _showSnack(successMsg);

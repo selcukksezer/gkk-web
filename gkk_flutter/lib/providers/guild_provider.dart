@@ -46,7 +46,7 @@ class GuildNotifier extends Notifier<GuildState> {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final response =
-          await SupabaseService.client.rpc('get_player_guild');
+          await SupabaseService.client.rpc('get_my_guild');
 
       if (response == null) {
         state = state.copyWith(isLoading: false, clearGuild: true);

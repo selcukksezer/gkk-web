@@ -94,7 +94,7 @@ class AppRoutes {
 final GoRouter appRouter = GoRouter(
   initialLocation: AppRoutes.splash,
   errorBuilder: (BuildContext context, GoRouterState state) => const HomeScreen(),
-  redirect: (BuildContext context, GoRouterState state) {
+  redirect: (BuildContext context, GoRouterState state) async {
     final String path = state.uri.path;
 
     if (path == '/dungeon/' || path == '/dungeon//') {
@@ -113,6 +113,36 @@ final GoRouter appRouter = GoRouter(
 
     if (hasSession && isPublicRoute) {
       return AppRoutes.home;
+    }
+
+    if (hasSession && !isPublicRoute) {
+      final bool isOnboardingRoute = path == AppRoutes.characterSelect;
+      final currentUser = SupabaseService.client.auth.currentUser;
+      if (currentUser != null) {
+        try {
+          final dynamic response = await SupabaseService.client
+              .from('users')
+              .select('character_class')
+              .eq('auth_id', currentUser.id)
+              .maybeSingle();
+          final Map<String, dynamic>? profile = response is Map<String, dynamic>
+              ? response
+              : (response == null ? null : Map<String, dynamic>.from(response as Map));
+          final String? characterClass = profile?['character_class'] as String?;
+          final bool hasSelectedClass = characterClass != null && characterClass.isNotEmpty;
+
+          if (!hasSelectedClass && !isOnboardingRoute) {
+            return AppRoutes.characterSelect;
+          }
+          if (hasSelectedClass && isOnboardingRoute) {
+            return AppRoutes.home;
+          }
+        } catch (_) {
+          if (!isOnboardingRoute) {
+            return AppRoutes.characterSelect;
+          }
+        }
+      }
     }
 
     return null;
