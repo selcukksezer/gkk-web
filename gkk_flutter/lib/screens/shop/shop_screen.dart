@@ -97,8 +97,13 @@ class _ShopScreenState extends ConsumerState<ShopScreen>
           _offersLoading = false;
         });
       }
-    } catch (_) {
-      if (mounted) setState(() => _offersLoading = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _offersLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Mağaza yüklenemedi: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
     }
   }
 
@@ -144,8 +149,36 @@ class _ShopScreenState extends ConsumerState<ShopScreen>
     if (isStackable) {
       setState(() { _quantityDialogItem = item; _quantityInput = 1; });
     } else {
-      _buyShopItem(item, 1);
+      _confirmAndBuyItem(item);
     }
+  }
+
+  Future<void> _confirmAndBuyItem(Map<String, dynamic> item) async {
+    final name = item['name']?.toString() ?? 'Eşya';
+    final currency = item['currency']?.toString() ?? 'gold';
+    final price = item['price'] ?? 0;
+    final isGem = currency == 'gems';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A2030),
+        title: Text('🛒 $name', style: const TextStyle(color: Color(0xFFFBBF24))),
+        content: Text(
+          '$name satın almak istediğinize emin misiniz?\nFiyat: $price ${isGem ? '💎' : '🪙'}',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal', style: TextStyle(color: Colors.white54))),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFBBF24), foregroundColor: Colors.black),
+            child: const Text('✓ Satın Al', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    _buyShopItem(item, 1);
   }
 
   Future<void> _buyGoldPackage(_GoldPackage pkg) async {
@@ -440,9 +473,22 @@ class _GemPackagesTab extends StatelessWidget {
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Bu özellik yakında aktif olacak')),
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      backgroundColor: const Color(0xFF1A2030),
+                      title: const Text('💎 Elmas Paketi', style: TextStyle(color: Colors.purpleAccent)),
+                      content: const Text(
+                        'Bu özellik henüz kullanılamıyor. Yakında aktif olacak.',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Tamam', style: TextStyle(color: Colors.purpleAccent)),
+                        ),
+                      ],
+                    ),
                   );
                 },
                 style: FilledButton.styleFrom(

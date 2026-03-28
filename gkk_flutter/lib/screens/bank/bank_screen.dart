@@ -52,6 +52,7 @@ class _BankScreenState extends ConsumerState<BankScreen> {
   bool _depositing = false;
   bool _withdrawing = false;
   bool _expanding = false;
+  bool get _actionInProgress => _depositing || _withdrawing || _expanding;
 
   // Deposit modal
   Map<String, dynamic>? _depositItem;   // inventory item
@@ -115,12 +116,13 @@ class _BankScreenState extends ConsumerState<BankScreen> {
 
   // ─── Deposit ──────────────────────────────────────────────────────────────
   Future<void> _depositSingle(InventoryItem item) async {
+    if (_actionInProgress) return;
     setState(() { _depositItem = {'row_id': item.rowId, 'name': item.name, 'quantity': item.quantity, 'is_stackable': item.quantity > 1}; _depositQty = item.quantity; });
     await _showDepositModal(item.rowId, item.name, item.quantity);
   }
 
   Future<void> _depositBatch() async {
-    if (_selectedInventoryRowIds.isEmpty) return;
+    if (_selectedInventoryRowIds.isEmpty || _actionInProgress) return;
     setState(() => _depositing = true);
     try {
       await SupabaseService.client.rpc('deposit_to_bank', params: {'p_item_row_ids': _selectedInventoryRowIds.toList()});
@@ -184,6 +186,7 @@ class _BankScreenState extends ConsumerState<BankScreen> {
 
   // ─── Withdraw ─────────────────────────────────────────────────────────────
   Future<void> _withdrawSingle(Map<String, dynamic> bankItem) async {
+    if (_actionInProgress) return;
     final id = bankItem['id']?.toString() ?? '';
     final name = bankItem['name']?.toString() ?? 'Eşya';
     final maxQty = (bankItem['quantity'] as int?) ?? 1;
@@ -232,7 +235,7 @@ class _BankScreenState extends ConsumerState<BankScreen> {
   }
 
   Future<void> _withdrawBatch() async {
-    if (_selectedBankIds.isEmpty) return;
+    if (_selectedBankIds.isEmpty || _actionInProgress) return;
     setState(() => _withdrawing = true);
     try {
       await SupabaseService.client.rpc('withdraw_from_bank', params: {'p_bank_item_ids': _selectedBankIds.toList()});
@@ -250,20 +253,42 @@ class _BankScreenState extends ConsumerState<BankScreen> {
   }
 
   // ─── Expand slots ─────────────────────────────────────────────────────────
-  Future<void> _expandSlots() async {
+  Future<void> _expandBank() async {
     if (_totalSlots >= _maxBankSlots) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Maksimum slot sayısına ulaşıldı')));
       return;
     }
+    if (_actionInProgress) return;
+    final gemCost = _expandCost(_totalSlots);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A2030),
+        title: const Text('💎 Banka Genişletme', style: TextStyle(color: Color(0xFFFBBF24))),
+        content: Text(
+          'Banka slotlarını genişletmek için $gemCost 💎 harcamak istiyor musunuz?',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal', style: TextStyle(color: Colors.white54))),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFBBF24), foregroundColor: Colors.black),
+            child: Text('$gemCost 💎 Harca', style: const TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
     setState(() => _expanding = true);
     try {
-      await SupabaseService.client.rpc('expand_bank_slots', params: {'p_num_expansions': 1});
+      await SupabaseService.client.rpc('expand_bank', params: {'p_gem_cost': gemCost});
       await _loadData();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Slot genişletildi!')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Banka slotları genişletildi!')));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hata: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Genişletme başarısız: $e')));
     } finally {
       if (mounted) setState(() => _expanding = false);
     }
@@ -324,7 +349,7 @@ class _BankScreenState extends ConsumerState<BankScreen> {
                     const SizedBox(width: 12),
                     if (_totalSlots < _maxBankSlots)
                       ElevatedButton(
-                        onPressed: _expanding ? null : _expandSlots,
+                        onPressed: (_expanding || _actionInProgress) ? null : _expandBank,
                         style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFD700), foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6)),
                         child: _expanding ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)) : Text('Genişlet ${_expandCost(_totalSlots)}💎', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                       )
@@ -537,7 +562,7 @@ class _BankScreenState extends ConsumerState<BankScreen> {
                     Text('x${item.quantity}', style: const TextStyle(color: Colors.white54, fontSize: 11)),
                   ])),
                   ElevatedButton(
-                    onPressed: _depositing ? null : () => _depositSingle(item),
+                    onPressed: _actionInProgress ? null : () => _depositSingle(item),
                     style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4ECDC4), foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
                     child: const Text('Yatır', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   ),
