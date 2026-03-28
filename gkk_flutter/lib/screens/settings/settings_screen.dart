@@ -21,6 +21,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _muteAll = false;
   bool _notifications = true;
   bool _autoBattle = false;
+  String _language = 'tr';
 
   late TextEditingController _nameController;
   bool _savingName = false;
@@ -190,6 +191,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                   value: _autoBattle,
                   onChanged: (v) => setState(() => _autoBattle = v),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _sectionCard(
+              title: '🌍 Dil / Language',
+              children: <Widget>[
+                const SizedBox(height: 4),
+                SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<String>(
+                    segments: const <ButtonSegment<String>>[
+                      ButtonSegment<String>(value: 'tr', label: Text('🇹🇷 Türkçe')),
+                      ButtonSegment<String>(value: 'en', label: Text('🇬🇧 English')),
+                    ],
+                    selected: <String>{_language},
+                    onSelectionChanged: (Set<String> selection) {
+                      final selected = selection.first;
+                      if (selected == 'en') {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('English desteği yakında eklenecek')),
+                        );
+                        return;
+                      }
+                      setState(() => _language = selected);
+                    },
+                  ),
                 ),
               ],
             ),
