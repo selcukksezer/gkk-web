@@ -126,19 +126,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
     super.dispose();
   }
 
-  Future<void> _load() async {
-    try {
-      final dynamic result = await SupabaseService.client.rpc('get_map_locations');
-      if (result is List && result.isNotEmpty) {
-        setState(() {
-          _regions = _defaultRegions();
-          _loading = false;
-        });
-        return;
-      }
-    } catch (_) {
-      // fall through
-    }
+  void _load() {
     setState(() {
       _regions = _defaultRegions();
       _loading = false;
@@ -217,8 +205,14 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
     await Future<void>.delayed(const Duration(milliseconds: 1200));
     try {
       await SupabaseService.client.rpc('travel_to_region', params: <String, dynamic>{'p_region_id': region.id});
-    } catch (_) {
-      // ignore failure
+    } catch (e) {
+      setState(() => _travellingTo = null);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Seyahat başarısız: $e')),
+        );
+      }
+      return;
     }
     setState(() {
       for (final _Region r in _regions) {
@@ -226,6 +220,7 @@ class _MapScreenState extends ConsumerState<MapScreen> with SingleTickerProvider
       }
       _travellingTo = null;
     });
+    ref.read(playerProvider.notifier).loadProfile();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('✅ Seyahat Tamamlandı! ${region.name} bölgesine ulaştın.')),
