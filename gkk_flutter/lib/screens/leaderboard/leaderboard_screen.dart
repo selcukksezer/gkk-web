@@ -103,6 +103,8 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   bool _loading = true;
   int _categoryIndex = 0;
   bool _weekly = false;
+  int? _playerRank;
+  int? _playerValue;
   final TextEditingController _searchCtrl = TextEditingController();
 
   @override
@@ -125,7 +127,11 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     try {
       final dynamic result = await SupabaseService.client.rpc(
         'get_leaderboard',
-        params: <String, dynamic>{'p_category': _currentCategory, 'p_limit': 30},
+        params: <String, dynamic>{
+          'p_category': _currentCategory,
+          'p_limit': 30,
+          'p_timeframe': _weekly ? 'weekly' : 'alltime',
+        },
       );
       if (result is List && result.isNotEmpty) {
         final List<_LeaderboardEntry> entries = (result as List<dynamic>).map((dynamic e) {
@@ -143,6 +149,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
           _applyFilter();
           _loading = false;
         });
+        _resolvePlayerRank(entries);
         return;
       }
     } catch (_) {
@@ -152,6 +159,50 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
       _entries = _defaultEntries();
       _applyFilter();
       _loading = false;
+      _playerRank = null;
+      _playerValue = null;
+    });
+  }
+
+  Future<void> _resolvePlayerRank(List<_LeaderboardEntry> entries) async {
+    final String? username = ref.read(playerProvider).profile?.username;
+    if (username == null || username.isEmpty) {
+      setState(() {
+        _playerRank = null;
+        _playerValue = null;
+      });
+      return;
+    }
+    // Try to find the player in the loaded leaderboard entries
+    final int idx = entries.indexWhere(
+      (_LeaderboardEntry e) => e.username.toLowerCase() == username.toLowerCase(),
+    );
+    if (idx >= 0) {
+      setState(() {
+        _playerRank = entries[idx].rank;
+        _playerValue = entries[idx].value;
+      });
+      return;
+    }
+    // Player not in top results – ask the server for their rank
+    try {
+      final dynamic rankResult = await SupabaseService.client.rpc(
+        'get_leaderboard_rank',
+        params: <String, dynamic>{'p_category': _currentCategory},
+      );
+      if (rankResult is Map<String, dynamic>) {
+        setState(() {
+          _playerRank = rankResult['rank'] as int?;
+          _playerValue = rankResult['value'] as int?;
+        });
+        return;
+      }
+    } catch (_) {
+      // ignore – show N/A
+    }
+    setState(() {
+      _playerRank = null;
+      _playerValue = null;
     });
   }
 
@@ -284,8 +335,14 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: <Widget>[
-              Text(_formatValue(85000, _currentCategory), style: const TextStyle(color: Color(0xFF60A5FA), fontWeight: FontWeight.w700)),
-              const Text('#42', style: TextStyle(color: Colors.white54, fontSize: 11)),
+              Text(
+                _playerValue != null ? _formatValue(_playerValue!, _currentCategory) : 'N/A',
+                style: const TextStyle(color: Color(0xFF60A5FA), fontWeight: FontWeight.w700),
+              ),
+              Text(
+                _playerRank != null ? '#$_playerRank' : 'N/A',
+                style: const TextStyle(color: Colors.white54, fontSize: 11),
+              ),
             ],
           ),
         ],
@@ -368,9 +425,19 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               child: Row(
                 children: <Widget>[
-                  _TimeframeBtn(label: 'Tüm Zamanlar', selected: !_weekly, onTap: () => setState(() => _weekly = false)),
+                  _TimeframeBtn(label: 'Tüm Zamanlar', selected: !_weekly, onTap: () {
+                    if (_weekly) {
+                      setState(() => _weekly = false);
+                      _load();
+                    }
+                  }),
                   const SizedBox(width: 6),
-                  _TimeframeBtn(label: 'Haftalık', selected: _weekly, onTap: () => setState(() => _weekly = true)),
+                  _TimeframeBtn(label: 'Haftalık', selected: _weekly, onTap: () {
+                    if (!_weekly) {
+                      setState(() => _weekly = true);
+                      _load();
+                    }
+                  }),
                   const SizedBox(width: 8),
                   Expanded(
                     child: SizedBox(
