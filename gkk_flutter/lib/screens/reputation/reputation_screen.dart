@@ -156,21 +156,42 @@ class _ReputationScreenState extends ConsumerState<ReputationScreen> {
   }
 
   Future<void> _load() async {
+    final defaults = _defaultFactions();
     try {
       final dynamic result = await SupabaseService.client.rpc('get_reputation');
       if (result is List && result.isNotEmpty) {
-        // map server data into _Faction objects; use defaults as fallback
-        setState(() {
-          _factions = _defaultFactions();
-          _loading = false;
-        });
-        return;
+        final serverMap = <String, Map<String, dynamic>>{};
+        for (final dynamic item in result) {
+          if (item is Map<String, dynamic>) {
+            final id = (item['faction_id'] ?? item['id'] ?? '').toString();
+            if (id.isNotEmpty) serverMap[id] = item;
+          }
+        }
+        for (final faction in defaults) {
+          final server = serverMap[faction.id];
+          if (server != null) {
+            faction.rep = ((server['reputation'] ?? server['rep'] ?? faction.rep) as num).toInt().clamp(0, 100);
+            final dynamic serverTasks = server['tasks'];
+            if (serverTasks is List) {
+              for (final dynamic st in serverTasks) {
+                if (st is Map<String, dynamic>) {
+                  final taskName = (st['name'] ?? '').toString();
+                  for (final ft in faction.tasks) {
+                    if (ft.name == taskName) {
+                      ft.current = ((st['current'] ?? ft.current) as num).toInt();
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     } catch (_) {
-      // fall through to defaults
+      // RPC unavailable — keep default values
     }
     setState(() {
-      _factions = _defaultFactions();
+      _factions = defaults;
       _loading = false;
     });
   }
@@ -287,11 +308,20 @@ class _ReputationScreenState extends ConsumerState<ReputationScreen> {
         'donate_to_faction',
         params: <String, dynamic>{'p_faction_id': faction.id, 'p_gold_amount': goldAmount},
       );
-    } catch (_) {
-      // ignore rpc error; update locally anyway
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Bağış başarısız: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+      return;
     }
     final int repGain = goldAmount ~/ 100;
     setState(() => faction.rep = (faction.rep + repGain).clamp(0, 100));
+    ref.read(playerProvider.notifier).loadProfile();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('+$repGain itibar kazanıldı! (${faction.name})')),
