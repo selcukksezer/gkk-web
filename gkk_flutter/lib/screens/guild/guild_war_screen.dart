@@ -25,15 +25,15 @@ class _GuildWarScreenState extends ConsumerState<GuildWarScreen> with SingleTick
   String? _error;
 
   static const List<Map<String, dynamic>> _fallbackTournaments = <Map<String, dynamic>>[
-    {'name': 'Haftalık Arena', 'status': 'active', 'guildCount': 8, 'prizePool': '50,000 Altın'},
-    {'name': 'Sezon Finali', 'status': 'upcoming', 'guildCount': 0, 'prizePool': '250,000 Altın + Efsanevi Eşya'},
+    {'id': 'fallback_tournament_1', 'name': 'Haftalık Arena', 'status': 'active', 'guildCount': 8, 'prizePool': '50,000 Altın'},
+    {'id': 'fallback_tournament_2', 'name': 'Sezon Finali', 'status': 'upcoming', 'guildCount': 0, 'prizePool': '250,000 Altın + Efsanevi Eşya'},
   ];
 
   static const List<Map<String, dynamic>> _fallbackTerritories = <Map<String, dynamic>>[
-    {'name': 'Demir Kalesi', 'owner_guild': '—', 'defense_power': 1200, 'reward': '5,000 Altın/gün'},
-    {'name': 'Altın Ovası', 'owner_guild': '—', 'defense_power': 800, 'reward': '3,000 Altın/gün'},
-    {'name': 'Ejderha Tepesi', 'owner_guild': '—', 'defense_power': 2500, 'reward': 'Efsanevi Eşya Şansı'},
-    {'name': 'Karanlık Liman', 'owner_guild': '—', 'defense_power': 600, 'reward': '2,000 Altın/gün'},
+    {'id': 'fallback_territory_1', 'name': 'Demir Kalesi', 'owner_guild': '—', 'defense_power': 1200, 'reward': '5,000 Altın/gün'},
+    {'id': 'fallback_territory_2', 'name': 'Altın Ovası', 'owner_guild': '—', 'defense_power': 800, 'reward': '3,000 Altın/gün'},
+    {'id': 'fallback_territory_3', 'name': 'Ejderha Tepesi', 'owner_guild': '—', 'defense_power': 2500, 'reward': 'Efsanevi Eşya Şansı'},
+    {'id': 'fallback_territory_4', 'name': 'Karanlık Liman', 'owner_guild': '—', 'defense_power': 600, 'reward': '2,000 Altın/gün'},
   ];
 
   static const List<Map<String, dynamic>> _fallbackRankings = <Map<String, dynamic>>[
@@ -63,11 +63,24 @@ class _GuildWarScreenState extends ConsumerState<GuildWarScreen> with SingleTick
       _error = null;
     });
     try {
+      final errors = <String>[];
       final results = await Future.wait(<Future<dynamic>>[
-        SupabaseService.client.rpc('get_guild_war_season').catchError((_) => null),
-        SupabaseService.client.rpc('get_guild_war_tournaments').catchError((_) => null),
-        SupabaseService.client.rpc('get_guild_war_territories').catchError((_) => null),
-        SupabaseService.client.rpc('get_guild_war_rankings').catchError((_) => null),
+        SupabaseService.client.rpc('get_guild_war_season').catchError((Object e) {
+          errors.add('Sezon: $e');
+          return null;
+        }),
+        SupabaseService.client.rpc('get_guild_war_tournaments').catchError((Object e) {
+          errors.add('Turnuvalar: $e');
+          return null;
+        }),
+        SupabaseService.client.rpc('get_guild_war_territories').catchError((Object e) {
+          errors.add('Bölgeler: $e');
+          return null;
+        }),
+        SupabaseService.client.rpc('get_guild_war_rankings').catchError((Object e) {
+          errors.add('Sıralama: $e');
+          return null;
+        }),
       ]);
 
       final season = results[0];
@@ -81,6 +94,7 @@ class _GuildWarScreenState extends ConsumerState<GuildWarScreen> with SingleTick
         _territories = _toList(territories) ?? _fallbackTerritories;
         _rankings = _toList(rankings) ?? _fallbackRankings;
         _loading = false;
+        _error = errors.isNotEmpty ? errors.join('; ') : null;
       });
     } catch (e) {
       setState(() {
@@ -102,6 +116,14 @@ class _GuildWarScreenState extends ConsumerState<GuildWarScreen> with SingleTick
   }
 
   Future<void> _joinTournament(dynamic tournamentId) async {
+    if (tournamentId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Turnuva bilgisi bulunamadı.')),
+        );
+      }
+      return;
+    }
     try {
       await SupabaseService.client.rpc('join_guild_war', params: {'p_tournament_id': tournamentId});
       if (mounted) {
@@ -119,6 +141,36 @@ class _GuildWarScreenState extends ConsumerState<GuildWarScreen> with SingleTick
   }
 
   Future<void> _attackTerritory(dynamic territoryId) async {
+    if (territoryId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bölge bilgisi bulunamadı.')),
+        );
+      }
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Saldırı Onayı'),
+        content: const Text('Bu bölgeye saldırmak istediğinize emin misiniz?'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('İptal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: const Text('Saldır'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
     try {
       await SupabaseService.client.rpc('attack_guild_war_territory', params: {'p_territory_id': territoryId});
       if (mounted) {
@@ -168,6 +220,21 @@ class _GuildWarScreenState extends ConsumerState<GuildWarScreen> with SingleTick
                 child: Text(
                   'Sezon ${_season!['season'] ?? '?'} · Hafta ${_season!['week'] ?? '?'}',
                   style: const TextStyle(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ),
+            if (_error != null)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.redAccent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.redAccent.withValues(alpha: 0.4)),
+                ),
+                child: Text(
+                  'Bazı veriler yüklenemedi. Yedek veriler gösteriliyor.',
+                  style: const TextStyle(color: Colors.redAccent, fontSize: 11),
                 ),
               ),
             Container(
