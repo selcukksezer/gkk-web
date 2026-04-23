@@ -31,6 +31,13 @@ class _HospitalScreenState extends ConsumerState<HospitalScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startTimer();
     });
+
+    // Listen for profile updates so the timer/remaining value refreshes
+    // immediately when the player profile is loaded or changed.
+    ref.listen<PlayerState>(playerProvider, (previous, next) {
+      if (!mounted) return;
+      _updateRemaining(isFirst: true);
+    });
   }
 
   @override
@@ -194,9 +201,9 @@ class _HospitalScreenState extends ConsumerState<HospitalScreen> {
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
-            child: ConstrainedBox(
+              child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
-              child: inHospital ? _buildInHospital(profile) : _buildHealthy(),
+              child: profile == null ? _buildLoading() : (inHospital ? _buildInHospital(profile) : _buildHealthy()),
             ),
           ),
         ),
@@ -204,6 +211,20 @@ class _HospitalScreenState extends ConsumerState<HospitalScreen> {
     );
   }
 
+
+  Widget _buildLoading() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white12),
+        color: Colors.black26,
+      ),
+      child: const Center(
+        child: SizedBox(width: 48, height: 48, child: CircularProgressIndicator()),
+      ),
+    );
+  }
   Widget _buildHealthy() {
     return Container(
       padding: const EdgeInsets.all(24),
@@ -241,7 +262,7 @@ class _HospitalScreenState extends ConsumerState<HospitalScreen> {
   }
 
   Widget _buildInHospital(dynamic profile) {
-    final hospitalUntil = profile?.hospitalUntil as String?;
+    final String? hospitalUntil = profile?.hospitalUntil;
     final releaseTime = hospitalUntil != null ? DateTime.tryParse(hospitalUntil) : null;
     final remainingSecs = _remaining.inSeconds;
     final gemCost = (remainingSecs / 60).ceil() * 3;
@@ -334,7 +355,7 @@ class _HospitalScreenState extends ConsumerState<HospitalScreen> {
         Text(label, style: const TextStyle(color: Colors.white54, fontSize: 13)),
         const SizedBox(width: 6),
         Expanded(
-          child: Text(value, style: const TextStyle(color: Colors.white87, fontSize: 13, fontWeight: FontWeight.w600)),
+          child: Text(value, style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
         ),
       ],
     );
