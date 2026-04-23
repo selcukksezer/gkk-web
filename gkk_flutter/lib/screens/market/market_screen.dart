@@ -360,6 +360,7 @@ class _MarketScreenState extends ConsumerState<MarketScreen> {
 
     final bool ok = await ref.read(marketProvider.notifier).purchaseListing(
           orderId: ticker.cheapestOrderId!,
+          itemId: ticker.itemId,
           quantity: 1,
         );
 

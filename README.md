@@ -34,3 +34,9 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Unity MCP
+
+Unity MCP integration setup notes are available in `docs/UNITY_MCP_SETUP.md`.
+
+If Unity Package Manager shows "Package name ... is invalid", make sure you used a `.git?path=` URL, not a `tree/main` page URL.

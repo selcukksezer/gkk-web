@@ -1,0 +1,19 @@
+{
+  "servers": {
+    "unity-mcp-server": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "unity-mcp-server",
+        "--no-telemetry"
+      ],
+      "env": {
+        "UNITY_PROJECT_ROOT": "${workspaceFolder}/gkk_flutter/gkkmobileunity",
+        "UNITY_MCP_MCP_HOST": "localhost",
+        "UNITY_MCP_PORT": "6400",
+        "UNITY_MCP_TELEMETRY_ENABLED": "false",
+        "UNITY_MCP_SKIP_CODE_INDEX": "true"
+      }
+    }
+  }
+}

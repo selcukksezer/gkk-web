@@ -104,6 +104,15 @@ class SupabaseFacilitiesRepository implements FacilitiesRepository {
   }) async {
     _ensureReady();
 
+    if (totalCount <= 0) {
+      return <String, dynamic>{
+        'count': 0,
+        'total_count': 0,
+        'items_generated': <Map<String, dynamic>>[],
+        'admission_occurred': false,
+      };
+    }
+
     try {
       final dynamic response = await SupabaseService.client.rpc(
         'collect_facility_resources_v2',
@@ -120,6 +129,38 @@ class SupabaseFacilitiesRepository implements FacilitiesRepository {
 
       return null;
     } catch (e) {
+      // Some DB states still have a buggy v2 RPC path that attempts to insert
+      // quantity=0 rows and violates inventory_quantity_check. Fallback to
+      // legacy collect RPC used by web compatibility paths.
+      if (_isInventoryQuantityConstraintError(e)) {
+        try {
+          final dynamic legacy = await SupabaseService.client.rpc(
+            'collect_facility_production',
+            params: <String, dynamic>{'p_facility_id': facilityId},
+          );
+
+          if (legacy is Map) {
+            final Map<String, dynamic> mapped = Map<String, dynamic>.from(legacy);
+            mapped['admission_occurred'] = mapped['admission_occurred'] == true;
+            mapped['items_generated'] = mapped['items_generated'] is List
+                ? mapped['items_generated']
+                : <Map<String, dynamic>>[];
+            mapped['count'] = (mapped['count'] as num?)?.toInt() ?? totalCount;
+            mapped['total_count'] = (mapped['total_count'] as num?)?.toInt() ?? mapped['count'];
+            return mapped;
+          }
+
+          return <String, dynamic>{
+            'count': totalCount,
+            'total_count': totalCount,
+            'items_generated': <Map<String, dynamic>>[],
+            'admission_occurred': false,
+          };
+        } catch (_) {
+          // If fallback also fails, continue with original error path below.
+        }
+      }
+
       throw AppException('Toplama basarisiz: ${_rpcErrorMessage(e)}', code: 'FACILITY_COLLECT_FAILED');
     }
   }
@@ -171,6 +212,17 @@ class SupabaseFacilitiesRepository implements FacilitiesRepository {
       return message;
     }
     return error.toString();
+  }
+
+  bool _isInventoryQuantityConstraintError(Object error) {
+    if (error is! PostgrestException) return false;
+
+    final String code = (error.code ?? '').trim();
+    final String message = error.message.toLowerCase();
+    final String details = (error.details?.toString() ?? '').toLowerCase();
+
+    return code == '23514' &&
+        (message.contains('inventory_quantity_check') || details.contains('inventory_quantity_check'));
   }
 
   void _ensureReady() {

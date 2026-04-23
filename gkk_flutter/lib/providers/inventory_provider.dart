@@ -159,6 +159,16 @@ class InventoryNotifier extends Notifier<InventoryState> {
   }
 
   Future<bool> addItemToServer({required String itemId, required int quantity, int? slotPosition}) async {
+    if (quantity <= 0) {
+      return true;
+    }
+
+    final InventoryAddCheck check = canAddItem(itemId: itemId, quantity: quantity);
+    if (!check.canAdd) {
+      state = state.copyWith(errorMessage: check.reason ?? 'Envanter dolu');
+      return false;
+    }
+
     try {
       final bool success = await _repository.addItemToServer(
         itemId: itemId,

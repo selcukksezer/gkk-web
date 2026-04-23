@@ -149,7 +149,7 @@ class _PvpTournamentScreenState extends ConsumerState<PvpTournamentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    void logout() async {
+    Future<void> logout() async {
       await ref.read(authProvider.notifier).logout();
       ref.read(playerProvider.notifier).clear();
     }

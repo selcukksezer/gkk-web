@@ -114,7 +114,7 @@ class _MekanArenaScreenState extends ConsumerState<MekanArenaScreen> {
     }
     setState(() => _attackingId = opponentId);
     try {
-      final data = await SupabaseService.client.rpc('pvp_attack', {
+      final data = await SupabaseService.client.rpc('pvp_attack', params: {
         'p_attacker_id': profile?.authId,
         'p_defender_id': opponentId,
         'p_mekan_id': widget.mekanId,
@@ -160,7 +160,7 @@ class _MekanArenaScreenState extends ConsumerState<MekanArenaScreen> {
     final profile = ref.watch(playerProvider).profile;
     final energy = profile?.energy ?? 0;
 
-    void logout() async {
+    Future<void> logout() async {
       await ref.read(authProvider.notifier).logout();
       ref.read(playerProvider.notifier).clear();
     }

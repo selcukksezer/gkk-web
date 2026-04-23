@@ -1,0 +1,64 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Flutter Build APK Arm64 Debug",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/gkk_flutter/tool/android_arm64.ps1",
+        "-Command",
+        "build-apk",
+        "-BuildMode",
+        "debug"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/gkk_flutter"
+      },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Flutter Build APK Arm64 Release",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/gkk_flutter/tool/android_arm64.ps1",
+        "-Command",
+        "build-apk",
+        "-BuildMode",
+        "release"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/gkk_flutter"
+      },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Flutter Run Arm64 Debug",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/gkk_flutter/tool/android_arm64.ps1",
+        "-Command",
+        "run",
+        "-BuildMode",
+        "debug"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/gkk_flutter"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

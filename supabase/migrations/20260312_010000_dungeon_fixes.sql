@@ -29,7 +29,10 @@ BEGIN
         ELSE 'easy'
       END,
       'required_level',  GREATEST(1, d.power_requirement / 500),
-      'min_level',       GREATEST(1, d.power_requirement / 500),
+          'min_level',       GREATEST(1, floor(COALESCE(d.power_requirement,0) / 500.0)::INT),
+          'power_requirement', COALESCE(d.power_requirement, 0),
+          'required_level',  GREATEST(1, floor(COALESCE(d.power_requirement,0) / 500.0)::INT),
+          'min_level',       GREATEST(1, floor(COALESCE(d.power_requirement,0) / 500.0)::INT),
       'max_players',     1,
       'energy_cost',     d.energy_cost,
       'min_gold',        d.gold_min,
@@ -180,7 +183,12 @@ BEGIN
     v_success_rate := v_success_rate + 0.05;
   END IF;
   
-  v_success_rate := LEAST(0.95, v_success_rate);
+  IF v_dungeon.power_requirement = 0 THEN
+    -- Dungeon #1 special case: guarantee success for fresh players
+    v_success_rate := 1.0;
+  ELSE
+    v_success_rate := LEAST(0.95, GREATEST(0.05, v_success_rate));
+  END IF;
   
   -- Roll for success
   v_success := random() <= v_success_rate;

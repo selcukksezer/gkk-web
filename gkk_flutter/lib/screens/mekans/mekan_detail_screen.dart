@@ -6,6 +6,7 @@ import '../../components/layout/game_chrome.dart';
 import '../../core/services/supabase_service.dart';
 import '../../models/mekan_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/inventory_provider.dart';
 import '../../providers/player_provider.dart';
 import '../../routing/app_router.dart';
 
@@ -61,9 +62,21 @@ class _MekanDetailScreenState extends ConsumerState<MekanDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Yetersiz altın!')));
       return;
     }
+
+    await ref.read(inventoryProvider.notifier).loadInventory(silent: true);
+    final addCheck = ref.read(inventoryProvider.notifier).canAddItem(itemId: item.itemId, quantity: 1);
+    if (!addCheck.canAdd) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(addCheck.reason ?? 'Envanter dolu!')),
+        );
+      }
+      return;
+    }
+
     setState(() => _buyingId = item.id);
     try {
-      await SupabaseService.client.rpc('buy_from_mekan', {'p_mekan_stock_id': item.id, 'p_quantity': 1});
+      await SupabaseService.client.rpc('buy_from_mekan', params: {'p_mekan_stock_id': item.id, 'p_quantity': 1});
       if (mounted) {
         setState(() {
           _stock = _stock.map((s) => s.id == item.id ? MekanStock(id: s.id, mekanId: s.mekanId, itemId: s.itemId, quantity: s.quantity - 1, sellPrice: s.sellPrice, stockedAt: s.stockedAt) : s).where((s) => s.quantity > 0).toList();
@@ -90,8 +103,8 @@ class _MekanDetailScreenState extends ConsumerState<MekanDetailScreen> {
     switch (t) {
       case MekanType.bar: return 'Bar';
       case MekanType.kahvehane: return 'Kahvehane';
-      case MekanType.dovus_kulubu: return 'Dövüş Kulübü';
-      case MekanType.luks_lounge: return 'Lüks Lounge';
+      case MekanType.dovusKulubu: return 'Dövüş Kulübü';
+      case MekanType.luksLounge: return 'Lüks Lounge';
       case MekanType.yeralti: return 'Yeraltı';
     }
   }

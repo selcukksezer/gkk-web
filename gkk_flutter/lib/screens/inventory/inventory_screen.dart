@@ -639,7 +639,11 @@ class _SummaryBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final int usedSlots = state.items.map((e) => e.slotPosition).toSet().length;
+    final int usedSlots = state.items
+        .map((e) => e.slotPosition)
+        .where((slot) => slot >= 0 && slot < inventoryCapacity)
+        .toSet()
+        .length;
     final int totalValue = state.items.fold<int>(0, (sum, item) => sum + (item.vendorSellPrice * item.quantity));
 
     return Card(
@@ -900,37 +904,70 @@ class _InventorySlotCard extends StatelessWidget {
             width: isSelected ? 2 : 1,
           ),
         ),
-        padding: const EdgeInsets.all(6),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Text(
-                    item!.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11, color: rarityColor, height: 1.1),
-                  ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Grid hucreleri efektif olarak ~52px'e kadar dusuyor; bu aralikta
+            // detayli layout RenderFlex overflow uretiyor.
+            final bool isCompact = constraints.maxHeight <= 64 || constraints.maxWidth <= 64;
+
+            if (isCompact) {
+              return Padding(
+                padding: const EdgeInsets.all(4),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      item!.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 9, color: rarityColor, height: 1),
+                    ),
+                    if (item!.quantity > 1)
+                      Align(
+                        alignment: Alignment.bottomRight,
+                        child: Text('x${item!.quantity}', style: const TextStyle(fontSize: 9, height: 1)),
+                      ),
+                  ],
                 ),
-                if (item!.isFavorite)
-                  const Icon(Icons.star, size: 12, color: Colors.amber),
-              ],
-            ),
-            Text(
-              item!.itemType.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 9, color: Colors.white70),
-            ),
-            const Spacer(),
-            if (item!.quantity > 1)
-              Align(
-                alignment: Alignment.bottomRight,
-                child: Text('x${item!.quantity}', style: const TextStyle(fontSize: 10)),
+              );
+            }
+
+            return Padding(
+              padding: const EdgeInsets.all(6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          item!.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 11, color: rarityColor, height: 1.1),
+                        ),
+                      ),
+                      if (item!.isFavorite)
+                        const Icon(Icons.star, size: 12, color: Colors.amber),
+                    ],
+                  ),
+                  Text(
+                    item!.itemType.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 9, color: Colors.white70),
+                  ),
+                  const Spacer(),
+                  if (item!.quantity > 1)
+                    Align(
+                      alignment: Alignment.bottomRight,
+                      child: Text('x${item!.quantity}', style: const TextStyle(fontSize: 10)),
+                    ),
+                ],
               ),
-          ],
+            );
+          },
         ),
       ),
     );

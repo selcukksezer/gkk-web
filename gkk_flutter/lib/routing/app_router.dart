@@ -91,8 +91,10 @@ class AppRoutes {
   static const String trade = '/trade';
 }
 
-final GoRouter appRouter = GoRouter(
+GoRouter createAppRouter({Listenable? refreshListenable}) {
+  return GoRouter(
   initialLocation: AppRoutes.splash,
+  refreshListenable: refreshListenable,
   errorBuilder: (BuildContext context, GoRouterState state) => const HomeScreen(),
   redirect: (BuildContext context, GoRouterState state) async {
     final String path = state.uri.path;
@@ -111,23 +113,25 @@ final GoRouter appRouter = GoRouter(
       return AppRoutes.login;
     }
 
-    if (hasSession && isPublicRoute) {
-      return AppRoutes.home;
-    }
-
-    if (hasSession && !isPublicRoute) {
+    if (hasSession) {
       final bool isOnboardingRoute = path == AppRoutes.characterSelect;
       final currentUser = SupabaseService.client.auth.currentUser;
       if (currentUser != null) {
         try {
           final dynamic response = await SupabaseService.client
               .from('users')
-              .select('character_class')
+              .select('character_class, is_banned')
               .eq('auth_id', currentUser.id)
               .maybeSingle();
           final Map<String, dynamic>? profile = response is Map<String, dynamic>
               ? response
               : (response == null ? null : Map<String, dynamic>.from(response as Map));
+          final bool isBanned = profile?['is_banned'] == true;
+          if (isBanned) {
+            await SupabaseService.client.auth.signOut();
+            return AppRoutes.login;
+          }
+
           final String? characterClass = profile?['character_class'] as String?;
           final bool hasSelectedClass = characterClass != null && characterClass.isNotEmpty;
 
@@ -142,6 +146,10 @@ final GoRouter appRouter = GoRouter(
             return AppRoutes.characterSelect;
           }
         }
+      }
+
+      if (isPublicRoute) {
+        return AppRoutes.home;
       }
     }
 
@@ -328,3 +336,6 @@ final GoRouter appRouter = GoRouter(
     ),
   ],
 );
+}
+
+final GoRouter appRouter = createAppRouter();

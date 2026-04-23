@@ -110,7 +110,7 @@ class _PvpHistoryScreenState extends ConsumerState<PvpHistoryScreen> {
     if (_filter == 'win') filtered = _matches.where((m) => m.winnerId == authId).toList();
     if (_filter == 'loss') filtered = _matches.where((m) => m.winnerId != authId).toList();
 
-    void logout() async {
+    Future<void> logout() async {
       await ref.read(authProvider.notifier).logout();
       ref.read(playerProvider.notifier).clear();
     }

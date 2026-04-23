@@ -1,6 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import 'package:go_router/go_router.dart';
 import '../../components/layout/game_chrome.dart';
 import '../../core/services/supabase_service.dart';
 import '../../models/inventory_model.dart';
@@ -10,81 +11,154 @@ import '../../providers/inventory_provider.dart';
 import '../../providers/player_provider.dart';
 import '../../routing/app_router.dart';
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
+// ============================================================================
+// DESIGN SYSTEM
+// ============================================================================
+class _EnhancementDesignSystem {
+  // Colors - same as chat system for consistency
+  static const Color colorSuccess = Color(0xFF10B981);
+  static const Color colorWarning = Color(0xFFFB923C);
+  static const Color colorError = Color(0xFFF87171);
+  static const Color colorGold = Color(0xFFDDB200);
+
+  // Backgrounds
+  static const Color colorBgSecondary = Color(0xFF090D15);
+  static const LinearGradient gradientBgPanel = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: <Color>[Color(0xF0141B26), Color(0xF0090D15)],
+  );
+
+  // Text
+  static const Color colorTextSecondary = Color(0xFFE2E8F0);
+
+  // Spacing
+  static const double spaceSm = 8;
+  static const double spaceMd = 12;
+  static const double spaceLg = 16;
+
+  // Radius
+  static const double radiusMd = 12;
+  static const double radiusLg = 16;
+
+  // Shadows
+  static const List<BoxShadow> shadowMd = [
+    BoxShadow(color: Color(0x1A000000), blurRadius: 12, offset: Offset(0, 4)),
+  ];
+}
+
+// ============================================================================
+// CONSTANTS
+// ============================================================================
 const Map<int, int> _kUpgradeChances = <int, int>{
-  0: 100, 1: 100, 2: 100, 3: 100, 4: 70,
-  5: 60,  6: 50,  7: 35,  8: 20,  9: 10, 10: 3,
+  0: 100,
+  1: 100,
+  2: 100,
+  3: 100,
+  4: 70,
+  5: 60,
+  6: 50,
+  7: 35,
+  8: 20,
+  9: 10,
+  10: 3,
 };
 
 const Map<int, int> _kUpgradeCosts = <int, int>{
-  0: 100000,    1: 200000,    2: 300000,    3: 500000,
-  4: 1500000,   5: 3500000,   6: 7500000,   7: 15000000,
-  8: 50000000,  9: 200000000, 10: 1000000000,
+  0: 100000,
+  1: 200000,
+  2: 300000,
+  3: 500000,
+  4: 1500000,
+  5: 3500000,
+  6: 7500000,
+  7: 15000000,
+  8: 50000000,
+  9: 200000000,
+  10: 1000000000,
 };
 
 typedef RuneType = String;
 
 const List<RuneType> _kRuneTypes = <RuneType>[
-  'none', 'basic', 'advanced', 'superior', 'legendary', 'protection', 'blessed',
+  'none',
+  'basic',
+  'advanced',
+  'superior',
+  'legendary',
+  'protection',
+  'blessed',
 ];
 
 const Map<RuneType, String> _kRuneLabels = <RuneType, String>{
-  'none':       'Rune Yok',
-  'basic':      'Temel Rune',
-  'advanced':   'Gelişmiş Rune',
-  'superior':   'Üstün Rune',
-  'legendary':  'Efsanevi Rune',
+  'none': 'Rune Yok',
+  'basic': 'Temel Rune',
+  'advanced': 'Gelişmiş Rune',
+  'superior': 'Üstün Rune',
+  'legendary': 'Efsanevi Rune',
   'protection': 'Koruma Runu',
-  'blessed':    'Kutsanmış Rune',
+  'blessed': 'Kutsanmış Rune',
 };
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+enum _EnhanceResultType { success, failure, destroyed }
+
+class _EnhanceResult {
+  const _EnhanceResult({
+    required this.type,
+    required this.newLevel,
+    required this.message,
+  });
+
+  final _EnhanceResultType type;
+  final int newLevel;
+  final String message;
+}
+
+// ============================================================================
+// HELPERS
+// ============================================================================
 String _formatGold(int amount) {
-  if (amount >= 1000000000) return '${(amount / 1000000000).toStringAsFixed(1)}G';
-  if (amount >= 1000000)    return '${(amount / 1000000).toStringAsFixed(1)}M';
-  if (amount >= 1000)       return '${(amount / 1000).toStringAsFixed(1)}K';
+  if (amount >= 1000000000) {
+    return '${(amount / 1000000000).toStringAsFixed(1)}G';
+  }
+  if (amount >= 1000000) {
+    return '${(amount / 1000000).toStringAsFixed(1)}M';
+  }
+  if (amount >= 1000) {
+    return '${(amount / 1000).toStringAsFixed(1)}K';
+  }
   return amount.toString();
 }
 
 String _scrollIdForRarity(Rarity rarity) {
-  if (rarity == Rarity.common || rarity == Rarity.uncommon) return 'scroll_upgrade_low';
-  if (rarity == Rarity.rare   || rarity == Rarity.epic)    return 'scroll_upgrade_middle';
+  if (rarity == Rarity.common || rarity == Rarity.uncommon) {
+    return 'scroll_upgrade_low';
+  }
+  if (rarity == Rarity.rare || rarity == Rarity.epic) {
+    return 'scroll_upgrade_middle';
+  }
   return 'scroll_upgrade_high';
 }
 
 String _scrollLabelForRarity(Rarity rarity) {
-  if (rarity == Rarity.common || rarity == Rarity.uncommon) return 'Düşük Sınıf Parşömen';
-  if (rarity == Rarity.rare   || rarity == Rarity.epic)    return 'Orta Sınıf Parşömen';
+  if (rarity == Rarity.common || rarity == Rarity.uncommon) {
+    return 'Düşük Sınıf Parşömen';
+  }
+  if (rarity == Rarity.rare || rarity == Rarity.epic) {
+    return 'Orta Sınıf Parşömen';
+  }
   return 'Yüksek Sınıf Parşömen';
 }
 
 bool _isEquipment(InventoryItem item) {
-  const Set<ItemType> equipTypes = <ItemType>{
-    ItemType.weapon, ItemType.armor,
-  };
-  return equipTypes.contains(item.itemType) ||
-      item.equipSlot != EquipSlot.none;
+  const Set<ItemType> equipTypes = <ItemType>{ItemType.weapon, ItemType.armor};
+  return equipTypes.contains(item.itemType) || item.equipSlot != EquipSlot.none;
 }
 
 bool _isEnhanceable(InventoryItem item) =>
-    item.canEnhance && _isEquipment(item) && item.enhancementLevel < 10;
+    _isEquipment(item) && item.enhancementLevel < 10;
 
 Color _rarityColor(Rarity rarity) => getRarityColor(rarity);
-
-String _itemEmoji(InventoryItem item) {
-  switch (item.itemType) {
-    case ItemType.weapon:  return '⚔️';
-    case ItemType.armor:   return '🛡️';
-    case ItemType.scroll:  return '📜';
-    case ItemType.rune:    return '🔮';
-    case ItemType.potion:  return '🧪';
-    default:               return '📦';
-  }
-}
 
 String _riskLabel(int level) {
   if (level >= 6) return 'YOK OLMA RİSKİ';
@@ -98,21 +172,9 @@ Color _riskColor(int level) {
   return const Color(0xFF22C55E);
 }
 
-// ---------------------------------------------------------------------------
-// Result type
-// ---------------------------------------------------------------------------
-enum _ResultType { success, failure, destroyed }
-
-class _EnhanceResult {
-  const _EnhanceResult({required this.type, required this.newLevel, required this.message});
-  final _ResultType type;
-  final int newLevel;
-  final String message;
-}
-
-// ---------------------------------------------------------------------------
-// Screen
-// ---------------------------------------------------------------------------
+// ============================================================================
+// MAIN SCREEN
+// ============================================================================
 class EnhancementScreen extends ConsumerStatefulWidget {
   const EnhancementScreen({super.key});
 
@@ -121,107 +183,51 @@ class EnhancementScreen extends ConsumerStatefulWidget {
 }
 
 class _EnhancementScreenState extends ConsumerState<EnhancementScreen> {
+  static const int _maxScrollSlots = 9;
+
   InventoryItem? _selectedItem;
-  InventoryItem? _selectedScroll;
+  final List<InventoryItem?> _selectedScrollSlots = List<InventoryItem?>.filled(
+    _maxScrollSlots,
+    null,
+  );
   RuneType _selectedRune = 'none';
-  bool _isLoading = false;
+  bool _isEnhancing = false;
   _EnhanceResult? _lastResult;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await ref.read(playerProvider.notifier).loadProfile();
       await ref.read(inventoryProvider.notifier).loadInventory();
+      await ref.read(playerProvider.notifier).loadProfile();
     });
   }
 
-  Future<void> _logout() async {
-    await ref.read(authProvider.notifier).logout();
-    ref.read(playerProvider.notifier).clear();
-  }
-
-  // ---------------------------------------------------------------------------
-  // Item selection bottom sheet
-  // ---------------------------------------------------------------------------
-  void _openItemPicker() {
-    final List<InventoryItem> items = ref
-        .read(inventoryProvider)
-        .items
-        .where(_isEnhanceable)
-        .toList();
-
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: const Color(0xFF1A2035),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => _ItemPickerSheet(
-        items: items,
-        title: 'Güçlendirilecek Eşyayı Seç',
-        onSelected: (InventoryItem item) {
-          setState(() {
-            _selectedItem = item;
-            _selectedScroll = null;
-            _lastResult = null;
-          });
-          Navigator.of(context).pop();
-        },
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Scroll selection bottom sheet
-  // ---------------------------------------------------------------------------
-  void _openScrollPicker() {
-    if (_selectedItem == null) return;
-
-    final String requiredScrollId = _scrollIdForRarity(_selectedItem!.rarity);
-    final List<InventoryItem> scrolls = ref
-        .read(inventoryProvider)
-        .items
-        .where((InventoryItem i) =>
-            i.itemType == ItemType.scroll && i.itemId == requiredScrollId)
-        .toList();
-
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: const Color(0xFF1A2035),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => _ItemPickerSheet(
-        items: scrolls,
-        title: 'Parşömen Seç',
-        onSelected: (InventoryItem scroll) {
-          setState(() => _selectedScroll = scroll);
-          Navigator.of(context).pop();
-        },
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Enhancement action
-  // ---------------------------------------------------------------------------
   Future<void> _enhance() async {
     final InventoryItem? item = _selectedItem;
     if (item == null) return;
+    final String? authId = SupabaseService.client.auth.currentUser?.id;
+    if (authId == null || authId.isEmpty) {
+      _showSnack('Oturum bulunamadi!');
+      return;
+    }
 
     final int cost = _kUpgradeCosts[item.enhancementLevel] ?? 0;
     final int gold = ref.read(playerProvider).profile?.gold ?? 0;
 
     if (gold < cost) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Yetersiz altın!')),
-      );
+      _showSnack('Yetersiz altın!');
+      return;
+    }
+
+    final InventoryItem? compatibleScroll = _findCompatibleScroll();
+    if (compatibleScroll == null) {
+      _showSnack('Uyumlu parşömen gerekli!');
       return;
     }
 
     setState(() {
-      _isLoading = true;
+      _isEnhancing = true;
       _lastResult = null;
     });
 
@@ -229,8 +235,8 @@ class _EnhancementScreenState extends ConsumerState<EnhancementScreen> {
       final dynamic result = await SupabaseService.client.rpc(
         'enhance_item',
         params: <String, dynamic>{
-          'p_inventory_item_id': item.rowId,
-          'p_scroll_inventory_id': _selectedScroll?.rowId,
+          'p_player_id': authId,
+          'p_row_id': item.rowId,
           'p_rune_type': _selectedRune,
         },
       );
@@ -238,20 +244,25 @@ class _EnhancementScreenState extends ConsumerState<EnhancementScreen> {
       final Map<String, dynamic> data = (result as Map<String, dynamic>);
       final bool success = data['success'] as bool? ?? false;
       final bool destroyed = data['destroyed'] as bool? ?? false;
-      final int newLevel = (data['new_level'] as num?)?.toInt() ?? item.enhancementLevel;
+      final int newLevel =
+          (data['new_level'] as num?)?.toInt() ?? item.enhancementLevel;
       final String message = data['message'] as String? ?? '';
 
-      final _ResultType resultType = destroyed
-          ? _ResultType.destroyed
+      final _EnhanceResultType resultType = destroyed
+          ? _EnhanceResultType.destroyed
           : success
-              ? _ResultType.success
-              : _ResultType.failure;
+          ? _EnhanceResultType.success
+          : _EnhanceResultType.failure;
 
       setState(() {
-        _lastResult = _EnhanceResult(type: resultType, newLevel: newLevel, message: message);
+        _lastResult = _EnhanceResult(
+          type: resultType,
+          newLevel: newLevel,
+          message: message,
+        );
         if (destroyed) {
           _selectedItem = null;
-          _selectedScroll = null;
+          _selectedScrollSlots.fillRange(0, _maxScrollSlots, null);
         }
       });
 
@@ -259,36 +270,78 @@ class _EnhancementScreenState extends ConsumerState<EnhancementScreen> {
       await ref.read(playerProvider.notifier).loadProfile();
 
       if (mounted) _showResultDialog(_lastResult!);
-    } catch (e) {
+
+      // Clear after 3 seconds
+      await Future<void>.delayed(const Duration(seconds: 3));
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Hata: $e')),
-        );
+        setState(() {
+          _lastResult = null;
+          _selectedItem = null;
+          _selectedScrollSlots.fillRange(0, _maxScrollSlots, null);
+          _selectedRune = 'none';
+        });
       }
+    } catch (e) {
+      if (mounted) _showSnack('Hata: $e');
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() => _isEnhancing = false);
     }
+  }
+
+  InventoryItem? _findCompatibleScroll() {
+    if (_selectedItem == null) return null;
+    final String requiredId = _scrollIdForRarity(_selectedItem!.rarity);
+    for (final InventoryItem? scroll in _selectedScrollSlots) {
+      if (scroll != null && scroll.itemId == requiredId) {
+        return scroll;
+      }
+    }
+    return null;
+  }
+
+  bool _isScrollItem(InventoryItem item) {
+    return item.itemType == ItemType.scroll || item.itemId.contains('scroll');
+  }
+
+  bool _isRuneItem(InventoryItem item) {
+    return item.itemType == ItemType.rune || item.itemId.startsWith('rune_');
   }
 
   void _showResultDialog(_EnhanceResult result) {
     final (String emoji, String title, Color color) = switch (result.type) {
-      _ResultType.success   => ('🎉', 'BAŞARILI!', const Color(0xFF22C55E)),
-      _ResultType.failure   => ('😔', 'BAŞARISIZ', const Color(0xFFF97316)),
-      _ResultType.destroyed => ('💀', 'EŞYA YOK OLDU', const Color(0xFFEF4444)),
+      _EnhanceResultType.success => (
+        '✨',
+        'BAŞARILI!',
+        _EnhancementDesignSystem.colorSuccess,
+      ),
+      _EnhanceResultType.failure => (
+        '💨',
+        'BAŞARISIZ',
+        _EnhancementDesignSystem.colorWarning,
+      ),
+      _EnhanceResultType.destroyed => (
+        '💥',
+        'YANARAK YOK OLDU',
+        _EnhancementDesignSystem.colorError,
+      ),
     };
 
     showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1A2035),
+        backgroundColor: _EnhancementDesignSystem.colorBgSecondary,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Column(
           children: <Widget>[
             Text(emoji, style: const TextStyle(fontSize: 48)),
-            const SizedBox(height: 8),
+            const SizedBox(height: _EnhancementDesignSystem.spaceMd),
             Text(
               title,
-              style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.w800),
+              style: TextStyle(
+                color: color,
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -296,494 +349,1176 @@ class _EnhancementScreenState extends ConsumerState<EnhancementScreen> {
         content: Text(
           result.message.isNotEmpty
               ? result.message
-              : result.type == _ResultType.success
-                  ? 'Eşyan +${result.newLevel} seviyesine yükseldi!'
-                  : result.type == _ResultType.failure
-                      ? 'Güçlendirme başarısız. Seviye düştü.'
-                      : 'Eşyan yok oldu.',
-          style: const TextStyle(color: Colors.white70),
+              : result.type == _EnhanceResultType.success
+              ? 'Eşyan +${result.newLevel} seviyesine yükseldi!'
+              : result.type == _EnhanceResultType.failure
+              ? 'Güçlendirme başarısız. Seviye düştü.'
+              : 'Eşyan yok oldu.',
+          style: const TextStyle(
+            color: _EnhancementDesignSystem.colorTextSecondary,
+          ),
           textAlign: TextAlign.center,
         ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Tamam', style: TextStyle(color: Color(0xFF5296FF))),
+            child: const Text(
+              'Tamam',
+              style: TextStyle(color: Color(0xFF5296FF)),
+            ),
           ),
         ],
       ),
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Build
-  // ---------------------------------------------------------------------------
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final InventoryItem? item = _selectedItem;
-    final int currentLevel = item?.enhancementLevel ?? 0;
+    final int currentLevel = _selectedItem?.enhancementLevel ?? 0;
     final int nextCost = _kUpgradeCosts[currentLevel] ?? 0;
     final int successChance = _kUpgradeChances[currentLevel] ?? 0;
     final int gold = ref.watch(playerProvider).profile?.gold ?? 0;
+    final bool canEnhance =
+        _selectedItem != null &&
+        _findCompatibleScroll() != null &&
+        gold >= nextCost &&
+        !_isEnhancing;
+    final String requiredScrollLabel = _selectedItem != null
+        ? _scrollLabelForRarity(_selectedItem!.rarity)
+        : '';
 
-    return Scaffold(
-      drawer: GameDrawer(onLogout: _logout),
-      appBar: GameTopBar(title: 'Güçlendirme', onLogout: _logout),
-      bottomNavigationBar: const GameBottomBar(currentRoute: AppRoutes.enhancement),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: <Color>[Color(0xFF10131D), Color(0xFF171E2C), Color(0xFF10131D)],
-          ),
+    final previewLevel = currentLevel + 1;
+
+    return PopScope(
+      canPop: GoRouter.of(context).canPop(),
+      onPopInvokedWithResult: (bool didPop, _) {
+        if (!didPop) context.go(AppRoutes.home);
+      },
+      child: Scaffold(
+        drawer: GameDrawer(
+          onLogout: () async {
+            await ref.read(authProvider.notifier).logout();
+            ref.read(playerProvider.notifier).clear();
+          },
         ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  // -----------------------------------------------------------
-                  // Item slot
-                  // -----------------------------------------------------------
-                  _SectionCard(
-                    title: 'Güçlendirilecek Eşya',
-                    child: _ItemSlotButton(
-                      item: item,
-                      onTap: _openItemPicker,
-                    ),
-                  ),
+        appBar: GameTopBar(
+          title: '🔥 Güçlendirme',
+          onLogout: () async {
+            await ref.read(authProvider.notifier).logout();
+            ref.read(playerProvider.notifier).clear();
+          },
+        ),
+        bottomNavigationBar: const GameBottomBar(
+          currentRoute: AppRoutes.enhancement,
+        ),
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: <Color>[
+                Color(0xFF10131D),
+                Color(0xFF171E2C),
+                Color(0xFF10131D),
+              ],
+            ),
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(_EnhancementDesignSystem.spaceLg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                // ─── THREE SLOT PANEL ─────────────────────────────────────
+                _buildThreeSlotPanel(currentLevel, previewLevel),
 
-                  const SizedBox(height: 12),
+                const SizedBox(height: _EnhancementDesignSystem.spaceLg),
 
-                  // -----------------------------------------------------------
-                  // Enhancement level display
-                  // -----------------------------------------------------------
-                  if (item != null) ...<Widget>[
-                    _SectionCard(
-                      title: 'Mevcut Durum',
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: <Widget>[
-                          _StatBadge(
-                            label: 'Seviye',
-                            value: '+$currentLevel',
-                            color: const Color(0xFF5296FF),
-                          ),
-                          _StatBadge(
-                            label: 'Başarı Şansı',
-                            value: '$successChance%',
-                            color: successChance >= 70
-                                ? const Color(0xFF22C55E)
-                                : successChance >= 40
-                                    ? const Color(0xFFF97316)
-                                    : const Color(0xFFEF4444),
-                          ),
-                          _StatBadge(
-                            label: 'Risk',
-                            value: _riskLabel(currentLevel),
-                            color: _riskColor(currentLevel),
-                            small: true,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
+                // ─── INFO PANEL ───────────────────────────────────────────
+                _buildInfoPanel(
+                  requiredScrollLabel,
+                  successChance,
+                  nextCost,
+                  gold,
+                  currentLevel,
+                ),
 
-                    // ---------------------------------------------------------
-                    // Scroll selection
-                    // ---------------------------------------------------------
-                    _SectionCard(
-                      title: 'Parşömen',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            'Gerekli: ${_scrollLabelForRarity(item.rarity)}',
-                            style: const TextStyle(
-                                color: Colors.white54, fontSize: 12),
+                const SizedBox(height: _EnhancementDesignSystem.spaceLg),
+
+                // ─── ACTION BUTTONS ───────────────────────────────────────
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: _isEnhancing
+                            ? null
+                            : () {
+                                setState(() {
+                                  _selectedItem = null;
+                                  _selectedScrollSlots.fillRange(
+                                    0,
+                                    _maxScrollSlots,
+                                    null,
+                                  );
+                                  _selectedRune = 'none';
+                                });
+                              },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: _EnhancementDesignSystem.spaceMd,
                           ),
-                          const SizedBox(height: 8),
-                          _ItemSlotButton(
-                            item: _selectedScroll,
-                            placeholder: 'Parşömen Seç',
-                            placeholderIcon: '📜',
-                            onTap: _openScrollPicker,
-                          ),
-                          if (_selectedScroll != null)
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton(
-                                onPressed: () =>
-                                    setState(() => _selectedScroll = null),
-                                child: const Text('Kaldır',
-                                    style: TextStyle(color: Colors.red)),
-                              ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.06),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.1),
                             ),
-                        ],
+                            borderRadius: BorderRadius.circular(
+                              _EnhancementDesignSystem.radiusMd,
+                            ),
+                          ),
+                          child: const Text(
+                            'İptal',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-
-                    // ---------------------------------------------------------
-                    // Rune selection
-                    // ---------------------------------------------------------
-                    _SectionCard(
-                      title: 'Rune (Opsiyonel)',
-                      child: DropdownButton<RuneType>(
-                        value: _selectedRune,
-                        isExpanded: true,
-                        dropdownColor: const Color(0xFF1A2035),
-                        style: const TextStyle(color: Colors.white),
-                        underline: Container(height: 1, color: Colors.white24),
-                        onChanged: (RuneType? v) {
-                          if (v != null) setState(() => _selectedRune = v);
-                        },
-                        items: _kRuneTypes
-                            .map((RuneType r) => DropdownMenuItem<RuneType>(
-                                  value: r,
-                                  child: Text(_kRuneLabels[r] ?? r),
-                                ))
-                            .toList(),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // ---------------------------------------------------------
-                    // Enhance button
-                    // ---------------------------------------------------------
-                    _SectionCard(
-                      title: 'Güçlendirme Maliyeti',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: <Widget>[
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    const SizedBox(width: _EnhancementDesignSystem.spaceMd),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: canEnhance ? _enhance : null,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: _EnhancementDesignSystem.spaceMd,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: canEnhance
+                                ? LinearGradient(
+                                    colors: [
+                                      Color(0xFF5296FF).withValues(alpha: 0.3),
+                                      Color(0xFF5296FF).withValues(alpha: 0.15),
+                                    ],
+                                  )
+                                : LinearGradient(
+                                    colors: [
+                                      Colors.white.withValues(alpha: 0.03),
+                                      Colors.white.withValues(alpha: 0.01),
+                                    ],
+                                  ),
+                            border: Border.all(
+                              color: canEnhance
+                                  ? Color(0xFF5296FF).withValues(alpha: 0.5)
+                                  : Colors.white.withValues(alpha: 0.1),
+                            ),
+                            borderRadius: BorderRadius.circular(
+                              _EnhancementDesignSystem.radiusMd,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: <Widget>[
-                              const Text('Gerekli Altın:',
-                                  style: TextStyle(color: Colors.white70)),
+                              if (_isEnhancing)
+                                const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Color(0xFF5296FF),
+                                    ),
+                                  ),
+                                )
+                              else
+                                const Text(
+                                  '⚒️',
+                                  style: TextStyle(fontSize: 16),
+                                ),
+                              const SizedBox(
+                                width: _EnhancementDesignSystem.spaceSm,
+                              ),
                               Text(
-                                _formatGold(nextCost),
+                                _isEnhancing
+                                    ? 'Güçlendiriliyor...'
+                                    : 'Güçlendir',
                                 style: TextStyle(
-                                  color: gold >= nextCost
-                                      ? const Color(0xFFDDB200)
-                                      : const Color(0xFFEF4444),
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 16,
+                                  color: canEnhance
+                                      ? Colors.white
+                                      : Colors.white54,
+                                  fontSize: 14,
                                 ),
                               ),
                             ],
                           ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: <Widget>[
-                              const Text('Mevcut Altın:',
-                                  style: TextStyle(color: Colors.white54, fontSize: 12)),
-                              Text(
-                                _formatGold(gold),
-                                style: const TextStyle(
-                                    color: Colors.white54, fontSize: 12),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            height: 48,
-                            child: FilledButton(
-                              onPressed:
-                                  (_isLoading || item.enhancementLevel >= 10)
-                                      ? null
-                                      : _enhance,
-                              style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xFF5296FF),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10)),
-                              ),
-                              child: _isLoading
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white),
-                                    )
-                                  : Text(
-                                      item.enhancementLevel >= 10
-                                          ? 'Maksimum Seviye'
-                                          : 'Güçlendir',
-                                      style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700),
-                                    ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 12),
                   ],
+                ),
 
-                  // -----------------------------------------------------------
-                  // Upgrade table
-                  // -----------------------------------------------------------
-                  _SectionCard(
-                    title: 'Güçlendirme Tablosu',
-                    child: _UpgradeTable(currentLevel: currentLevel),
-                  ),
-                ],
-              ),
+                const SizedBox(height: _EnhancementDesignSystem.spaceLg),
+                // ─── INVENTORY GRID ────────────────────────────────────
+                _buildInventoryGrid(),
+
+                const SizedBox(height: _EnhancementDesignSystem.spaceLg),
+                // ─── UPGRADE TABLE ────────────────────────────────────────
+                _buildUpgradeTable(currentLevel),
+              ],
             ),
           ),
         ),
       ),
     );
   }
-}
 
-// ---------------------------------------------------------------------------
-// Section card
-// ---------------------------------------------------------------------------
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.title, required this.child});
-
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildThreeSlotPanel(int currentLevel, int previewLevel) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(_EnhancementDesignSystem.spaceMd),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white12),
-        color: Colors.black26,
+        gradient: _EnhancementDesignSystem.gradientBgPanel,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        borderRadius: BorderRadius.circular(_EnhancementDesignSystem.radiusLg),
+        boxShadow: _EnhancementDesignSystem.shadowMd,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            title,
-            style: const TextStyle(
-                color: Colors.white54,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5),
+            'Güçlendirme Yuvaları',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Colors.white54,
+            ),
           ),
-          const SizedBox(height: 10),
-          child,
+          const SizedBox(height: _EnhancementDesignSystem.spaceMd),
+          Row(
+            children: <Widget>[
+              // Item slot
+              Expanded(
+                child: Column(
+                  children: <Widget>[
+                    Text(
+                      'Eşya',
+                      style: TextStyle(fontSize: 10, color: Colors.white54),
+                    ),
+                    const SizedBox(height: _EnhancementDesignSystem.spaceSm),
+                    _buildItemSlot(),
+                  ],
+                ),
+              ),
+              const SizedBox(width: _EnhancementDesignSystem.spaceSm),
+              Text('+', style: TextStyle(color: Colors.white38, fontSize: 16)),
+              const SizedBox(width: _EnhancementDesignSystem.spaceSm),
+
+              // Rune slot
+              Expanded(
+                child: Column(
+                  children: <Widget>[
+                    Text(
+                      'Rune',
+                      style: TextStyle(fontSize: 10, color: Colors.white54),
+                    ),
+                    const SizedBox(height: _EnhancementDesignSystem.spaceSm),
+                    _buildRuneSlot(),
+                  ],
+                ),
+              ),
+              const SizedBox(width: _EnhancementDesignSystem.spaceSm),
+              Text('+', style: TextStyle(color: Colors.white38, fontSize: 16)),
+              const SizedBox(width: _EnhancementDesignSystem.spaceSm),
+
+              // Scroll slots
+              Expanded(
+                flex: 2,
+                child: Column(
+                  children: <Widget>[
+                    Text(
+                      'Parşömen (9)',
+                      style: TextStyle(fontSize: 10, color: Colors.white54),
+                    ),
+                    const SizedBox(height: _EnhancementDesignSystem.spaceSm),
+                    GridView.count(
+                      crossAxisCount: 3,
+                      shrinkWrap: true,
+                      mainAxisSpacing: 4,
+                      crossAxisSpacing: 4,
+                      children: List.generate(
+                        _maxScrollSlots,
+                        (int i) => _buildScrollSlot(i),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: _EnhancementDesignSystem.spaceSm),
+              Text('→', style: TextStyle(color: Colors.white38, fontSize: 16)),
+              const SizedBox(width: _EnhancementDesignSystem.spaceSm),
+
+              // Preview slot
+              Expanded(
+                child: Column(
+                  children: <Widget>[
+                    Text(
+                      'Önizleme',
+                      style: TextStyle(fontSize: 10, color: Colors.white54),
+                    ),
+                    const SizedBox(height: _EnhancementDesignSystem.spaceSm),
+                    _buildPreviewSlot(previewLevel),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
-}
 
-// ---------------------------------------------------------------------------
-// Item slot button
-// ---------------------------------------------------------------------------
-class _ItemSlotButton extends StatelessWidget {
-  const _ItemSlotButton({
-    required this.item,
-    required this.onTap,
-    this.placeholder = 'Öğe Seç',
-    this.placeholderIcon = '⚔️',
-  });
-
-  final InventoryItem? item;
-  final VoidCallback onTap;
-  final String placeholder;
-  final String placeholderIcon;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: item != null
-                ? _rarityColor(item!.rarity).withOpacity(0.6)
-                : Colors.white24,
-            width: 1.5,
-          ),
-          color: item != null
-              ? _rarityColor(item!.rarity).withOpacity(0.08)
-              : Colors.white.withOpacity(0.04),
-        ),
-        child: item != null
-            ? Row(
-                children: <Widget>[
-                  Text(_itemEmoji(item!), style: const TextStyle(fontSize: 24)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          '+${item!.enhancementLevel} ${item!.name}',
-                          style: TextStyle(
-                            color: _rarityColor(item!.rarity),
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
+  Widget _buildItemSlot() {
+    return DragTarget<InventoryItem>(
+      onWillAcceptWithDetails: (DragTargetDetails<InventoryItem> details) {
+        return _isEnhanceable(details.data);
+      },
+      onAcceptWithDetails: (DragTargetDetails<InventoryItem> details) {
+        setState(() {
+          _selectedItem = details.data;
+          _lastResult = null;
+        });
+      },
+      builder:
+          (
+            BuildContext context,
+            List<InventoryItem?> candidateData,
+            List<dynamic> rejectedData,
+          ) => Stack(
+            children: <Widget>[
+              Container(
+                height: 60,
+                padding: const EdgeInsets.all(_EnhancementDesignSystem.spaceSm),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: _selectedItem != null
+                        ? _rarityColor(
+                            _selectedItem!.rarity,
+                          ).withValues(alpha: 0.5)
+                        : Colors.white.withValues(alpha: 0.2),
+                    width: 1.5,
+                  ),
+                  borderRadius: BorderRadius.circular(
+                    _EnhancementDesignSystem.radiusMd,
+                  ),
+                  color: _selectedItem != null
+                      ? _rarityColor(
+                          _selectedItem!.rarity,
+                        ).withValues(alpha: 0.08)
+                      : Colors.white.withValues(alpha: 0.02),
+                ),
+                child: _selectedItem != null
+                    ? Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Text(
+                              '+${_selectedItem!.enhancementLevel} ${_selectedItem!.name}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: _rarityColor(_selectedItem!.rarity),
+                              ),
+                            ),
                           ),
+                        ],
+                      )
+                    : Center(
+                        child: Text(
+                          'Bırak',
+                          style: TextStyle(fontSize: 10, color: Colors.white38),
                         ),
-                        Text(
-                          getRarityLabel(item!.rarity),
-                          style: const TextStyle(
-                              color: Colors.white54, fontSize: 11),
-                        ),
-                      ],
+                      ),
+              ),
+              if (_selectedItem != null)
+                Positioned(
+                  right: 2,
+                  top: 2,
+                  child: GestureDetector(
+                    onTap: () => setState(() => _selectedItem = null),
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.close,
+                        size: 10,
+                        color: Colors.white70,
+                      ),
                     ),
                   ),
-                  const Icon(Icons.swap_horiz,
-                      color: Colors.white38, size: 18),
-                ],
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+                ),
+            ],
+          ),
+    );
+  }
+
+  Widget _buildRuneSlot() {
+    return DragTarget<InventoryItem>(
+      onWillAcceptWithDetails: (DragTargetDetails<InventoryItem> details) {
+        return _isRuneItem(details.data);
+      },
+      onAcceptWithDetails: (DragTargetDetails<InventoryItem> details) {
+        setState(() {
+          _selectedRune = details.data.itemId.replaceFirst('rune_', '');
+        });
+      },
+      builder:
+          (
+            BuildContext context,
+            List<InventoryItem?> candidateData,
+            List<dynamic> rejectedData,
+          ) => Stack(
+            children: <Widget>[
+              Container(
+                height: 60,
+                padding: const EdgeInsets.all(_EnhancementDesignSystem.spaceSm),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: _selectedRune != 'none'
+                        ? Color(0xFFA855F7).withValues(alpha: 0.5)
+                        : Colors.white.withValues(alpha: 0.2),
+                    width: 1.5,
+                  ),
+                  borderRadius: BorderRadius.circular(
+                    _EnhancementDesignSystem.radiusMd,
+                  ),
+                  color: _selectedRune != 'none'
+                      ? Color(0xFFA855F7).withValues(alpha: 0.08)
+                      : Colors.white.withValues(alpha: 0.02),
+                ),
+                child: _selectedRune != 'none'
+                    ? Row(
+                        children: <Widget>[
+                          Text('🔮', style: TextStyle(fontSize: 16)),
+                          const SizedBox(
+                            width: _EnhancementDesignSystem.spaceSm,
+                          ),
+                          Expanded(
+                            child: Text(
+                              _kRuneLabels[_selectedRune] ?? _selectedRune,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Color(0xFFA855F7),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Center(
+                        child: Text(
+                          'Bırak',
+                          style: TextStyle(fontSize: 10, color: Colors.white38),
+                        ),
+                      ),
+              ),
+              if (_selectedRune != 'none')
+                Positioned(
+                  right: 2,
+                  top: 2,
+                  child: GestureDetector(
+                    onTap: () => setState(() => _selectedRune = 'none'),
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.close,
+                        size: 10,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+    );
+  }
+
+  Widget _buildScrollSlot(int index) {
+    final InventoryItem? scroll = _selectedScrollSlots[index];
+    final String requiredId = _selectedItem != null
+        ? _scrollIdForRarity(_selectedItem!.rarity)
+        : '';
+    final bool isCompatible = scroll != null && scroll.itemId == requiredId;
+
+    return DragTarget<InventoryItem>(
+      onWillAcceptWithDetails: (DragTargetDetails<InventoryItem> details) {
+        return _isScrollItem(details.data);
+      },
+      onAcceptWithDetails: (DragTargetDetails<InventoryItem> details) {
+        final InventoryItem dragged = details.data;
+        final int sourceIndex = _selectedScrollSlots.indexWhere(
+          (InventoryItem? s) => s?.rowId == dragged.rowId,
+        );
+
+        setState(() {
+          if (sourceIndex == index) {
+            return;
+          }
+
+          if (sourceIndex >= 0) {
+            final InventoryItem? target = _selectedScrollSlots[index];
+            _selectedScrollSlots[index] = _selectedScrollSlots[sourceIndex];
+            _selectedScrollSlots[sourceIndex] = target;
+            return;
+          }
+
+          _selectedScrollSlots[index] = dragged;
+        });
+      },
+      builder:
+          (
+            BuildContext context,
+            List<InventoryItem?> candidateData,
+            List<dynamic> rejectedData,
+          ) => Stack(
+            children: <Widget>[
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: scroll != null && isCompatible
+                        ? Colors.amber.withValues(alpha: 0.5)
+                        : scroll != null && !isCompatible
+                        ? Colors.red.withValues(alpha: 0.5)
+                        : Colors.white.withValues(alpha: 0.2),
+                    width: 1.5,
+                  ),
+                  borderRadius: BorderRadius.circular(
+                    _EnhancementDesignSystem.radiusMd,
+                  ),
+                  color: scroll != null && isCompatible
+                      ? Colors.amber.withValues(alpha: 0.08)
+                      : scroll != null && !isCompatible
+                      ? Colors.red.withValues(alpha: 0.08)
+                      : Colors.white.withValues(alpha: 0.02),
+                ),
+                child: scroll != null
+                    ? Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: <Widget>[
+                          Text('📜', style: TextStyle(fontSize: 12)),
+                          Text(
+                            scroll.name,
+                            style: TextStyle(
+                              fontSize: 7,
+                              color: Colors.white70,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (!isCompatible)
+                            Text(
+                              '✗',
+                              style: TextStyle(fontSize: 8, color: Colors.red),
+                            ),
+                        ],
+                      )
+                    : Center(
+                        child: Text(
+                          '+',
+                          style: TextStyle(color: Colors.white38),
+                        ),
+                      ),
+              ),
+              if (scroll != null)
+                Positioned(
+                  right: 1,
+                  top: 1,
+                  child: GestureDetector(
+                    onTap: () =>
+                        setState(() => _selectedScrollSlots[index] = null),
+                    child: Container(
+                      padding: const EdgeInsets.all(1),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.close,
+                        size: 9,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+    );
+  }
+
+  Widget _buildPreviewSlot(int previewLevel) {
+    return Container(
+      height: 60,
+      padding: const EdgeInsets.all(_EnhancementDesignSystem.spaceSm),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: _selectedItem != null
+              ? Colors.green.withValues(alpha: 0.3)
+              : Colors.white.withValues(alpha: 0.2),
+          width: 1.5,
+        ),
+        borderRadius: BorderRadius.circular(_EnhancementDesignSystem.radiusMd),
+        color: _selectedItem != null
+            ? Colors.green.withValues(alpha: 0.05)
+            : Colors.white.withValues(alpha: 0.02),
+      ),
+      child: _selectedItem != null
+          ? Opacity(
+              opacity: 0.6,
+              child: Row(
                 children: <Widget>[
-                  Text(placeholderIcon,
-                      style: const TextStyle(
-                          fontSize: 24, color: Colors.white38)),
-                  const SizedBox(width: 10),
-                  Text(placeholder,
-                      style: const TextStyle(
-                          color: Colors.white38, fontSize: 14)),
-                  const SizedBox(width: 6),
-                  const Icon(Icons.add_circle_outline,
-                      color: Colors.white38, size: 18),
+                  Text(
+                    '+$previewLevel',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.green.withValues(alpha: 0.7),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      _selectedItem!.name,
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: Colors.white54,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
                 ],
               ),
+            )
+          : Center(
+              child: Text(
+                '✨',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.white.withValues(alpha: 0.2),
+                ),
+              ),
+            ),
+    );
+  }
+
+  Widget _buildInfoPanel(
+    String requiredScrollLabel,
+    int successChance,
+    int nextCost,
+    int gold,
+    int currentLevel,
+  ) {
+    final bool hasEnoughGold = gold >= nextCost;
+    final bool hasIncompatibleScroll = _selectedScrollSlots.any(
+      (s) => s != null && _findCompatibleScroll() == null,
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(_EnhancementDesignSystem.spaceMd),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.26),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        borderRadius: BorderRadius.circular(_EnhancementDesignSystem.radiusMd),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'Güçlendirme Bilgisi',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Colors.white54,
+            ),
+          ),
+          const SizedBox(height: _EnhancementDesignSystem.spaceMd),
+          _buildInfoRow('Gerekli Parşömen', requiredScrollLabel, Colors.amber),
+          _buildInfoRow(
+            'Başarı Şansı',
+            '$successChance%',
+            _getSuccessColor(successChance),
+          ),
+          _buildInfoRow(
+            'Maliyet',
+            _formatGold(nextCost),
+            _EnhancementDesignSystem.colorGold,
+          ),
+          _buildInfoRow(
+            'Altın Bakiyesi',
+            _formatGold(gold),
+            hasEnoughGold ? Colors.green : Colors.red,
+          ),
+          _buildInfoRow(
+            'Risk',
+            _riskLabel(currentLevel),
+            _riskColor(currentLevel),
+          ),
+
+          // Compatibility warning
+          if (hasIncompatibleScroll && _selectedItem != null)
+            Padding(
+              padding: const EdgeInsets.only(
+                top: _EnhancementDesignSystem.spaceMd,
+              ),
+              child: Container(
+                padding: const EdgeInsets.all(_EnhancementDesignSystem.spaceMd),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                  borderRadius: BorderRadius.circular(
+                    _EnhancementDesignSystem.radiusMd,
+                  ),
+                ),
+                child: Text(
+                  '❌ Slotlardaki parşömenler seçili eşyayla uyumlu değil. Gereken: $requiredScrollLabel',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.red.withValues(alpha: 0.7),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
-}
 
-// ---------------------------------------------------------------------------
-// Stat badge
-// ---------------------------------------------------------------------------
-class _StatBadge extends StatelessWidget {
-  const _StatBadge({
-    required this.label,
-    required this.value,
-    required this.color,
-    this.small = false,
-  });
-
-  final String label;
-  final String value;
-  final Color color;
-  final bool small;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: <Widget>[
-        Text(
-          value,
-          style: TextStyle(
-            color: color,
-            fontSize: small ? 12 : 22,
-            fontWeight: FontWeight.w800,
+  Widget _buildInfoRow(String label, String value, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: _EnhancementDesignSystem.spaceMd),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: <Widget>[
+          Text(label, style: TextStyle(fontSize: 12, color: Colors.white70)),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
           ),
-        ),
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white38, fontSize: 11),
-        ),
-      ],
+        ],
+      ),
     );
   }
-}
 
-// ---------------------------------------------------------------------------
-// Upgrade table
-// ---------------------------------------------------------------------------
-class _UpgradeTable extends StatelessWidget {
-  const _UpgradeTable({required this.currentLevel});
+  Color _getSuccessColor(int chance) {
+    if (chance >= 70) return Colors.green;
+    if (chance >= 35) return Colors.yellow;
+    if (chance >= 20) return Colors.orange;
+    return Colors.red;
+  }
 
-  final int currentLevel;
-
-  @override
-  Widget build(BuildContext context) {
-    return Table(
-      columnWidths: const <int, TableColumnWidth>{
-        0: FlexColumnWidth(1),
-        1: FlexColumnWidth(2),
-        2: FlexColumnWidth(1.2),
-        3: FlexColumnWidth(1.5),
-      },
-      children: <TableRow>[
-        // Header
-        TableRow(
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: Colors.white12)),
-          ),
-          children: <Widget>[
-            _th('Seviye'),
-            _th('Maliyet'),
-            _th('Şans'),
-            _th('Risk'),
-          ],
-        ),
-        // Rows 0-10
-        for (int lvl = 0; lvl <= 10; lvl++)
-          TableRow(
-            decoration: BoxDecoration(
-              color: lvl == currentLevel
-                  ? const Color(0xFF5296FF).withOpacity(0.12)
-                  : Colors.transparent,
+  Widget _buildUpgradeTable(int currentLevel) {
+    return Container(
+      padding: const EdgeInsets.all(_EnhancementDesignSystem.spaceMd),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.26),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        borderRadius: BorderRadius.circular(_EnhancementDesignSystem.radiusMd),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'Güçlendirme Tablosu',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Colors.white54,
             ),
+          ),
+          const SizedBox(height: _EnhancementDesignSystem.spaceMd),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Table(
+              columnWidths: const <int, TableColumnWidth>{
+                0: FixedColumnWidth(40),
+                1: FixedColumnWidth(80),
+                2: FixedColumnWidth(60),
+                3: FixedColumnWidth(80),
+              },
+              children: <TableRow>[
+                TableRow(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.1),
+                      ),
+                    ),
+                  ),
+                  children: <Widget>[
+                    _tableHeader('Sev'),
+                    _tableHeader('Maliyet'),
+                    _tableHeader('Şans'),
+                    _tableHeader('Risk'),
+                  ],
+                ),
+                for (int lvl = 0; lvl <= 10; lvl++)
+                  TableRow(
+                    decoration: BoxDecoration(
+                      color: lvl == currentLevel
+                          ? Color(0xFF5296FF).withValues(alpha: 0.08)
+                          : Colors.transparent,
+                      border: Border(
+                        bottom: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.05),
+                        ),
+                      ),
+                    ),
+                    children: <Widget>[
+                      _tableCell(
+                        '+$lvl',
+                        lvl == currentLevel,
+                        Color(0xFF5296FF),
+                      ),
+                      _tableCell(
+                        _formatGold(_kUpgradeCosts[lvl] ?? 0),
+                        false,
+                        _EnhancementDesignSystem.colorGold,
+                        small: true,
+                      ),
+                      _tableCell(
+                        '${_kUpgradeChances[lvl] ?? 0}%',
+                        false,
+                        Colors.white70,
+                        small: true,
+                      ),
+                      _tableCell(
+                        _riskLabel(lvl),
+                        false,
+                        _riskColor(lvl),
+                        small: true,
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tableHeader(String text) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    child: Text(
+      text,
+      style: TextStyle(
+        fontSize: 10,
+        color: Colors.white38,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  );
+
+  Widget _tableCell(
+    String text,
+    bool bold,
+    Color color, {
+    bool small = false,
+  }) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 5),
+    child: Text(
+      text,
+      style: TextStyle(
+        fontSize: small ? 9 : 11,
+        color: color,
+        fontWeight: bold ? FontWeight.w800 : FontWeight.normal,
+      ),
+    ),
+  );
+
+  // ─── INVENTORY GRID ──────────────────────────────────────────────────
+  Widget _buildInventoryGrid() {
+    const int gridColCount = 5;
+    const int maxSlots = 20;
+    final inventoryState = ref.watch(inventoryProvider);
+    final List<InventoryItem> items = inventoryState.items;
+
+    return Container(
+      padding: const EdgeInsets.all(_EnhancementDesignSystem.spaceMd),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.26),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        borderRadius: BorderRadius.circular(_EnhancementDesignSystem.radiusMd),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
-              _td('+$lvl',
-                  bold: lvl == currentLevel,
-                  color: lvl == currentLevel
-                      ? const Color(0xFF5296FF)
-                      : Colors.white70),
-              _td(_formatGold(_kUpgradeCosts[lvl] ?? 0),
-                  color: const Color(0xFFDDB200)),
-              _td('${_kUpgradeChances[lvl] ?? 0}%'),
-              _td(
-                _riskLabel(lvl),
-                color: _riskColor(lvl),
-                small: true,
+              Text(
+                'Envanter Izgarası',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white54,
+                ),
+              ),
+              Text(
+                'Sürükle-bırak aktif',
+                style: TextStyle(
+                  fontSize: 9,
+                  color: Colors.white30,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ],
           ),
-      ],
+          const SizedBox(height: _EnhancementDesignSystem.spaceMd),
+          GridView.builder(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: gridColCount,
+              mainAxisSpacing: 4,
+              crossAxisSpacing: 4,
+              childAspectRatio: 1,
+            ),
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: maxSlots,
+            itemBuilder: (_, int idx) {
+              InventoryItem? item;
+              for (final InventoryItem inventoryItem in items) {
+                if (inventoryItem.slotPosition == idx) {
+                  item = inventoryItem;
+                  break;
+                }
+              }
+
+              if (item == null) {
+                return Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.1),
+                    ),
+                    borderRadius: BorderRadius.circular(
+                      _EnhancementDesignSystem.radiusMd,
+                    ),
+                    color: Colors.white.withValues(alpha: 0.02),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '📭',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white.withValues(alpha: 0.2),
+                      ),
+                    ),
+                  ),
+                );
+              }
+
+              final InventoryItem selectedInventoryItem = item;
+              final bool isSelected =
+                  (_selectedItem?.rowId == selectedInventoryItem.rowId) ||
+                  (_selectedRune != 'none' &&
+                      selectedInventoryItem.itemId == 'rune_$_selectedRune') ||
+                  (_selectedScrollSlots.any(
+                    (s) => s?.rowId == selectedInventoryItem.rowId,
+                  ));
+
+              final Widget itemTile = GestureDetector(
+                onTap: () => _handleInventoryItemTap(selectedInventoryItem),
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: isSelected
+                          ? _rarityColor(
+                              selectedInventoryItem.rarity,
+                            ).withValues(alpha: 0.8)
+                          : _rarityColor(
+                              selectedInventoryItem.rarity,
+                            ).withValues(alpha: 0.3),
+                      width: isSelected ? 2 : 1.5,
+                    ),
+                    borderRadius: BorderRadius.circular(
+                      _EnhancementDesignSystem.radiusMd,
+                    ),
+                    color: _rarityColor(
+                      selectedInventoryItem.rarity,
+                    ).withValues(alpha: isSelected ? 0.15 : 0.05),
+                  ),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: <Widget>[
+                      Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: <Widget>[
+                            Text(
+                              _getItemEmoji(selectedInventoryItem),
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                            const SizedBox(height: 2),
+                            Flexible(
+                              child: Text(
+                                selectedInventoryItem.name,
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  color: _rarityColor(
+                                    selectedInventoryItem.rarity,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                              ),
+                            ),
+                            if (selectedInventoryItem.enhancementLevel > 0)
+                              Text(
+                                '+${selectedInventoryItem.enhancementLevel}',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  color: Colors.amber,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            if (selectedInventoryItem.quantity > 1)
+                              Text(
+                                'x${selectedInventoryItem.quantity}',
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  color: Colors.white54,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (isSelected)
+                        Positioned(
+                          top: 2,
+                          right: 2,
+                          child: Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _rarityColor(item.rarity),
+                            ),
+                            child: const Icon(
+                              Icons.check,
+                              size: 8,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+
+              return Draggable<InventoryItem>(
+                data: selectedInventoryItem,
+                feedback: Material(
+                  color: Colors.transparent,
+                  child: SizedBox(
+                    width: 72,
+                    height: 72,
+                    child: Opacity(opacity: 0.9, child: itemTile),
+                  ),
+                ),
+                childWhenDragging: Opacity(opacity: 0.35, child: itemTile),
+                child: itemTile,
+              );
+            },
+          ),
+          if (inventoryState.status == InventoryStatus.loading && items.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(
+                top: _EnhancementDesignSystem.spaceMd,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const <Widget>[
+                  SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  SizedBox(width: 8),
+                  Text('Envanter yükleniyor...'),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 
-  Widget _th(String text) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Text(text,
-            style: const TextStyle(
-                color: Colors.white38,
-                fontSize: 11,
-                fontWeight: FontWeight.w600)),
-      );
+  void _handleInventoryItemTap(InventoryItem item) {
+    if (_isEnhanceable(item)) {
+      setState(() {
+        _selectedItem = item;
+        _lastResult = null;
+      });
+    } else if (_isScrollItem(item)) {
+      // Add to first empty scroll slot
+      if (_selectedScrollSlots.any(
+        (InventoryItem? s) => s?.rowId == item.rowId,
+      )) {
+        return;
+      }
+      for (int i = 0; i < _maxScrollSlots; i++) {
+        if (_selectedScrollSlots[i] == null) {
+          setState(() => _selectedScrollSlots[i] = item);
+          break;
+        }
+      }
+    } else if (_isRuneItem(item)) {
+      setState(() => _selectedRune = item.itemId.replaceFirst('rune_', ''));
+    }
+  }
 
-  Widget _td(String text,
-      {Color color = Colors.white70, bool bold = false, bool small = false}) =>
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 5),
-        child: Text(
-          text,
-          style: TextStyle(
-            color: color,
-            fontSize: small ? 10 : 12,
-            fontWeight: bold ? FontWeight.w800 : FontWeight.normal,
-          ),
-        ),
-      );
+  String _getItemEmoji(InventoryItem item) {
+    if (item.itemType == ItemType.weapon) {
+      return '⚔️';
+    }
+    if (item.itemType == ItemType.armor) {
+      return '🛡️';
+    }
+    if (_isScrollItem(item)) {
+      return '📜';
+    }
+    if (_isRuneItem(item)) {
+      return '🔮';
+    }
+    if (item.itemType == ItemType.potion) {
+      return '🧪';
+    }
+    return '📦';
+  }
 }
 
-// ---------------------------------------------------------------------------
-// Item picker bottom sheet
-// ---------------------------------------------------------------------------
+// ============================================================================
+// ITEM PICKER SHEET
+// ============================================================================
 class _ItemPickerSheet extends StatelessWidget {
   const _ItemPickerSheet({
     required this.items,
@@ -801,9 +1536,8 @@ class _ItemPickerSheet extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          // Handle bar
           Container(
-            margin: const EdgeInsets.only(top: 10, bottom: 6),
+            margin: const EdgeInsets.only(top: 10, bottom: 8),
             width: 40,
             height: 4,
             decoration: BoxDecoration(
@@ -812,57 +1546,66 @@ class _ItemPickerSheet extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.all(_EnhancementDesignSystem.spaceMd),
             child: Text(
               title,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
             ),
           ),
-          const Divider(color: Colors.white12),
-          if (items.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(24),
-              child: Text('Uygun eşya bulunamadı.',
-                  style: TextStyle(color: Colors.white38)),
-            )
-          else
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.55),
-              child: ListView.builder(
-                itemCount: items.length,
-                itemBuilder: (BuildContext ctx, int i) {
-                  final InventoryItem item = items[i];
-                  return ListTile(
-                    leading: Text(_itemEmoji(item),
-                        style: const TextStyle(fontSize: 22)),
-                    title: Text(
-                      '+${item.enhancementLevel} ${item.name}',
-                      style: TextStyle(
-                        color: _rarityColor(item.rarity),
-                        fontWeight: FontWeight.w600,
-                      ),
+          Expanded(
+            child: items.isEmpty
+                ? Center(
+                    child: Text(
+                      'Öğe bulunamadı',
+                      style: TextStyle(color: Colors.white54),
                     ),
-                    subtitle: Text(
-                      getRarityLabel(item.rarity),
-                      style: const TextStyle(
-                          color: Colors.white38, fontSize: 11),
-                    ),
-                    trailing: item.quantity > 1
-                        ? Text(
-                            'x${item.quantity}',
-                            style: const TextStyle(color: Colors.white54),
-                          )
-                        : null,
-                    onTap: () => onSelected(item),
-                  );
-                },
-              ),
-            ),
-          const SizedBox(height: 8),
+                  )
+                : ListView.builder(
+                    itemCount: items.length,
+                    itemBuilder: (_, int i) {
+                      final InventoryItem item = items[i];
+                      return GestureDetector(
+                        onTap: () => onSelected(item),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: _EnhancementDesignSystem.spaceMd,
+                            vertical: _EnhancementDesignSystem.spaceSm,
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.all(
+                              _EnhancementDesignSystem.spaceMd,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.02),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.1),
+                              ),
+                              borderRadius: BorderRadius.circular(
+                                _EnhancementDesignSystem.radiusMd,
+                              ),
+                            ),
+                            child: Row(
+                              children: <Widget>[
+                                Text(
+                                  '${item.enhancementLevel > 0 ? '+${item.enhancementLevel}' : ''} ${item.name}',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  getRarityLabel(item.rarity),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.white54,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
         ],
       ),
     );

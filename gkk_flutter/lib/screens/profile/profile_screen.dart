@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../components/layout/game_chrome.dart';
+import '../../models/player_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/player_provider.dart';
 import '../../routing/app_router.dart';
@@ -67,7 +68,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final playerState = ref.watch(playerProvider);
     final profile = playerState.profile;
 
-    void logout() async {
+    Future<void> logout() async {
       await ref.read(authProvider.notifier).logout();
       ref.read(playerProvider.notifier).clear();
     }
@@ -91,20 +92,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Widget _buildBody(BuildContext context, dynamic profile) {
-    final level = (profile?.level ?? 1) as int;
-    final xp = (profile?.xp ?? 0) as int;
+  Widget _buildBody(BuildContext context, PlayerProfile? profile) {
+    final level = profile?.level ?? 1;
+    final xp = profile?.xp ?? 0;
     final xpForNext = (1000 * (level as num).pow(1.5)).round();
-    final gold = (profile?.gold ?? 0) as int;
-    final gems = (profile?.gems ?? 0) as int;
-    final energy = (profile?.energy ?? 0) as int;
-    final maxEnergy = (profile?.maxEnergy ?? 100) as int;
-    final pvpWins = (profile?.pvpWins ?? 0) as int;
-    final pvpLosses = (profile?.pvpLosses ?? 0) as int;
-    final pvpRating = (profile?.pvpRating ?? 0) as int;
-    final tolerance = (profile?.tolerance ?? 0) as int;
-    final reputation = (profile?.reputation ?? 0) as int;
-    final intelligence = (profile?.intelligence ?? 0) as int;
+    final gold = profile?.gold ?? 0;
+    final gems = profile?.gems ?? 0;
+    final energy = profile?.energy ?? 0;
+    final maxEnergy = profile?.maxEnergy ?? 100;
+    final pvpWins = profile?.pvpWins ?? 0;
+    final pvpLosses = profile?.pvpLosses ?? 0;
+    final pvpRating = profile?.pvpRating ?? 0;
+    final tolerance = profile?.tolerance ?? 0;
+    final reputation = profile?.reputation ?? 0;
+    final intelligence = profile?.intelligence ?? 0;
 
     // Computed stats (mirrors web formula)
     final attack = 5 + level * 2;
@@ -116,7 +117,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final winRate = pvpWins + pvpLosses > 0 ? ((pvpWins / (pvpWins + pvpLosses)) * 100).round() : 0;
     final xpPct = xpForNext > 0 ? (xp / xpForNext).clamp(0.0, 1.0) : 0.0;
 
-    final repTier = _getReputationTier(reputation as int);
+    final repTier = _getReputationTier(reputation);
     final nextMilestone = _getNextMilestone(reputation);
     final repPower = _getReputationPower(reputation);
 
@@ -245,7 +246,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           _card(
             title: '📅 Aktivite',
             child: Column(children: [
-              _infoRow('Kayıt', _timeAgo(profile?.createdAt?.toString())),
+              _infoRow('Kayıt', _timeAgo(profile?.createdAt.toString())),
               _infoRow('Son Giriş', _timeAgo(profile?.lastLogin?.toString())),
               _infoRow('Tolerans', '%$tolerance'),
             ]),

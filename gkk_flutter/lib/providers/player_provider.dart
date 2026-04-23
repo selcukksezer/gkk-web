@@ -46,21 +46,27 @@ final Provider<PlayerRepository> playerRepositoryProvider = Provider<PlayerRepos
 class PlayerNotifier extends Notifier<PlayerState> {
   PlayerRepository get _repository => ref.read(playerRepositoryProvider);
 
+  bool _loading = false;
+
   @override
   PlayerState build() => PlayerState.initial();
 
   Future<void> loadProfile() async {
+    if (_loading) return;
+    _loading = true;
     state = state.copyWith(status: PlayerStatus.loading, clearError: true);
     try {
       final profile = await _repository.loadCurrentPlayer();
       state = state.copyWith(status: PlayerStatus.ready, profile: profile);
     } on AppException catch (e) {
       state = state.copyWith(status: PlayerStatus.error, errorMessage: e.message);
-    } catch (_) {
+    } catch (e, st) {
       state = state.copyWith(
         status: PlayerStatus.error,
         errorMessage: 'Profil yuklenirken beklenmeyen bir hata olustu.',
       );
+    } finally {
+      _loading = false;
     }
   }
 

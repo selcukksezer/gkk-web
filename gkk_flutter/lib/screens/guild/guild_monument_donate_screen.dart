@@ -90,7 +90,7 @@ class _GuildMonumentDonateScreenState extends ConsumerState<GuildMonumentDonateS
       final user = SupabaseService.client.auth.currentUser;
       if (user == null) throw Exception('Oturum yok');
 
-      final data = await SupabaseService.client.rpc('donate_to_monument', {
+      final data = await SupabaseService.client.rpc('donate_to_monument', params: {
         'p_user_id': user.id,
         'p_structural': structural,
         'p_mystical': mystical,
@@ -162,7 +162,7 @@ class _GuildMonumentDonateScreenState extends ConsumerState<GuildMonumentDonateS
   Widget build(BuildContext context) {
     final profile = ref.watch(playerProvider).profile;
 
-    void logout() async { await ref.read(authProvider.notifier).logout(); ref.read(playerProvider.notifier).clear(); }
+    Future<void> logout() async { await ref.read(authProvider.notifier).logout(); ref.read(playerProvider.notifier).clear(); }
 
     if (profile?.guildId == null) {
       return Scaffold(

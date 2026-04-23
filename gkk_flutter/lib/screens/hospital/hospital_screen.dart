@@ -31,13 +31,6 @@ class _HospitalScreenState extends ConsumerState<HospitalScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startTimer();
     });
-
-    // Listen for profile updates so the timer/remaining value refreshes
-    // immediately when the player profile is loaded or changed.
-    ref.listen<PlayerState>(playerProvider, (previous, next) {
-      if (!mounted) return;
-      _updateRemaining(isFirst: true);
-    });
   }
 
   @override
@@ -171,7 +164,15 @@ class _HospitalScreenState extends ConsumerState<HospitalScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Ensure widget rebuilds when player profile changes
     ref.watch(playerProvider);
+
+    // Listen for profile updates so the timer/remaining value refreshes
+    // immediately when the player profile is loaded or changed.
+    ref.listen<PlayerState>(playerProvider, (previous, next) {
+      if (!mounted) return;
+      _updateRemaining(isFirst: true);
+    });
     final profile = ref.read(playerProvider).profile;
     final inHospital = _inHospital && !_healed;
 

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../components/layout/game_chrome.dart';
 import '../../core/services/supabase_service.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/inventory_provider.dart';
 import '../../providers/player_provider.dart';
 import '../../routing/app_router.dart';
 
@@ -37,7 +38,9 @@ class ShopScreen extends ConsumerStatefulWidget {
 
 class _ShopScreenState extends ConsumerState<ShopScreen>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
+  static const int _tabCount = 5;
+
+  late TabController _tabController;
 
   List<Map<String, dynamic>> _offers = [];
   List<Map<String, dynamic>> _battlePassItems = [];
@@ -48,6 +51,8 @@ class _ShopScreenState extends ConsumerState<ShopScreen>
   Map<String, dynamic>? _quantityDialogItem;
   int _quantityInput = 1;
   String? _buyingId;
+  String? _buyingGoldId;
+  String? _buyingGemId;
 
   static const List<_GemPackage> _gemPackages = <_GemPackage>[
     _GemPackage(gems: 100, price: r'$0.99'),
@@ -57,17 +62,40 @@ class _ShopScreenState extends ConsumerState<ShopScreen>
   ];
 
   static const List<_GoldPackage> _goldPackages = <_GoldPackage>[
-    _GoldPackage(gold: 1000, gemCost: 10),
-    _GoldPackage(gold: 5000, gemCost: 45),
-    _GoldPackage(gold: 10000, gemCost: 85),
-    _GoldPackage(gold: 50000, gemCost: 400),
+    _GoldPackage(gold: 5000, gemCost: 10),
+    _GoldPackage(gold: 15000, gemCost: 25),
+    _GoldPackage(gold: 50000, gemCost: 75),
+    _GoldPackage(gold: 150000, gemCost: 200),
   ];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: _tabCount, vsync: this);
     _loadOffers();
+  }
+
+  void _ensureTabControllerIntegrity() {
+    if (_tabController.length == _tabCount) return;
+
+    final int oldIndex = _tabController.index;
+    final int safeIndex;
+    if (_tabCount == 0) {
+      safeIndex = 0;
+    } else if (oldIndex < 0) {
+      safeIndex = 0;
+    } else if (oldIndex >= _tabCount) {
+      safeIndex = _tabCount - 1;
+    } else {
+      safeIndex = oldIndex;
+    }
+
+    _tabController.dispose();
+    _tabController = TabController(
+      length: _tabCount,
+      vsync: this,
+      initialIndex: safeIndex,
+    );
   }
 
   @override
@@ -76,34 +104,110 @@ class _ShopScreenState extends ConsumerState<ShopScreen>
     super.dispose();
   }
 
+  int _toInt(dynamic value, {int fallback = 0}) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? fallback;
+    return fallback;
+  }
+
+  List<Map<String, dynamic>> _mapItemsForShop(
+    List<dynamic> rows, {
+    bool hasShopCurrency = true,
+  }) {
+    return rows.whereType<Map>().map((Map raw) {
+      final Map<String, dynamic> row = Map<String, dynamic>.from(raw);
+      final int unitPrice = _toInt(row['base_price'], fallback: _toInt(row['vendor_sell_price']));
+
+      return <String, dynamic>{
+        'id': row['id']?.toString() ?? '',
+        'item_id': row['id']?.toString() ?? '',
+        'name': row['name']?.toString() ?? 'İsimsiz',
+        'description': row['description']?.toString() ?? '',
+        'icon': row['icon']?.toString() ?? '📦',
+        'rarity': row['rarity']?.toString() ?? 'common',
+        'item_type': row['type']?.toString(),
+        'is_stackable': row['is_stackable'] == true,
+        'max_stack': _toInt(row['max_stack'], fallback: 1),
+        'price': unitPrice,
+        'currency': hasShopCurrency && row['shop_currency']?.toString() == 'gems' ? 'gems' : 'gold',
+      };
+    }).where((Map<String, dynamic> item) => (item['id'] as String).isNotEmpty).toList(growable: false);
+  }
+
   Future<void> _loadOffers() async {
     setState(() => _offersLoading = true);
+    List<Map<String, dynamic>> mappedShopItems = <Map<String, dynamic>>[];
+    List<Map<String, dynamic>> offers = <Map<String, dynamic>>[];
+    List<Map<String, dynamic>> battlePassItems = <Map<String, dynamic>>[];
+    String? itemsLoadError;
+
+    // `items` yüklemesini bağımsız tutuyoruz: diğer tablolar patlasa bile Eşya sekmesi dolmalı.
     try {
-      final offersRes = await SupabaseService.client
+      final filteredItemsRes = await SupabaseService.client
+          .from('items')
+          .select(
+            'id,name,description,icon,rarity,type,is_stackable,max_stack,base_price,vendor_sell_price,shop_available,shop_currency',
+          )
+          .eq('shop_available', true)
+          .order('id', ascending: true);
+
+      mappedShopItems = _mapItemsForShop(filteredItemsRes, hasShopCurrency: true);
+    } catch (e) {
+      itemsLoadError = e.toString();
+    }
+
+    if (mappedShopItems.isEmpty) {
+      try {
+        final legacyItemsRes = await SupabaseService.client
+            .from('items')
+            .select(
+              'id,name,description,icon,rarity,type,is_stackable,max_stack,base_price,vendor_sell_price',
+            )
+            .order('id', ascending: true);
+
+        mappedShopItems = _mapItemsForShop(legacyItemsRes, hasShopCurrency: false);
+      } catch (e) {
+        itemsLoadError = itemsLoadError == null ? e.toString() : '$itemsLoadError | $e';
+      }
+    }
+
+    // Opsiyonel sekmeler: hata olursa boş geç.
+    try {
+      final dynamic offersRes = await SupabaseService.client
           .from('shop_offers')
           .select()
           .eq('is_active', true);
-      final bpRes =
-          await SupabaseService.client.from('battle_pass_items').select();
-      final itemsRes = await SupabaseService.client
-          .from('shop_items')
-          .select()
-          .eq('is_active', true);
-      if (mounted) {
-        setState(() {
-          _offers = List<Map<String, dynamic>>.from(offersRes);
-          _battlePassItems = List<Map<String, dynamic>>.from(bpRes);
-          _shopItems = List<Map<String, dynamic>>.from(itemsRes);
-          _offersLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _offersLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Mağaza yüklenemedi: $e'), backgroundColor: Colors.redAccent),
-        );
-      }
+      offers = List<Map<String, dynamic>>.from(offersRes as List);
+    } catch (_) {
+      offers = <Map<String, dynamic>>[];
+    }
+
+    try {
+      final dynamic bpRes = await SupabaseService.client
+          .from('battle_pass_items')
+          .select();
+      battlePassItems = List<Map<String, dynamic>>.from(bpRes as List);
+    } catch (_) {
+      battlePassItems = <Map<String, dynamic>>[];
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _offers = offers;
+      _battlePassItems = battlePassItems;
+      _shopItems = mappedShopItems;
+      _offersLoading = false;
+    });
+
+    if (mappedShopItems.isEmpty && itemsLoadError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Eşya listesi alınamadı: $itemsLoadError'),
+          backgroundColor: Colors.orangeAccent,
+        ),
+      );
     }
   }
 
@@ -119,23 +223,56 @@ class _ShopScreenState extends ConsumerState<ShopScreen>
   }
 
   Future<void> _buyShopItem(Map<String, dynamic> item, int qty) async {
-    final id = item['id'] as String? ?? '';
+    final id = item['id']?.toString() ?? '';
+    final itemId = item['item_id']?.toString() ?? id;
+    final String currency = item['currency']?.toString() ?? 'gold';
+    final int unitPrice = ((item['price'] as num?) ?? 0).toInt();
+    final int totalPrice = unitPrice * qty;
+
     setState(() => _buyingId = id);
-    final gemCost = ((item['price'] as num?)?.toInt() ?? 0) * qty;
-    final goldCost = ((item['price'] as num?)?.toInt() ?? 0) * qty;
+
+    await ref.read(inventoryProvider.notifier).loadInventory(silent: true);
+    final addCheck = ref.read(inventoryProvider.notifier).canAddItem(itemId: itemId, quantity: qty);
+    if (!addCheck.canAdd) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(addCheck.reason ?? 'Envanter dolu!')),
+        );
+      }
+      setState(() => _buyingId = null);
+      return;
+    }
+
     final profile = ref.read(playerProvider).profile;
-    final currency = item['currency'] as String? ?? 'gold';
-    final wallet = currency == 'gems' ? (profile?.gems ?? 0) : (profile?.gold ?? 0);
-    if (wallet < (currency == 'gems' ? gemCost : goldCost)) {
+    final int wallet =
+        currency == 'gems' ? (profile?.gems ?? 0) : (profile?.gold ?? 0);
+    if (wallet < totalPrice) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Yetersiz ${currency == 'gems' ? 'gem' : 'altın'}!')));
       setState(() => _buyingId = null);
       return;
     }
+
     try {
-      await SupabaseService.client.rpc('buy_shop_item', params: {'p_item_id': id, 'p_quantity': qty});
+      await SupabaseService.client.rpc(
+        'buy_shop_item',
+        params: <String, dynamic>{
+          'p_item_id': itemId,
+          'p_currency': currency,
+          'p_price': unitPrice,
+          // Overload çakışmasını engellemek için quantity her zaman gönderilir.
+          'p_quantity': qty,
+        },
+      );
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${item['name']} satın alındı!'), backgroundColor: Colors.green));
-        ref.read(playerProvider.notifier).loadProfile();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${item['name']} x$qty satın alındı!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        await ref.read(playerProvider.notifier).loadProfile();
+        await ref.read(inventoryProvider.notifier).loadInventory(silent: true);
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hata: $e')));
@@ -194,12 +331,44 @@ class _ShopScreenState extends ConsumerState<ShopScreen>
       return;
     }
 
-    setState(() => _purchaseLoading = true);
+    setState(() {
+      _purchaseLoading = true;
+      _buyingGoldId = 'gold_${pkg.gold}';
+    });
     try {
-      await SupabaseService.client.rpc(
-        'exchange_gems_for_gold',
-        params: {'p_gem_cost': pkg.gemCost, 'p_gold_amount': pkg.gold},
-      );
+      // Web path first tries API route; Flutter falls back to direct users update.
+      final String authId = SupabaseService.client.auth.currentUser?.id ?? '';
+      if (authId.isEmpty) {
+        throw Exception('Oturum bulunamadı');
+      }
+
+      final List<dynamic> users = await SupabaseService.client
+          .from('users')
+          .select('id,gems,gold,auth_id')
+          .eq('auth_id', authId)
+          .limit(1);
+
+      if (users.isEmpty) {
+        throw Exception('Kullanıcı profili bulunamadı');
+      }
+
+      final Map<String, dynamic> user =
+          Map<String, dynamic>.from(users.first as Map);
+      final int currentGems = ((user['gems'] as num?) ?? 0).toInt();
+      final int currentGold = ((user['gold'] as num?) ?? 0).toInt();
+
+      if (currentGems < pkg.gemCost) {
+        throw Exception('Yetersiz gem');
+      }
+
+      await SupabaseService.client
+          .from('users')
+          .update(<String, dynamic>{
+            'gems': currentGems - pkg.gemCost,
+            'gold': currentGold + pkg.gold,
+          })
+          .eq('auth_id', authId);
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -216,7 +385,69 @@ class _ShopScreenState extends ConsumerState<ShopScreen>
         );
       }
     } finally {
-      if (mounted) setState(() => _purchaseLoading = false);
+      if (mounted) {
+        setState(() {
+          _purchaseLoading = false;
+          _buyingGoldId = null;
+        });
+      }
+    }
+  }
+
+  Future<void> _buyGemPackage(_GemPackage pkg) async {
+    setState(() {
+      _purchaseLoading = true;
+      _buyingGemId = 'gem_${pkg.gems}';
+    });
+    try {
+      final String authId = SupabaseService.client.auth.currentUser?.id ?? '';
+      if (authId.isEmpty) {
+        throw Exception('Oturum bulunamadı');
+      }
+
+      final List<dynamic> users = await SupabaseService.client
+          .from('users')
+          .select('gems,auth_id')
+          .eq('auth_id', authId)
+          .limit(1);
+
+      if (users.isEmpty) {
+        throw Exception('Kullanıcı profili bulunamadı');
+      }
+
+      final Map<String, dynamic> user =
+          Map<String, dynamic>.from(users.first as Map);
+      final int currentGems = ((user['gems'] as num?) ?? 0).toInt();
+
+      await SupabaseService.client
+          .from('users')
+          .update(<String, dynamic>{
+            'gems': currentGems + pkg.gems,
+          })
+          .eq('auth_id', authId);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('+${pkg.gems} gem eklendi!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        await ref.read(playerProvider.notifier).loadProfile();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Hata: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _purchaseLoading = false;
+          _buyingGemId = null;
+        });
+      }
     }
   }
 
@@ -232,6 +463,8 @@ class _ShopScreenState extends ConsumerState<ShopScreen>
 
   @override
   Widget build(BuildContext context) {
+    _ensureTabControllerIntegrity();
+
     final profile = ref.watch(playerProvider).profile;
     final gems = profile?.gems ?? 0;
     final gold = profile?.gold ?? 0;
@@ -287,10 +520,10 @@ class _ShopScreenState extends ConsumerState<ShopScreen>
               unselectedLabelColor: Colors.white38,
               indicatorColor: Colors.purpleAccent,
               tabs: const <Tab>[
-                Tab(text: '💎 Elmas Paketleri'),
-                Tab(text: '💰 Altın Paketi'),
-                Tab(text: '🎁 Teklifler'),
-                Tab(text: '⚔️ Muharebe Geçidi'),
+                Tab(text: '💎 Gem'),
+                Tab(text: '💰 Altın'),
+                Tab(text: '🎁 Teklif'),
+                Tab(text: '⚔️ Pass'),
                 Tab(text: '🛍️ Eşya'),
               ],
             ),
@@ -298,10 +531,16 @@ class _ShopScreenState extends ConsumerState<ShopScreen>
               child: TabBarView(
                 controller: _tabController,
                 children: <Widget>[
-                  _GemPackagesTab(packages: _gemPackages),
+                  _GemPackagesTab(
+                    packages: _gemPackages,
+                    purchaseLoading: _purchaseLoading,
+                    buyingGemId: _buyingGemId,
+                    onBuyGem: _buyGemPackage,
+                  ),
                   _GoldPackagesTab(
                     packages: _goldPackages,
                     loading: _purchaseLoading,
+                    buyingGoldId: _buyingGoldId,
                     onBuy: _buyGoldPackage,
                   ),
                   _OffersTab(offers: _offers, loading: _offersLoading),
@@ -331,73 +570,76 @@ class _ShopScreenState extends ConsumerState<ShopScreen>
               child: Center(
                 child: GestureDetector(
                   onTap: () {},
-                  child: Container(
-                    margin: const EdgeInsets.all(24),
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1A2030),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFFBBF24)),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(_quantityDialogItem!['name']?.toString() ?? 'Eşya', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFFFBBF24))),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Birim: ${_quantityDialogItem!['currency'] == 'gems' ? '💎' : '🪙'} ${_quantityDialogItem!['price'] ?? 0}',
-                          style: const TextStyle(color: Colors.white54, fontSize: 12),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            IconButton(
-                              onPressed: () => setState(() => _quantityInput = (_quantityInput - 1).clamp(1, 99)),
-                              icon: const Icon(Icons.remove, color: Color(0xFFFBBF24)),
-                            ),
-                            SizedBox(
-                              width: 60,
-                              child: TextField(
-                                controller: TextEditingController(text: '$_quantityInput')..selection = TextSelection.collapsed(offset: '$_quantityInput'.length),
-                                keyboardType: TextInputType.number,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFFFBBF24)),
-                                decoration: const InputDecoration(border: InputBorder.none),
-                                onChanged: (v) => setState(() => _quantityInput = (int.tryParse(v) ?? 1).clamp(1, 99)),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Container(
+                      margin: const EdgeInsets.all(24),
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1A2030),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFFBBF24)),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(_quantityDialogItem!['name']?.toString() ?? 'Eşya', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFFFBBF24))),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Birim: ${_quantityDialogItem!['currency'] == 'gems' ? '💎' : '🪙'} ${_quantityDialogItem!['price'] ?? 0}',
+                            style: const TextStyle(color: Colors.white54, fontSize: 12),
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              IconButton(
+                                onPressed: () => setState(() => _quantityInput = (_quantityInput - 1).clamp(1, 99)),
+                                icon: const Icon(Icons.remove, color: Color(0xFFFBBF24)),
                               ),
-                            ),
-                            IconButton(
-                              onPressed: () => setState(() => _quantityInput = (_quantityInput + 1).clamp(1, 99)),
-                              icon: const Icon(Icons.add, color: Color(0xFFFBBF24)),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  final item = _quantityDialogItem!;
-                                  final qty = _quantityInput;
-                                  setState(() => _quantityDialogItem = null);
-                                  _buyShopItem(item, qty);
-                                },
-                                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFBBF24), foregroundColor: Colors.black),
-                                child: const Text('✓ Satın Al', style: TextStyle(fontWeight: FontWeight.bold)),
+                              SizedBox(
+                                width: 60,
+                                child: TextField(
+                                  controller: TextEditingController(text: '$_quantityInput')..selection = TextSelection.collapsed(offset: '$_quantityInput'.length),
+                                  keyboardType: TextInputType.number,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFFFBBF24)),
+                                  decoration: const InputDecoration(border: InputBorder.none),
+                                  onChanged: (v) => setState(() => _quantityInput = (int.tryParse(v) ?? 1).clamp(1, 99)),
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () => setState(() => _quantityDialogItem = null),
-                                child: const Text('İptal'),
+                              IconButton(
+                                onPressed: () => setState(() => _quantityInput = (_quantityInput + 1).clamp(1, 99)),
+                                icon: const Icon(Icons.add, color: Color(0xFFFBBF24)),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    final item = _quantityDialogItem!;
+                                    final qty = _quantityInput;
+                                    setState(() => _quantityDialogItem = null);
+                                    _buyShopItem(item, qty);
+                                  },
+                                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFBBF24), foregroundColor: Colors.black),
+                                  child: const Text('✓ Satın Al', style: TextStyle(fontWeight: FontWeight.bold)),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () => setState(() => _quantityDialogItem = null),
+                                  child: const Text('İptal'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -414,8 +656,16 @@ class _ShopScreenState extends ConsumerState<ShopScreen>
 // ---------------------------------------------------------------------------
 
 class _GemPackagesTab extends StatelessWidget {
-  const _GemPackagesTab({required this.packages});
+  const _GemPackagesTab({
+    required this.packages,
+    required this.purchaseLoading,
+    required this.buyingGemId,
+    required this.onBuyGem,
+  });
   final List<_GemPackage> packages;
+  final bool purchaseLoading;
+  final String? buyingGemId;
+  final void Function(_GemPackage pkg) onBuyGem;
 
   @override
   Widget build(BuildContext context) {
@@ -472,25 +722,7 @@ class _GemPackagesTab extends StatelessWidget {
                   style: TextStyle(color: Colors.white54, fontSize: 11)),
               const SizedBox(height: 12),
               FilledButton(
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      backgroundColor: const Color(0xFF1A2030),
-                      title: const Text('💎 Elmas Paketi', style: TextStyle(color: Colors.purpleAccent)),
-                      content: const Text(
-                        'Bu özellik henüz kullanılamıyor. Yakında aktif olacak.',
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: const Text('Tamam', style: TextStyle(color: Colors.purpleAccent)),
-                        ),
-                      ],
-                    ),
-                  );
-                },
+                onPressed: purchaseLoading ? null : () => onBuyGem(pkg),
                 style: FilledButton.styleFrom(
                   backgroundColor: Colors.purpleAccent,
                   padding:
@@ -498,7 +730,16 @@ class _GemPackagesTab extends StatelessWidget {
                   textStyle:
                       const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                 ),
-                child: Text(pkg.price),
+                child: (buyingGemId == 'gem_${pkg.gems}')
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(pkg.price),
               ),
             ],
           ),
@@ -512,11 +753,13 @@ class _GoldPackagesTab extends StatelessWidget {
   const _GoldPackagesTab({
     required this.packages,
     required this.loading,
+    required this.buyingGoldId,
     required this.onBuy,
   });
 
   final List<_GoldPackage> packages;
   final bool loading;
+  final String? buyingGoldId;
   final void Function(_GoldPackage) onBuy;
 
   static String _fmtGold(int gold) {
@@ -527,9 +770,11 @@ class _GoldPackagesTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       itemCount: packages.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final pkg = packages[index];
         return Container(
@@ -573,7 +818,7 @@ class _GoldPackagesTab extends StatelessWidget {
                   backgroundColor: const Color(0xFFFF8F00),
                   foregroundColor: Colors.black,
                 ),
-                child: loading
+                child: loading && buyingGoldId == 'gold_${pkg.gold}'
                     ? const SizedBox(
                         width: 16,
                         height: 16,
@@ -614,7 +859,7 @@ class _OffersTab extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: offers.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final offer = offers[index];
         return Container(
@@ -668,7 +913,7 @@ class _BattlePassTab extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: items.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final item = items[index];
         return Container(

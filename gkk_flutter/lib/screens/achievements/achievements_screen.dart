@@ -89,7 +89,7 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
   Future<void> _claim(String id) async {
     setState(() => _claimingId = id);
     try {
-      await SupabaseService.client.rpc('claim_achievement', {'p_achievement_id': id});
+      await SupabaseService.client.rpc('claim_achievement', params: {'p_achievement_id': id});
       setState(() {
         for (final a in _achievements) { if (a.id == id) a.claimed = true; }
       });
@@ -110,7 +110,7 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
     final totalClaimed = _achievements.where((a) => a.claimed).length;
     final total = _achievements.length;
 
-    void logout() async {
+    Future<void> logout() async {
       await ref.read(authProvider.notifier).logout();
       ref.read(playerProvider.notifier).clear();
     }

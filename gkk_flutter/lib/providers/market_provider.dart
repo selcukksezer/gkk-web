@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/errors/app_exception.dart';
+import '../providers/inventory_provider.dart';
 import '../models/market_model.dart';
 import '../repositories/market_repository.dart';
 
@@ -124,9 +125,20 @@ class MarketNotifier extends Notifier<MarketState> {
 
   Future<bool> purchaseListing({
     required String orderId,
+    required String itemId,
     required int quantity,
   }) async {
     try {
+      await ref.read(inventoryProvider.notifier).loadInventory(silent: true);
+      final addCheck = ref.read(inventoryProvider.notifier).canAddItem(
+            itemId: itemId,
+            quantity: quantity,
+          );
+      if (!addCheck.canAdd) {
+        state = state.copyWith(errorMessage: addCheck.reason ?? 'Envanter dolu!');
+        return false;
+      }
+
       final bool ok = await _repository.purchaseListing(
         orderId: orderId,
         quantity: quantity,

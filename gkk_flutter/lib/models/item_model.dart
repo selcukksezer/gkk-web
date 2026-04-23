@@ -549,42 +549,77 @@ String getRarityLabel(Rarity rarity) {
 
 extension ItemTypeParsing on ItemType {
   static ItemType fromValue(String value) {
-    return ItemType.values.firstWhere((ItemType e) => e.name == value);
+    final String normalized = value.trim().toLowerCase();
+    switch (normalized) {
+      case 'resource':
+      case 'resources':
+        return ItemType.material;
+      default:
+        return ItemType.values.firstWhere(
+          (ItemType e) => e.name == normalized,
+          orElse: () => ItemType.material,
+        );
+    }
   }
 }
 
 extension RarityParsing on Rarity {
   static Rarity fromValue(String value) {
-    return Rarity.values.firstWhere((Rarity e) => e.name == value);
+    final String normalized = value.trim().toLowerCase();
+    return Rarity.values.firstWhere(
+      (Rarity e) => e.name == normalized,
+      orElse: () => Rarity.common,
+    );
   }
 }
 
 extension EquipSlotParsing on EquipSlot {
   static EquipSlot fromValue(String value) {
-    return EquipSlot.values.firstWhere((EquipSlot e) => e.name == value);
+    final String normalized = value.trim().toLowerCase();
+    if (normalized == 'helmet') return EquipSlot.head;
+    return EquipSlot.values.firstWhere(
+      (EquipSlot e) => e.name == normalized,
+      orElse: () => EquipSlot.none,
+    );
   }
 }
 
 extension WeaponTypeParsing on WeaponType {
   static WeaponType fromValue(String value) {
-    return WeaponType.values.firstWhere((WeaponType e) => e.name == value);
+    final String normalized = value.trim().toLowerCase();
+    return WeaponType.values.firstWhere(
+      (WeaponType e) => e.name == normalized,
+      orElse: () => WeaponType.none,
+    );
   }
 }
 
 extension ArmorTypeParsing on ArmorType {
   static ArmorType fromValue(String value) {
-    return ArmorType.values.firstWhere((ArmorType e) => e.name == value);
+    final String normalized = value.trim().toLowerCase();
+    return ArmorType.values.firstWhere(
+      (ArmorType e) => e.name == normalized,
+      orElse: () => ArmorType.none,
+    );
   }
 }
 
 extension SubTypeParsing on SubType {
   static SubType fromValue(String value) {
-    return SubType.values.firstWhere((SubType e) => e.name == value);
+    final String normalized = value.trim().toLowerCase();
+    return SubType.values.firstWhere(
+      (SubType e) => e.name == normalized,
+      orElse: () => SubType.none,
+    );
   }
 }
 
 extension PotionTypeParsing on PotionType {
   static PotionType fromValue(String value) {
-    return PotionType.values.firstWhere((PotionType e) => e.name == value);
+    final String normalized = value.trim().toLowerCase();
+    return PotionType.values.firstWhere(
+      (PotionType e) => e.name == normalized,
+      orElse: () => PotionType.none,
+    );
   }
 }

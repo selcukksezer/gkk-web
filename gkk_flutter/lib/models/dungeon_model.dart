@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class DungeonData {
   const DungeonData({
     required this.id,
@@ -11,6 +13,7 @@ class DungeonData {
     required this.minGold,
     required this.maxGold,
     required this.lootTable,
+    required this.isGroup,
     this.powerRequirement,
   });
 
@@ -25,29 +28,79 @@ class DungeonData {
   final int minGold;
   final int maxGold;
   final List<String> lootTable;
+  final bool isGroup;
   final int? powerRequirement;
 
   factory DungeonData.fromJson(Map<String, dynamic> json) {
-    final dynamic lootRaw = json['loot_table'];
-    final List<String> loot = lootRaw is List
-        ? lootRaw.map((e) => e.toString()).toList()
-        : <String>[];
+    List<String> loot = _parseLootTable(
+      json['loot_table'] ?? json['lootTable'] ?? json['loot'] ?? json['drops'],
+    );
+        final bool isGroup = _asBool(json['is_group']) || _asInt(json['max_players'], fallback: 1) > 1;
+
+        if (loot.isEmpty) {
+          final double equipmentChance = _asDouble(json['equipment_drop_chance']);
+          final double resourceChance = _asDouble(json['resource_drop_chance']);
+          final double catalystChance = _asDouble(json['catalyst_drop_chance']);
+          final double scrollChance = _asDouble(json['scroll_drop_chance']);
+
+          if (equipmentChance > 0) {
+            loot.add('equipment ${(equipmentChance * 100).toStringAsFixed(0)}%');
+          }
+          if (resourceChance > 0) {
+            loot.add('resource ${(resourceChance * 100).toStringAsFixed(0)}%');
+          }
+          if (catalystChance > 0) {
+            loot.add('catalyst ${(catalystChance * 100).toStringAsFixed(0)}%');
+          }
+          if (scrollChance > 0) {
+            loot.add('scroll ${(scrollChance * 100).toStringAsFixed(0)}%');
+          }
+        }
+
+    final int? rawPowerReq = json['power_requirement'] == null
+        ? null
+        : _asInt(json['power_requirement']);
+
+    int requiredLevel;
+    if (json['required_level'] != null) {
+      requiredLevel = _asInt(json['required_level'], fallback: 1);
+    } else if (rawPowerReq != null && rawPowerReq > 0) {
+      requiredLevel = (rawPowerReq / 500).floor();
+      if (requiredLevel < 1) requiredLevel = 1;
+    } else {
+      requiredLevel = 1;
+    }
+
+    final int effectivePower = rawPowerReq ?? (requiredLevel * 500);
+
+    final bool isBoss = json['is_boss'] == true;
+    final String difficulty;
+    if (isBoss) {
+      difficulty = 'dungeon';
+    } else if (effectivePower <= 0) {
+      difficulty = 'easy';
+    } else if (effectivePower < 15000) {
+      difficulty = 'easy';
+    } else if (effectivePower < 45000) {
+      difficulty = 'medium';
+    } else {
+      difficulty = 'hard';
+    }
 
     return DungeonData(
       id: (json['id'] ?? json['dungeon_id'] ?? '').toString(),
-      dungeonId: (json['dungeon_id'] ?? '').toString(),
+      dungeonId: (json['dungeon_id'] ?? json['id'] ?? '').toString(),
       name: (json['name'] ?? 'Dungeon').toString(),
       description: (json['description'] ?? '').toString(),
-      difficulty: (json['difficulty'] ?? 'medium').toString(),
-      requiredLevel: _asInt(json['required_level'], fallback: 1),
+      difficulty: difficulty,
+      requiredLevel: requiredLevel,
       maxPlayers: _asInt(json['max_players'], fallback: 1),
       energyCost: _asInt(json['energy_cost']),
       minGold: _asInt(json['min_gold']),
       maxGold: _asInt(json['max_gold']),
       lootTable: loot,
-      powerRequirement: json['power_requirement'] == null
-          ? null
-          : _asInt(json['power_requirement']),
+      isGroup: isGroup,
+      powerRequirement: rawPowerReq,
     );
   }
 
@@ -56,6 +109,75 @@ class DungeonData {
     if (value is num) return value.toInt();
     if (value is String) return int.tryParse(value) ?? fallback;
     return fallback;
+  }
+
+  static bool _asBool(dynamic value, {bool fallback = false}) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final String n = value.toLowerCase().trim();
+      if (n == 'true' || n == '1' || n == 'yes') return true;
+      if (n == 'false' || n == '0' || n == 'no') return false;
+    }
+    return fallback;
+  }
+
+  static double _asDouble(dynamic value, {double fallback = 0}) {
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? fallback;
+    return fallback;
+  }
+
+  static List<String> _parseLootTable(dynamic raw) {
+    if (raw == null) return <String>[];
+
+    if (raw is List) {
+      final List<String> out = <String>[];
+      for (final dynamic entry in raw) {
+        if (entry == null) continue;
+        if (entry is String) {
+          out.add(entry);
+          continue;
+        }
+        if (entry is Map) {
+          final Map<dynamic, dynamic> map = entry;
+          final dynamic named = map['item_name'] ?? map['item_id'] ?? map['name'] ?? map['type'];
+          if (named != null) {
+            out.add(named.toString());
+          }
+          continue;
+        }
+        out.add(entry.toString());
+      }
+      return out;
+    }
+
+    if (raw is String) {
+      final String trimmed = raw.trim();
+      if (trimmed.isEmpty) return <String>[];
+      if ((trimmed.startsWith('[') && trimmed.endsWith(']')) ||
+          (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+        try {
+          final dynamic decoded = jsonDecode(trimmed);
+          return _parseLootTable(decoded);
+        } catch (_) {
+          return <String>[trimmed];
+        }
+      }
+      return <String>[trimmed];
+    }
+
+    if (raw is Map) {
+      final List<String> out = <String>[];
+      raw.forEach((key, value) {
+        if (value == null) return;
+        out.add('$key:$value');
+      });
+      return out;
+    }
+
+    return <String>[raw.toString()];
   }
 }
 
@@ -83,10 +205,17 @@ class DungeonResult {
   final int? hospitalDurationSeconds;
 
   factory DungeonResult.fromJson(Map<String, dynamic> json) {
-    final dynamic itemsRaw = json['items'];
-    final List<String> itemList = itemsRaw is List
-        ? itemsRaw.map((e) => e.toString()).toList()
-        : <String>[];
+    final dynamic itemsRaw = json['items'] ?? json['items_dropped'];
+    final List<String> itemList = <String>[];
+    if (itemsRaw is List) {
+      for (final e in itemsRaw) {
+        if (e is Map) {
+          itemList.add((e['item_name'] ?? e['item_id'] ?? e.toString()).toString());
+        } else {
+          itemList.add(e.toString());
+        }
+      }
+    }
 
     return DungeonResult(
       success: (json['success'] as bool?) ?? false,

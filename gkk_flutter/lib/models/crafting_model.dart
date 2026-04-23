@@ -10,9 +10,12 @@ class CraftIngredient {
   final int quantity;
 
   factory CraftIngredient.fromJson(Map<String, dynamic> json) {
+    final String rawName = (json['item_name'] ?? json['name'] ?? json['itemName'] ?? '')
+        .toString()
+        .trim();
     return CraftIngredient(
       itemId: (json['item_id'] ?? '').toString(),
-      itemName: (json['item_name'] ?? '').toString(),
+      itemName: rawName,
       quantity: _asInt(json['quantity']),
     );
   }

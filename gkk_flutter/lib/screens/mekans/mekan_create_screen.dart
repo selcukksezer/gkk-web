@@ -61,7 +61,7 @@ class _MekanCreateScreenState extends ConsumerState<MekanCreateScreen> {
 
     setState(() => _isLoading = true);
     try {
-      await SupabaseService.client.rpc('create_mekan', {'p_name': name, 'p_mekan_type': _selectedType});
+      await SupabaseService.client.rpc('create_mekan', params: {'p_name': name, 'p_mekan_type': _selectedType});
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mekan başarıyla açıldı!')));
         context.go(AppRoutes.myMekan);

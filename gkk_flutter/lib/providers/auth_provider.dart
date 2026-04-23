@@ -142,12 +142,17 @@ class AuthNotifier extends Notifier<AuthState> {
 
   Future<void> logout() async {
     state = state.copyWith(status: AuthStatus.loading, clearError: true);
-    await _repository.logout();
-    state = state.copyWith(
-      status: AuthStatus.unauthenticated,
-      clearSession: true,
-      clearUser: true,
-    );
+    try {
+      await _repository.logout();
+    } catch (_) {
+      // Oturum sunucuda zaten düşmüş olabilir; istemci durumunu yine de temizle.
+    } finally {
+      state = state.copyWith(
+        status: AuthStatus.unauthenticated,
+        clearSession: true,
+        clearUser: true,
+      );
+    }
   }
 }
 

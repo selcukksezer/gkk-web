@@ -13,33 +13,35 @@ BEGIN
       'id', d.id,
       'dungeon_id', d.id,
       'name', COALESCE(NULLIF(d.name_tr, ''), d.name),
-      'description', d.description,
+      'description', COALESCE(d.description, ''),
       'difficulty', CASE
         WHEN d.is_boss THEN 'dungeon'
         WHEN d.power_requirement < 15000 THEN 'easy'
         WHEN d.power_requirement < 45000 THEN 'medium'
         ELSE 'hard'
       END,
-      'required_level', GREATEST(1, floor(d.power_requirement / 10000.0)::INT),
-      'min_level', GREATEST(1, floor(d.power_requirement / 10000.0)::INT),
-      'max_players', 1,
-      'energy_cost', d.energy_cost,
-      'min_gold', d.gold_min,
-      'max_gold', d.gold_max,
-      'xp_reward', d.xp_reward,
-      'base_gold_reward', floor((d.gold_min + d.gold_max) / 2.0)::INT,
-      'base_xp_reward', d.xp_reward,
-      'success_rate', 0.70,
+      'required_level', GREATEST(1, floor(COALESCE(d.power_requirement, 0) / 500.0)::INT),
+      'min_level', GREATEST(1, floor(COALESCE(d.power_requirement, 0) / 500.0)::INT),
+      'power_requirement', COALESCE(d.power_requirement, 0),
+      'max_players', COALESCE(d.max_players, 1),
+      'energy_cost', COALESCE(d.energy_cost, 0),
+      'min_gold', COALESCE(d.gold_min, 0),
+      'max_gold', COALESCE(d.gold_max, 0),
+      'xp_reward', COALESCE(d.xp_reward, 0),
+      'base_gold_reward', floor((COALESCE(d.gold_min,0) + COALESCE(d.gold_max,0)) / 2.0)::INT,
+      'base_xp_reward', COALESCE(d.xp_reward, 0),
       'is_group', false,
-      'loot_table', jsonb_build_array('equipment', 'resource', 'catalyst', 'scroll'),
-      'boss_name', CASE WHEN d.is_boss THEN d.name ELSE NULL END
+      'loot_table', COALESCE(d.loot_table, '[]'::jsonb),
+      'boss_name', CASE WHEN d.is_boss THEN COALESCE(d.name_tr, d.name) ELSE NULL END,
+      'dungeon_order', COALESCE(d.dungeon_order, 0),
+      'is_boss', COALESCE(d.is_boss, false)
     )
-    ORDER BY d.dungeon_order
+    ORDER BY COALESCE(d.dungeon_order, 0)
   ), '[]'::JSONB)
   INTO v_result
   FROM public.dungeons d;
 
-  RETURN v_result;
+  RETURN COALESCE(v_result, '[]'::JSONB);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -143,7 +145,12 @@ BEGIN
     v_success_rate := v_success_rate + 0.05;
   END IF;
 
-  v_success_rate := LEAST(0.95, v_success_rate);
+  IF v_dungeon.power_requirement = 0 THEN
+    -- Dungeon #1 special case: guarantee success for fresh players
+    v_success_rate := 1.0;
+  ELSE
+    v_success_rate := LEAST(0.95, GREATEST(0.05, v_success_rate));
+  END IF;
 
   v_success := random() <= v_success_rate;
   v_is_critical := v_success AND random() <= 0.10;

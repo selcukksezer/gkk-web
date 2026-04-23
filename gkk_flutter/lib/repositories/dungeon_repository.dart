@@ -14,20 +14,34 @@ class SupabaseDungeonRepository implements DungeonRepository {
 
     try {
       final dynamic response = await SupabaseService.client.rpc('get_dungeons');
-      return _extractDungeonList(response);
+      final List<DungeonData> parsed = _extractDungeonList(response);
+      if (parsed.isNotEmpty) return parsed;
+      // Fallback: some DBs may not have the RPC deployed; select directly from table.
+      final dynamic selectResp = await SupabaseService.client.from('dungeons').select('*').order('dungeon_order', ascending: true);
+      final List<DungeonData> direct = _extractDungeonList(selectResp);
+      if (direct.isNotEmpty) return direct;
+      return parsed; // empty list
     } catch (_) {
-      throw AppException('Zindan listesi yuklenemedi.', code: 'DUNGEON_FETCH_FAILED');
+      // Try direct select as a resilient fallback
+      try {
+        final dynamic selectResp = await SupabaseService.client.from('dungeons').select('*').order('dungeon_order', ascending: true);
+        final List<DungeonData> direct = _extractDungeonList(selectResp);
+        return direct;
+      } catch (_) {
+        throw AppException('Zindan listesi yuklenemedi.', code: 'DUNGEON_FETCH_FAILED');
+      }
     }
   }
 
   @override
   Future<DungeonResult> enterDungeon({required String dungeonId}) async {
     _ensureReady();
-
     try {
+      final String? currentUserId = SupabaseService.client.auth.currentUser?.id;
+      // First try: call newer RPC signature that takes player id + dungeon id
       final dynamic response = await SupabaseService.client.rpc(
         'enter_dungeon',
-        params: <String, dynamic>{'p_dungeon_id': dungeonId},
+        params: <String, dynamic>{'p_player_id': currentUserId, 'p_dungeon_id': dungeonId},
       );
 
       if (response is Map) {
@@ -38,7 +52,23 @@ class SupabaseDungeonRepository implements DungeonRepository {
     } on AppException {
       rethrow;
     } catch (_) {
-      throw AppException('Zindana giris basarisiz.', code: 'DUNGEON_ENTER_FAILED');
+      // Fallback: try older RPC signature (only dungeon id) for backward compatibility
+      try {
+        final dynamic response2 = await SupabaseService.client.rpc(
+          'enter_dungeon',
+          params: <String, dynamic>{'p_dungeon_id': dungeonId},
+        );
+
+        if (response2 is Map) {
+          return DungeonResult.fromJson(Map<String, dynamic>.from(response2));
+        }
+
+        throw AppException('Zindan cevabi alinamadi.', code: 'DUNGEON_ENTER_EMPTY');
+      } on AppException {
+        rethrow;
+      } catch (_) {
+        throw AppException('Zindana giris basarisiz.', code: 'DUNGEON_ENTER_FAILED');
+      }
     }
   }
 

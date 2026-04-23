@@ -55,7 +55,7 @@ class _GuildMonumentScreenState extends ConsumerState<GuildMonumentScreen> {
 
     setState(() => _loading = true);
     try {
-      final results = await Future.wait([
+      final results = await Future.wait(<Future<dynamic>>[
         SupabaseService.client.from('guilds').select().eq('id', guildId).single(),
         SupabaseService.client.from('users').select('id').eq('guild_id', guildId),
         SupabaseService.client.from('guild_contributions').select('user_id, contribution_score, gold_donated').eq('guild_id', guildId).order('contribution_score', ascending: false).limit(5),
@@ -84,7 +84,7 @@ class _GuildMonumentScreenState extends ConsumerState<GuildMonumentScreen> {
     }
     setState(() => _upgrading = true);
     try {
-      final data = await SupabaseService.client.rpc('upgrade_monument', {'p_user_id': profile?.authId}) as Map;
+      final data = await SupabaseService.client.rpc('upgrade_monument', params: {'p_user_id': profile?.authId}) as Map;
       final result = Map<String, dynamic>.from(data);
       if (result['success'] == true) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Anıt seviye ${result['new_level']} oldu')));
@@ -109,7 +109,7 @@ class _GuildMonumentScreenState extends ConsumerState<GuildMonumentScreen> {
     final critical = (_guild?['monument_critical'] as num?)?.toInt() ?? 0;
     final goldPool = (_guild?['monument_gold_pool'] as num?)?.toInt() ?? 0;
 
-    void logout() async { await ref.read(authProvider.notifier).logout(); ref.read(playerProvider.notifier).clear(); }
+    Future<void> logout() async { await ref.read(authProvider.notifier).logout(); ref.read(playerProvider.notifier).clear(); }
 
     return Scaffold(
       drawer: GameDrawer(onLogout: logout),

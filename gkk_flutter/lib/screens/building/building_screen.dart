@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../components/layout/game_chrome.dart';
 import '../../core/services/supabase_service.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/inventory_provider.dart';
 import '../../providers/player_provider.dart';
 import '../../routing/app_router.dart';
 
@@ -160,6 +161,30 @@ class _BuildingScreenState extends ConsumerState<BuildingScreen> {
 
   Future<void> _collect(_Building b) async {
     final int amount = b.collectedAmount;
+
+    if (amount <= 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Toplanacak kaynak yok.')),
+        );
+      }
+      return;
+    }
+
+    await ref.read(inventoryProvider.notifier).loadInventory(silent: true);
+    final addCheck = ref.read(inventoryProvider.notifier).canAddItem(
+          itemId: b.resourceType,
+          quantity: amount,
+        );
+    if (!addCheck.canAdd) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(addCheck.reason ?? 'Envanter dolu!')),
+        );
+      }
+      return;
+    }
+
     try {
       await SupabaseService.client.rpc('collect_building_resources', params: <String, dynamic>{'p_building_type': b.type});
     } catch (e) {

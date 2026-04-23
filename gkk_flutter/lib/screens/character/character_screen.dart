@@ -149,7 +149,7 @@ class _CharacterScreenState extends ConsumerState<CharacterScreen> with SingleTi
     final playerState = ref.watch(playerProvider);
     final profile = playerState.profile;
 
-    void logout() async {
+    Future<void> logout() async {
       await ref.read(authProvider.notifier).logout();
       ref.read(playerProvider.notifier).clear();
     }
@@ -168,12 +168,12 @@ class _CharacterScreenState extends ConsumerState<CharacterScreen> with SingleTi
               ElevatedButton(onPressed: () => ref.read(playerProvider.notifier).loadProfile(), child: const Text('Tekrar Dene')),
             ]),
           )),
-        PlayerStatus.ready => _buildBody(profile, logout),
+        PlayerStatus.ready => _buildBody(profile),
       },
     );
   }
 
-  Widget _buildBody(PlayerProfile? profile, VoidCallback logout) {
+  Widget _buildBody(PlayerProfile? profile) {
     final level = profile?.level ?? 1;
     final xp = profile?.xp ?? 0;
     final nextXp = level * 1000; // approx

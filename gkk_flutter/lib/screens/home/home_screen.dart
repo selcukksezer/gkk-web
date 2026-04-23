@@ -9,6 +9,7 @@ import '../../components/common/gkk_progress_bar.dart';
 import '../../components/common/gkk_section_header.dart';
 import '../../components/common/gkk_stat_tile.dart';
 import '../../components/layout/game_chrome.dart';
+import '../../core/utils/power_formula.dart';
 import '../../models/inventory_model.dart';
 import '../../models/item_model.dart';
 import '../../models/player_model.dart';
@@ -161,8 +162,10 @@ class _HomeDashboardState extends ConsumerState<_HomeDashboard> {
     final double energyPercent = _percent(energy, maxEnergy);
     final double tolerancePercent = tolerance.clamp(0, 100) / 100;
 
-    final _EquipmentStats eqStats = _calculateEquipmentStats(widget.inventoryState.equippedItems);
-    final int totalPower = _calculateTotalPower(eqStats: eqStats, level: profile.level, reputation: reputation);
+    final int totalPower = calculateTotalPower(
+      player: profile,
+      equippedItems: widget.inventoryState.equippedItems.values,
+    ).totalPower;
     final _ReputationTier tier = _getReputationTier(reputation);
 
     final List<InventoryItem> potionItems = widget.inventoryState.items
@@ -1095,22 +1098,6 @@ class _ActivityItem {
   final String time;
 }
 
-class _EquipmentStats {
-  const _EquipmentStats({
-    required this.attack,
-    required this.defense,
-    required this.hp,
-    required this.luck,
-  });
-
-  final int attack;
-  final int defense;
-  final int hp;
-  final int luck;
-
-  double get powerFromEquipment => attack + defense + (hp / 10) + (luck * 2);
-}
-
 class _ReputationTier {
   const _ReputationTier({
     required this.title,
@@ -1119,39 +1106,6 @@ class _ReputationTier {
 
   final String title;
   final Color color;
-}
-
-_EquipmentStats _calculateEquipmentStats(Map<String, InventoryItem?> equippedItems) {
-  int attack = 0;
-  int defense = 0;
-  int hp = 0;
-  int luck = 0;
-
-  for (final item in equippedItems.values) {
-    if (item == null) continue;
-    attack += item.attack;
-    defense += item.defense;
-    hp += item.health;
-    luck += item.luck;
-  }
-
-  return _EquipmentStats(
-    attack: attack,
-    defense: defense,
-    hp: hp,
-    luck: luck,
-  );
-}
-
-int _calculateTotalPower({
-  required _EquipmentStats eqStats,
-  required int level,
-  required int reputation,
-}) {
-  final int equipmentPower = eqStats.powerFromEquipment.round();
-  final int levelPower = level * 500;
-  final int reputationPower = (reputation * 0.1).floor();
-  return equipmentPower + levelPower + reputationPower;
 }
 
 _ReputationTier _getReputationTier(int reputation) {

@@ -44,6 +44,12 @@ abstract class InventoryRepository {
 class SupabaseInventoryRepository implements InventoryRepository {
   @override
   Future<bool> addItemToServer({required String itemId, required int quantity, int? slotPosition}) async {
+    if (quantity <= 0) {
+      // DB check constraint (inventory_quantity_check) requires quantity > 0.
+      // Zero/negative deltas are treated as no-op on client.
+      return true;
+    }
+
     if (!SupabaseService.isConfigured || !SupabaseService.isInitialized) {
       throw AppException(
         'Supabase baglantisi hazir degil. Once app_constants.dart degerlerini guncelleyin.',
@@ -556,13 +562,22 @@ class SupabaseInventoryRepository implements InventoryRepository {
         used.add(slot);
         normalized.add(item.copyWith(slotPosition: slot));
       } else {
-        // Server-authoritative parity with web: keep invalid/duplicate positions as -1
-        // instead of force-fitting to a synthetic free slot.
-        normalized.add(item.copyWith(slotPosition: -1));
+        final int nextFree = _findFirstEmptySlot(used);
+        if (nextFree >= 0) {
+          used.add(nextFree);
+          normalized.add(item.copyWith(slotPosition: nextFree));
+        }
       }
     }
 
     normalized.sort((a, b) => a.slotPosition.compareTo(b.slotPosition));
     return normalized;
+  }
+
+  int _findFirstEmptySlot(Set<int> used) {
+    for (int i = 0; i < inventoryCapacity; i++) {
+      if (!used.contains(i)) return i;
+    }
+    return -1;
   }
 }

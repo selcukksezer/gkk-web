@@ -30,14 +30,21 @@ export async function POST(req: Request) {
         console.log("[shop/buy] attempting Supabase RPC path");
         // If client sent p_item_id -> call buy_shop_item RPC
         if (body.p_item_id) {
+          const normalizedQuantity = Math.max(1, Math.floor(Number(body.p_quantity ?? 1)));
+          const normalizedUnitPrice = Number(body.p_unit_price ?? body.p_price ?? 0);
+          const rpcPayload = {
+            ...body,
+            p_price: normalizedUnitPrice,
+            p_quantity: normalizedQuantity,
+          };
+
           console.log("[shop/buy] calling RPC buy_shop_item with:", {
-            item: body.p_item_id,
-            currency: body.p_currency,
-            unit_price: body.p_unit_price,
-            total_price: body.p_price,
-            quantity: body.p_quantity,
+            item: rpcPayload.p_item_id,
+            currency: rpcPayload.p_currency,
+            unit_price: normalizedUnitPrice,
+            quantity: normalizedQuantity,
           });
-          const { data, error } = await supabase.rpc("buy_shop_item", body as any);
+          const { data, error } = await supabase.rpc("buy_shop_item", rpcPayload as any);
           if (error) {
             console.warn("[shop/buy] Supabase RPC buy_shop_item failed:", error.message || error, error?.stack || null, { rpcError: error });
           } else {
