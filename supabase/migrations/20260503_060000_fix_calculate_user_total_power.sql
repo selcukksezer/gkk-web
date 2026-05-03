@@ -17,7 +17,7 @@ BEGIN
   SELECT COALESCE(SUM(public.calculate_item_power(i.item_id, COALESCE(i.enhancement_level, 0))), 0)
   INTO v_equipment_power
   FROM public.inventory i
-  WHERE i.player_id = p_user_id AND i.is_equipped = true;
+  WHERE i.user_id = p_user_id AND i.is_equipped = true;
 
   -- 2. Get User Stats
   SELECT level, reputation, attack, defense, health, luck INTO v_user

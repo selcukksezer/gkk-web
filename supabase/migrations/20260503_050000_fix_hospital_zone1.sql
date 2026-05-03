@@ -199,7 +199,7 @@ BEGIN
 
       IF FOUND THEN
         v_row_id := gen_random_uuid();
-        INSERT INTO public.inventory (row_id, player_id, item_id, quantity, is_equipped, enhancement_level)
+        INSERT INTO public.inventory (row_id, user_id, item_id, quantity, is_equipped, max_enhancement)
         VALUES (v_row_id, p_player_id, v_loot_item.id, 1, false, 0)
         ON CONFLICT DO NOTHING;
         v_items := v_items || jsonb_build_object(
@@ -220,7 +220,7 @@ BEGIN
 
       IF FOUND THEN
         v_row_id := gen_random_uuid();
-        INSERT INTO public.inventory (row_id, player_id, item_id, quantity, is_equipped, enhancement_level)
+        INSERT INTO public.inventory (row_id, user_id, item_id, quantity, is_equipped, max_enhancement)
         VALUES (v_row_id, p_player_id, v_loot_item.id, 1, false, 0)
         ON CONFLICT DO NOTHING;
         v_items := v_items || jsonb_build_object(
@@ -240,7 +240,7 @@ BEGIN
 
       IF FOUND THEN
         v_row_id := gen_random_uuid();
-        INSERT INTO public.inventory (row_id, player_id, item_id, quantity, is_equipped, enhancement_level)
+        INSERT INTO public.inventory (row_id, user_id, item_id, quantity, is_equipped, max_enhancement)
         VALUES (v_row_id, p_player_id, v_loot_item.id, 1, false, 0)
         ON CONFLICT DO NOTHING;
         v_items := v_items || jsonb_build_object(
