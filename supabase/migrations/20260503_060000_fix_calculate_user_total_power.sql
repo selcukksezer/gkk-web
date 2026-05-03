@@ -1,7 +1,8 @@
 -- =========================================================================================
--- MIGRATION: Fix calculate_user_total_power Function (user_id → player_id)
+-- MIGRATION: Fix calculate_user_total_power Function (column + formula sync)
 -- =========================================================================================
--- Bug: calculate_user_total_power'da inventory.user_id queryleniyor ama column adı player_id
+-- Bug: calculate_user_total_power ekipman gücünü eksik/yanlış hesaplayabildiği için
+-- backend success_rate ile Flutter success_rate ayrışıyordu.
 -- Result: Equipment power = 0 hesaplandığından, backend'de success_rate yanlış
 -- Effect: UI'de %95 başarı gösteriyor, backend %20 dönüyor
 -- =========================================================================================

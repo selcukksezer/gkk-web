@@ -97,16 +97,14 @@ BEGIN
   v_zone_number := CAST(SUBSTRING(p_dungeon_id FROM 5) AS INTEGER);
 
   -- ── Güç Hesabı (FIX #1) ────────────────────────────────────────────────────────────
-  v_power := COALESCE(v_player.power, 0);
-  IF v_power = 0 THEN
-    v_power := public.calculate_user_total_power(p_player_id)::INTEGER;
-    IF v_power IS NULL OR v_power = 0 THEN
-      v_power := v_player.level * 500
-               + floor(COALESCE(v_player.reputation, 0) * 0.1)
-               + floor(COALESCE(v_player.luck, 0) * 50);
-    END IF;
-    UPDATE public.users SET power = v_power WHERE auth_id = p_player_id;
+  -- Stale users.power cache'i oranı bozmasın diye her girişte canlı hesapla.
+  v_power := public.calculate_user_total_power(p_player_id)::INTEGER;
+  IF v_power IS NULL OR v_power = 0 THEN
+    v_power := v_player.level * 500
+             + floor(COALESCE(v_player.reputation, 0) * 0.1)
+             + floor(COALESCE(v_player.luck, 0) * 50);
   END IF;
+  UPDATE public.users SET power = v_power WHERE auth_id = p_player_id;
 
   -- ── Başarı Oranı Hesabı (FIX #2 & #3) ────────────────────────────────────────────
   IF v_dungeon.power_requirement = 0 THEN
