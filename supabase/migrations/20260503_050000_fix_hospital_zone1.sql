@@ -194,7 +194,6 @@ BEGIN
       FROM public.items
       WHERE rarity = v_loot_rarity
         AND type IN ('weapon', 'armor', 'helmet', 'gloves', 'boots', 'accessory')
-        AND is_visible = true
       ORDER BY random()
       LIMIT 1;
 
@@ -216,7 +215,6 @@ BEGIN
       FROM public.items
       WHERE rarity = v_loot_rarity
         AND type IN ('material', 'consumable')
-        AND is_visible = true
       ORDER BY random()
       LIMIT 1;
 
@@ -236,7 +234,7 @@ BEGIN
     IF random() <= v_dungeon.scroll_drop_chance THEN
       SELECT * INTO v_loot_item
       FROM public.items
-      WHERE type = 'scroll' AND is_visible = true
+      WHERE type = 'scroll'
       ORDER BY random()
       LIMIT 1;
 
