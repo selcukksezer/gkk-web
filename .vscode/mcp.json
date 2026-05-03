@@ -1,5 +1,38 @@
 {
   "servers": {
+    "chrome-devtools-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp",
+        "--browserUrl",
+        "http://127.0.0.1:9222",
+        "--no-usage-statistics"
+      ]
+    },
+    "supabase-mcp-postgrest": {
+      "type": "stdio",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/start-supabase-mcp.ps1"
+      ]
+    },
+    "dart-mcp-server": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@egyleader/dart-mcp-server"
+      ],
+      "env": {
+        "DART_MCP_VERBOSE": "1"
+      }
+    },
     "unity-mcp-server": {
       "type": "stdio",
       "command": "npx",

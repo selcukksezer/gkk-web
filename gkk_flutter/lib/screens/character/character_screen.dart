@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../components/layout/game_chrome.dart';
 import '../../core/services/supabase_service.dart';
+import '../../core/utils/xp_formula.dart';
 import '../../models/inventory_model.dart';
 import '../../models/player_model.dart';
 import '../../providers/auth_provider.dart';
@@ -174,10 +175,10 @@ class _CharacterScreenState extends ConsumerState<CharacterScreen> with SingleTi
   }
 
   Widget _buildBody(PlayerProfile? profile) {
-    final level = profile?.level ?? 1;
+    final profileLevel = profile?.level ?? 1;
     final xp = profile?.xp ?? 0;
-    final nextXp = level * 1000; // approx
-    final xpPct = nextXp > 0 ? (xp / nextXp).clamp(0.0, 1.0) : 0.0;
+    final xpProgress = buildXpProgress(level: profileLevel, totalXp: xp);
+    final level = xpProgress.level;
 
     final energy = profile?.energy ?? 0;
     final maxEnergy = profile?.maxEnergy ?? 100;
@@ -188,14 +189,37 @@ class _CharacterScreenState extends ConsumerState<CharacterScreen> with SingleTi
     final addictionLevel = profile?.addictionLevel ?? 0;
     final charClass = profile?.characterClass;
 
-    // Combat formula (matches web)
-    const baseHp = 100; const baseAtk = 5; const baseDef = 3; const baseSpeed = 10; const baseLuck = 5;
-    final lvlHp = level * 10; final lvlAtk = level * 2; final lvlDef = level * 1;
-    final finalHp = baseHp + lvlHp;
-    final finalAtk = baseAtk + lvlAtk;
-    final finalDef = baseDef + lvlDef;
+    // Class-driven combat growth (PLAN_11); use backend profile stats when available.
+    final ({int hp, int atk, int def, int luck}) classBase = switch (charClass) {
+      CharacterClass.warrior => (hp: 120, atk: 18, def: 12, luck: 5),
+      CharacterClass.alchemist => (hp: 140, atk: 10, def: 12, luck: 12),
+      CharacterClass.shadow => (hp: 110, atk: 12, def: 10, luck: 18),
+      null => (hp: 100, atk: 5, def: 3, luck: 5),
+    };
+    final ({int hp, int atk, int def, int luck}) classPerLevel = switch (charClass) {
+      CharacterClass.warrior => (hp: 15, atk: 3, def: 2, luck: 1),
+      CharacterClass.alchemist => (hp: 20, atk: 1, def: 2, luck: 2),
+      CharacterClass.shadow => (hp: 12, atk: 2, def: 1, luck: 3),
+      null => (hp: 10, atk: 2, def: 1, luck: 1),
+    };
+    const baseSpeed = 10;
+    final levelIndex = (level - 1).clamp(0, 9999);
+
+    final baseHp = classBase.hp;
+    final baseAtk = classBase.atk;
+    final baseDef = classBase.def;
+    final baseLuck = classBase.luck;
+
+    final lvlHp = classPerLevel.hp * levelIndex;
+    final lvlAtk = classPerLevel.atk * levelIndex;
+    final lvlDef = classPerLevel.def * levelIndex;
+    final lvlLuck = classPerLevel.luck * levelIndex;
+
+    final finalHp = profile?.maxHealth ?? (baseHp + lvlHp);
+    final finalAtk = profile?.attack ?? (baseAtk + lvlAtk);
+    final finalDef = profile?.defense ?? (baseDef + lvlDef);
     final finalSpeed = baseSpeed + (level * 0.3).floor();
-    final finalLuck = baseLuck + (level * 0.5).floor();
+    final finalLuck = profile?.luck ?? (baseLuck + lvlLuck);
     final critChance = (5 + (level * 0.4).floor()).clamp(0, 50);
     final critDamage = 150 + (level * 0.5).floor();
     final evasion = (level * 0.2).floor();
@@ -230,7 +254,7 @@ class _CharacterScreenState extends ConsumerState<CharacterScreen> with SingleTi
                   const SizedBox(height: 8),
                 ],
                 // XP card
-                _buildXpCard(displayName, level, xp, nextXp, xpPct),
+                _buildXpCard(displayName, xpProgress),
                 const SizedBox(height: 8),
                 // Tab bar
                 Container(
@@ -376,7 +400,7 @@ class _CharacterScreenState extends ConsumerState<CharacterScreen> with SingleTi
     ),
   );
 
-  Widget _buildXpCard(String name, int level, int xp, int nextXp, double xpPct) => Container(
+  Widget _buildXpCard(String name, XpProgress xpProgress) => Container(
     decoration: BoxDecoration(color: const Color(0xFF1A2030), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white12)),
     padding: const EdgeInsets.all(14),
     child: Column(
@@ -387,18 +411,18 @@ class _CharacterScreenState extends ConsumerState<CharacterScreen> with SingleTi
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              Text('Seviye $level Kahraman', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+              Text('Seviye ${xpProgress.level} Kahraman', style: const TextStyle(color: Colors.white54, fontSize: 12)),
             ])),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
               const Text('Sıradaki Seviye', style: TextStyle(color: Colors.white38, fontSize: 10)),
-              Text('${(xpPct * 100).round()}%', style: const TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.bold, fontSize: 14)),
+              Text('${(xpProgress.percent * 100).round()}%', style: const TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.bold, fontSize: 14)),
             ]),
           ],
         ),
         const SizedBox(height: 10),
-        LinearProgressIndicator(value: xpPct, backgroundColor: Colors.white12, valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)), minHeight: 8, borderRadius: BorderRadius.circular(4)),
+        LinearProgressIndicator(value: xpProgress.percent, backgroundColor: Colors.white12, valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)), minHeight: 8, borderRadius: BorderRadius.circular(4)),
         const SizedBox(height: 4),
-        Text('XP: $xp / $nextXp', style: const TextStyle(color: Colors.white38, fontSize: 11)),
+        Text('XP: ${xpProgress.xpInLevel} / ${xpProgress.xpNeededInLevel}', style: const TextStyle(color: Colors.white38, fontSize: 11)),
       ],
     ),
   );

@@ -35,27 +35,33 @@ class DungeonData {
     List<String> loot = _parseLootTable(
       json['loot_table'] ?? json['lootTable'] ?? json['loot'] ?? json['drops'],
     );
-        final bool isGroup = _asBool(json['is_group']) || _asInt(json['max_players'], fallback: 1) > 1;
+    final bool isGroup = _asBool(json['is_group']) ||
+        _asInt(json['max_players'], fallback: 1) > 1;
 
-        if (loot.isEmpty) {
-          final double equipmentChance = _asDouble(json['equipment_drop_chance']);
-          final double resourceChance = _asDouble(json['resource_drop_chance']);
-          final double catalystChance = _asDouble(json['catalyst_drop_chance']);
-          final double scrollChance = _asDouble(json['scroll_drop_chance']);
+    final List<String> rarityRows = _parseRarityWeights(json['loot_rarity_weights']);
+    if (rarityRows.isNotEmpty) {
+      loot = <String>[...rarityRows, ...loot];
+    }
 
-          if (equipmentChance > 0) {
-            loot.add('equipment ${(equipmentChance * 100).toStringAsFixed(0)}%');
-          }
-          if (resourceChance > 0) {
-            loot.add('resource ${(resourceChance * 100).toStringAsFixed(0)}%');
-          }
-          if (catalystChance > 0) {
-            loot.add('catalyst ${(catalystChance * 100).toStringAsFixed(0)}%');
-          }
-          if (scrollChance > 0) {
-            loot.add('scroll ${(scrollChance * 100).toStringAsFixed(0)}%');
-          }
-        }
+    if (loot.isEmpty) {
+      final double equipmentChance = _asDouble(json['equipment_drop_chance']);
+      final double resourceChance = _asDouble(json['resource_drop_chance']);
+      final double catalystChance = _asDouble(json['catalyst_drop_chance']);
+      final double scrollChance = _asDouble(json['scroll_drop_chance']);
+
+      if (equipmentChance > 0) {
+        loot.add('equipment ${(equipmentChance * 100).toStringAsFixed(0)}%');
+      }
+      if (resourceChance > 0) {
+        loot.add('resource ${(resourceChance * 100).toStringAsFixed(0)}%');
+      }
+      if (catalystChance > 0) {
+        loot.add('catalyst ${(catalystChance * 100).toStringAsFixed(0)}%');
+      }
+      if (scrollChance > 0) {
+        loot.add('scroll ${(scrollChance * 100).toStringAsFixed(0)}%');
+      }
+    }
 
     final int? rawPowerReq = json['power_requirement'] == null
         ? null
@@ -96,8 +102,9 @@ class DungeonData {
       requiredLevel: requiredLevel,
       maxPlayers: _asInt(json['max_players'], fallback: 1),
       energyCost: _asInt(json['energy_cost']),
-      minGold: _asInt(json['min_gold']),
-      maxGold: _asInt(json['max_gold']),
+      // Support both naming conventions coming from RPC/table payloads.
+      minGold: _asInt(json['min_gold'] ?? json['gold_min']),
+      maxGold: _asInt(json['max_gold'] ?? json['gold_max']),
       lootTable: loot,
       isGroup: isGroup,
       powerRequirement: rawPowerReq,
@@ -178,6 +185,55 @@ class DungeonData {
     }
 
     return <String>[raw.toString()];
+  }
+
+  static List<String> _parseRarityWeights(dynamic raw) {
+    if (raw == null) return <String>[];
+
+    Map<String, dynamic>? map;
+    if (raw is Map) {
+      map = Map<String, dynamic>.from(raw);
+    } else if (raw is String) {
+      final String trimmed = raw.trim();
+      if (trimmed.isEmpty) return <String>[];
+      try {
+        final dynamic decoded = jsonDecode(trimmed);
+        if (decoded is Map) {
+          map = Map<String, dynamic>.from(decoded);
+        }
+      } catch (_) {
+        return <String>[];
+      }
+    }
+
+    if (map == null || map.isEmpty) return <String>[];
+
+    const List<String> preferredOrder = <String>[
+      'mythic',
+      'legendary',
+      'epic',
+      'rare',
+      'uncommon',
+      'common',
+    ];
+
+    final List<String> rows = <String>[];
+    for (final String key in preferredOrder) {
+      if (!map.containsKey(key)) continue;
+      final double pct = _asDouble(map[key]) * 100;
+      if (pct <= 0) continue;
+      rows.add('$key ${pct.toStringAsFixed(0)}%');
+    }
+
+    map.forEach((dynamic rawKey, dynamic value) {
+      final String key = rawKey.toString().toLowerCase();
+      if (preferredOrder.contains(key)) return;
+      final double pct = _asDouble(value) * 100;
+      if (pct <= 0) return;
+      rows.add('$key ${pct.toStringAsFixed(0)}%');
+    });
+
+    return rows;
   }
 }
 

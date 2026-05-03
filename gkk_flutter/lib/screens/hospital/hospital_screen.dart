@@ -22,8 +22,39 @@ class _HospitalScreenState extends ConsumerState<HospitalScreen> {
   Timer? _timer;
   Duration _remaining = Duration.zero;
   int _initialSeconds = 0;
-  bool _healed = false;
   bool _healing = false;
+
+  DateTime? _parseRestrictionUntil(String? raw) {
+    if (raw == null) return null;
+    final String trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+
+    final DateTime? parsed = DateTime.tryParse(trimmed) ??
+        DateTime.tryParse(trimmed.replaceFirst(' ', 'T'));
+    if (parsed == null) return null;
+
+    if (parsed.isUtc) return parsed.toLocal();
+
+    final bool hasTimezone = RegExp(
+      r'(Z|[+\-]\d{2}:?\d{2})$',
+      caseSensitive: false,
+    ).hasMatch(trimmed);
+
+    if (!hasTimezone) {
+      return DateTime.utc(
+        parsed.year,
+        parsed.month,
+        parsed.day,
+        parsed.hour,
+        parsed.minute,
+        parsed.second,
+        parsed.millisecond,
+        parsed.microsecond,
+      ).toLocal();
+    }
+
+    return parsed.toLocal();
+  }
 
   @override
   void initState() {
@@ -54,7 +85,7 @@ class _HospitalScreenState extends ConsumerState<HospitalScreen> {
       setState(() => _remaining = Duration.zero);
       return;
     }
-    final releaseTime = DateTime.tryParse(hospitalUntil);
+    final releaseTime = _parseRestrictionUntil(hospitalUntil);
     if (releaseTime == null) {
       setState(() => _remaining = Duration.zero);
       return;
@@ -77,7 +108,7 @@ class _HospitalScreenState extends ConsumerState<HospitalScreen> {
     final profile = ref.read(playerProvider).profile;
     final hospitalUntil = profile?.hospitalUntil;
     if (hospitalUntil == null || hospitalUntil.isEmpty) return false;
-    final releaseTime = DateTime.tryParse(hospitalUntil);
+    final releaseTime = _parseRestrictionUntil(hospitalUntil);
     if (releaseTime == null) return false;
     return releaseTime.isAfter(DateTime.now());
   }
@@ -138,7 +169,6 @@ class _HospitalScreenState extends ConsumerState<HospitalScreen> {
       await SupabaseService.client.rpc('heal_with_gems');
       await ref.read(playerProvider.notifier).loadProfile();
       setState(() {
-        _healed = true;
         _healing = false;
         _remaining = Duration.zero;
       });
@@ -174,7 +204,7 @@ class _HospitalScreenState extends ConsumerState<HospitalScreen> {
       _updateRemaining(isFirst: true);
     });
     final profile = ref.read(playerProvider).profile;
-    final inHospital = _inHospital && !_healed;
+    final inHospital = _inHospital;
 
     return Scaffold(
       drawer: GameDrawer(
@@ -264,7 +294,7 @@ class _HospitalScreenState extends ConsumerState<HospitalScreen> {
 
   Widget _buildInHospital(dynamic profile) {
     final String? hospitalUntil = profile?.hospitalUntil;
-    final releaseTime = hospitalUntil != null ? DateTime.tryParse(hospitalUntil) : null;
+    final releaseTime = _parseRestrictionUntil(hospitalUntil);
     final remainingSecs = _remaining.inSeconds;
     final gemCost = (remainingSecs / 60).ceil() * 3;
     final energy = profile?.energy as int? ?? 0;

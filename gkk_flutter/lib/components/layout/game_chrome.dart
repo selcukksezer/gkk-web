@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../models/player_model.dart';
 import '../../core/services/supabase_service.dart';
+import '../../core/utils/xp_formula.dart';
 import '../../providers/player_provider.dart';
 import '../../routing/app_router.dart';
 import '../../theme/app_colors.dart';
@@ -38,12 +39,17 @@ class GameTopBar extends ConsumerWidget implements PreferredSizeWidget {
               ? profile.username
               : (profile.displayName ?? profile.username));
 
-    final int level = profile?.level ?? 1;
+    final int profileLevel = profile?.level ?? 1;
     final int energy = profile?.energy ?? 0;
     final int maxEnergy = profile?.maxEnergy ?? 100;
     final int gold = profile?.gold ?? 0;
     final int gems = profile?.gems ?? 0;
-    final double xpPercent = _xpPercent(profile?.xp ?? 0, 1000);
+    final xpProgress = buildXpProgress(
+      level: profileLevel,
+      totalXp: profile?.xp ?? 0,
+    );
+    final int level = xpProgress.level;
+    final double xpPercent = xpProgress.percent;
     final bool hasDrawerLogout = onLogout != null;
 
     return AppBar(
@@ -969,11 +975,6 @@ class _ResourceChip extends StatelessWidget {
       ),
     );
   }
-}
-
-double _xpPercent(int xp, int nextLevelXp) {
-  if (nextLevelXp <= 0) return 0;
-  return (xp / nextLevelXp).clamp(0.0, 1.0);
 }
 
 String _compact(int value) {

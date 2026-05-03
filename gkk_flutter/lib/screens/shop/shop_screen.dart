@@ -111,6 +111,42 @@ class _ShopScreenState extends ConsumerState<ShopScreen>
     return fallback;
   }
 
+  bool _isImagePath(String icon) {
+    return icon.contains('/') &&
+        (icon.endsWith('.png') ||
+            icon.endsWith('.webp') ||
+            icon.endsWith('.jpg') ||
+            icon.endsWith('.jpeg'));
+  }
+
+  String _toFlutterAssetPath(String icon) {
+    if (icon.startsWith('assets/icons/')) {
+      return icon.replaceFirst('assets/icons/', 'assets/items/');
+    }
+    if (icon.startsWith('/assets/icons/')) {
+      return icon.replaceFirst('/assets/icons/', 'assets/items/');
+    }
+    if (icon.startsWith('assets/items/')) return icon;
+    if (icon.startsWith('/assets/items/')) return icon.substring(1);
+    return icon;
+  }
+
+  Widget _buildItemIcon(String iconValue) {
+    final String icon = iconValue.trim();
+    if (icon.isNotEmpty && _isImagePath(icon)) {
+      return Image.asset(
+        _toFlutterAssetPath(icon),
+        width: 30,
+        height: 30,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) {
+          return Text(icon.isEmpty ? '🎁' : icon, style: const TextStyle(fontSize: 20));
+        },
+      );
+    }
+    return Text(icon.isEmpty ? '🎁' : icon, style: const TextStyle(fontSize: 20));
+  }
+
   List<Map<String, dynamic>> _mapItemsForShop(
     List<dynamic> rows, {
     bool hasShopCurrency = true,
@@ -553,6 +589,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen>
                     onSearchChanged: (q) => setState(() => _itemSearchQuery = q),
                     onBuyTap: _handleBuyClick,
                     rarityColor: _rarityColor,
+                    buildItemIcon: _buildItemIcon,
                   ),
                 ],
               ),
@@ -942,6 +979,7 @@ class _ItemsTab extends StatelessWidget {
     required this.onSearchChanged,
     required this.onBuyTap,
     required this.rarityColor,
+    required this.buildItemIcon,
   });
 
   final List<Map<String, dynamic>> items;
@@ -951,6 +989,7 @@ class _ItemsTab extends StatelessWidget {
   final ValueChanged<String> onSearchChanged;
   final void Function(Map<String, dynamic>) onBuyTap;
   final Color Function(String?) rarityColor;
+  final Widget Function(String) buildItemIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -1046,7 +1085,7 @@ class _ItemsTab extends StatelessWidget {
                               width: 44, height: 44,
                               decoration: BoxDecoration(color: rc.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10), border: Border.all(color: rc.withValues(alpha: 0.3))),
                               alignment: Alignment.center,
-                              child: Text(item['icon']?.toString() ?? '🎁', style: const TextStyle(fontSize: 20)),
+                              child: buildItemIcon(item['icon']?.toString() ?? '🎁'),
                             ),
                             const SizedBox(height: 4),
                             Padding(

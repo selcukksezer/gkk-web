@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../components/layout/game_chrome.dart';
+import '../../core/utils/xp_formula.dart';
 import '../../models/player_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/player_provider.dart';
@@ -93,9 +94,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Widget _buildBody(BuildContext context, PlayerProfile? profile) {
-    final level = profile?.level ?? 1;
+    final profileLevel = profile?.level ?? 1;
     final xp = profile?.xp ?? 0;
-    final xpForNext = (1000 * (level as num).pow(1.5)).round();
+    final xpProgress = buildXpProgress(level: profileLevel, totalXp: xp);
+    final level = xpProgress.level;
     final gold = profile?.gold ?? 0;
     final gems = profile?.gems ?? 0;
     final energy = profile?.energy ?? 0;
@@ -107,15 +109,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final reputation = profile?.reputation ?? 0;
     final intelligence = profile?.intelligence ?? 0;
 
-    // Computed stats (mirrors web formula)
-    final attack = 5 + level * 2;
-    final defense = 3 + level;
-    final hp = 100 + level * 10;
-    final luck = 5 + (level * 0.5).floor();
-    final power = (attack + defense + hp + luck + reputation * 0.01).round();
+    // Backend profile stats
+    final attack = profile?.attack ?? 0;
+    final defense = profile?.defense ?? 0;
+    final hp = profile?.maxHealth ?? 0;
+    final luck = profile?.luck ?? 0;
+    final power = profile?.power ?? 0;
 
     final winRate = pvpWins + pvpLosses > 0 ? ((pvpWins / (pvpWins + pvpLosses)) * 100).round() : 0;
-    final xpPct = xpForNext > 0 ? (xp / xpForNext).clamp(0.0, 1.0) : 0.0;
+    final xpPct = xpProgress.percent;
 
     final repTier = _getReputationTier(reputation);
     final nextMilestone = _getNextMilestone(reputation);
@@ -164,7 +166,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               const SizedBox(height: 6),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 const Text('Deneyim', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                Text('${_fmtCompact(xp)} / ${_fmtCompact(xpForNext)}', style: const TextStyle(fontSize: 12)),
+                Text('${_fmtCompact(xpProgress.xpInLevel)} / ${_fmtCompact(xpProgress.xpNeededInLevel)}', style: const TextStyle(fontSize: 12)),
               ]),
               const SizedBox(height: 4),
               LinearProgressIndicator(value: xpPct, backgroundColor: Colors.white12, valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)), minHeight: 6, borderRadius: BorderRadius.circular(3)),
@@ -291,19 +293,4 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ]),
     ),
   );
-}
-
-extension NumPow on num {
-  num pow(num exp) {
-    double result = 1.0;
-    double base = toDouble();
-    double exponent = exp.toDouble();
-    // integer part
-    int intPart = exponent.floor();
-    for (int i = 0; i < intPart; i++) { result *= base; }
-    // fractional part approximation
-    double frac = exponent - intPart;
-    if (frac > 0) { result *= (1 + frac * (base - 1)); }
-    return result;
-  }
 }

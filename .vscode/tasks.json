@@ -59,6 +59,21 @@
         "cwd": "${workspaceFolder}/gkk_flutter"
       },
       "problemMatcher": []
+    },
+    {
+      "label": "Flutter Run Web Chrome (MCP Network)",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "run",
+        "-d",
+        "chrome",
+        "--web-browser-flag=--remote-debugging-port=9222"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/gkk_flutter"
+      },
+      "problemMatcher": []
     }
   ]
 }

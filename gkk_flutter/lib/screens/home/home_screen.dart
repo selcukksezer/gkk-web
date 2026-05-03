@@ -10,6 +10,7 @@ import '../../components/common/gkk_section_header.dart';
 import '../../components/common/gkk_stat_tile.dart';
 import '../../components/layout/game_chrome.dart';
 import '../../core/utils/power_formula.dart';
+import '../../core/utils/xp_formula.dart';
 import '../../models/inventory_model.dart';
 import '../../models/item_model.dart';
 import '../../models/player_model.dart';
@@ -155,10 +156,14 @@ class _HomeDashboardState extends ConsumerState<_HomeDashboard> {
     final bool inPrison = _isFuture(profile.prisonUntil, now);
     final int energy = profile.energy;
     final int maxEnergy = profile.maxEnergy;
-    final int tolerance = profile.addictionLevel;
+    final int tolerance = profile.tolerance;
     final int reputation = (profile.reputation ?? 0).clamp(0, 999999999);
+    final XpProgress xpProgress = buildXpProgress(
+      level: profile.level,
+      totalXp: profile.xp,
+    );
 
-    final double xpPercent = _percent(profile.xp, 1000);
+    final double xpPercent = xpProgress.percent;
     final double energyPercent = _percent(energy, maxEnergy);
     final double tolerancePercent = tolerance.clamp(0, 100) / 100;
 
@@ -246,6 +251,7 @@ class _HomeDashboardState extends ConsumerState<_HomeDashboard> {
               reputation: reputation,
               tier: tier,
               xpPercent: xpPercent,
+              xpProgress: xpProgress,
             ),
             const SizedBox(height: AppSpacing.md),
 
@@ -527,6 +533,7 @@ class _HeroSection extends StatelessWidget {
     required this.reputation,
     required this.tier,
     required this.xpPercent,
+    required this.xpProgress,
   });
 
   final PlayerProfile profile;
@@ -534,6 +541,7 @@ class _HeroSection extends StatelessWidget {
   final int reputation;
   final _ReputationTier tier;
   final double xpPercent;
+  final XpProgress xpProgress;
 
   String get _classEmoji => switch (profile.characterClass) {
         CharacterClass.warrior => '⚔️',
@@ -645,7 +653,7 @@ class _HeroSection extends StatelessWidget {
                 ),
                 alignment: Alignment.center,
                 child: Text(
-                  '${profile.level}',
+                  '${xpProgress.level}',
                   style: AppTextStyles.h3.copyWith(
                     color: AppColors.gold,
                     fontWeight: FontWeight.w900,
@@ -660,7 +668,7 @@ class _HeroSection extends StatelessWidget {
             color: AppColors.accentBlue,
             height: 7,
             label: 'Deneyim',
-            sublabel: '${_compact(profile.xp)} / 1.000',
+            sublabel: '${_compact(xpProgress.xpInLevel)} / ${_compact(xpProgress.xpNeededInLevel)}',
           ),
         ],
       ),

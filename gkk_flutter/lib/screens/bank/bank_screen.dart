@@ -803,7 +803,27 @@ class _BankScreenState extends ConsumerState<BankScreen> {
     }
   }
 
+  bool _isImagePath(String icon) {
+    return icon.contains('/') && (icon.endsWith('.png') || icon.endsWith('.webp') || icon.endsWith('.jpg') || icon.endsWith('.jpeg'));
+  }
+
+  String _toFlutterAssetPath(String icon) {
+    if (icon.startsWith('assets/icons/')) {
+      return icon.replaceFirst('assets/icons/', 'assets/items/');
+    }
+    if (icon.startsWith('/assets/icons/')) {
+      return icon.replaceFirst('/assets/icons/', 'assets/items/');
+    }
+    if (icon.startsWith('assets/items/')) return icon;
+    if (icon.startsWith('/assets/items/')) return icon.substring(1);
+    return icon;
+  }
+
   Widget _buildItemIcon({required String icon, required Color rarityColor}) {
+    final String value = icon.trim();
+    final bool isImage = value.isNotEmpty && _isImagePath(value);
+    final String assetPath = _toFlutterAssetPath(value);
+
     return Container(
       width: 40,
       height: 40,
@@ -813,10 +833,23 @@ class _BankScreenState extends ConsumerState<BankScreen> {
         border: Border.all(color: rarityColor.withValues(alpha: 0.35)),
       ),
       alignment: Alignment.center,
-      child: Text(
-        icon.isEmpty ? '📦' : icon,
-        style: const TextStyle(fontSize: 20),
-      ),
+      child: isImage
+          ? Image.asset(
+              assetPath,
+              width: 30,
+              height: 30,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return Text(
+                  value.isEmpty ? '📦' : value,
+                  style: const TextStyle(fontSize: 20),
+                );
+              },
+            )
+          : Text(
+              value.isEmpty ? '📦' : value,
+              style: const TextStyle(fontSize: 20),
+            ),
     );
   }
 

@@ -89,9 +89,32 @@ class _DungeonScreenState extends ConsumerState<DungeonScreen>
     if (raw == null) return null;
     final String trimmed = raw.trim();
     if (trimmed.isEmpty) return null;
-    final DateTime? parsed = DateTime.tryParse(trimmed);
-    if (parsed != null) return parsed;
-    return DateTime.tryParse(trimmed.replaceFirst(' ', 'T'));
+
+    final DateTime? parsed = DateTime.tryParse(trimmed) ??
+        DateTime.tryParse(trimmed.replaceFirst(' ', 'T'));
+    if (parsed == null) return null;
+
+    if (parsed.isUtc) return parsed.toLocal();
+
+    final bool hasTimezone = RegExp(
+      r'(Z|[+\-]\d{2}:?\d{2})$',
+      caseSensitive: false,
+    ).hasMatch(trimmed);
+
+    if (!hasTimezone) {
+      return DateTime.utc(
+        parsed.year,
+        parsed.month,
+        parsed.day,
+        parsed.hour,
+        parsed.minute,
+        parsed.second,
+        parsed.millisecond,
+        parsed.microsecond,
+      ).toLocal();
+    }
+
+    return parsed.toLocal();
   }
 
   bool _isRestricted(String? untilRaw) {
@@ -164,11 +187,14 @@ class _DungeonScreenState extends ConsumerState<DungeonScreen>
     if ((result.error ?? '').isNotEmpty) {
       final String mapped = _mapDungeonBusinessError(result.error!);
       if (mapped.contains('Hastanedeyken') && mounted) {
+        await ref.read(playerProvider.notifier).loadProfile();
+        if (!mounted) return;
+        final String? profileHospitalUntil = ref.read(playerProvider).profile?.hospitalUntil;
         showDialog<void>(
           context: context,
           builder: (context) => _HospitalResultDialog(
             durationText: _formatHospitalDuration(
-              result.hospitalUntil,
+              result.hospitalUntil ?? profileHospitalUntil,
               fallbackSeconds: result.hospitalDurationSeconds,
             ),
             onGoHospital: () => context.go(AppRoutes.hospital),
@@ -189,13 +215,14 @@ class _DungeonScreenState extends ConsumerState<DungeonScreen>
     );
 
     if (result.hospitalized && mounted) {
+      final String? profileHospitalUntil = ref.read(playerProvider).profile?.hospitalUntil;
       await Future<void>.delayed(const Duration(milliseconds: 400));
       if (mounted) {
         showDialog<void>(
           context: context,
           builder: (context) => _HospitalResultDialog(
             durationText: _formatHospitalDuration(
-              result.hospitalUntil,
+              result.hospitalUntil ?? profileHospitalUntil,
               fallbackSeconds: result.hospitalDurationSeconds,
             ),
             onGoHospital: () => context.go(AppRoutes.hospital),
@@ -237,7 +264,7 @@ class _DungeonScreenState extends ConsumerState<DungeonScreen>
       return '$hours sa $mins dk';
     }
     if (hospitalUntil == null || hospitalUntil.isEmpty) return 'Bilinmiyor';
-    final DateTime? until = DateTime.tryParse(hospitalUntil)?.toLocal();
+    final DateTime? until = _parseRestrictionUntil(hospitalUntil);
     if (until == null) return 'Bilinmiyor';
     final Duration diff = until.difference(DateTime.now());
     if (diff.isNegative) return '0 dk';
@@ -1556,6 +1583,12 @@ class _LootDialog extends StatelessWidget {
   final DungeonData dungeon;
   final _Zone? zone;
 
+  String _fmtGold(int value) {
+    if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(1)}M';
+    if (value >= 1000) return '${(value / 1000).toStringAsFixed(0)}K';
+    return '$value';
+  }
+
   _LootRarity _inferRarity(String token) {
     final String lower = token.toLowerCase();
     if (lower.contains('mythic'))    return const _LootRarity('Mythic',    Color(0xFFF43F5E));
@@ -1590,10 +1623,31 @@ class _LootDialog extends StatelessWidget {
       ),
       content: SizedBox(
         width: 340,
-        child: dungeon.lootTable.isEmpty
-            ? const Text('Bu zindan için loot bilgisi bulunamadı.',
-                style: TextStyle(color: Color(0xFF4A5880)))
-            : Column(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                color: const Color(0xFFF5C842).withOpacity(0.10),
+                border: Border.all(color: const Color(0xFFF5C842).withOpacity(0.30)),
+              ),
+              child: Text(
+                'Altin Araligi: ${_fmtGold(dungeon.minGold)} - ${_fmtGold(dungeon.maxGold)}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFFF5C842),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            dungeon.lootTable.isEmpty
+                ? const Text('Bu zindan için loot bilgisi bulunamadı.',
+                    style: TextStyle(color: Color(0xFF4A5880)))
+                : Column(
                 mainAxisSize: MainAxisSize.min,
                 children: dungeon.lootTable.take(8).map((String item) {
                   final _LootRarity rarity = _inferRarity(item);
@@ -1634,6 +1688,8 @@ class _LootDialog extends StatelessWidget {
                   );
                 }).toList(),
               ),
+          ],
+        ),
       ),
       actions: <Widget>[
         FilledButton(
