@@ -38,7 +38,7 @@
 
 **Boss:** #10 — Silva Maledictus (Günlük 3 deneme limiti)
 **Loot:** Common ekipman, Common kaynak, catalyst_common
-**Hastane riski:** %0 (#1-7), başarı oranına ters orantılı (#8-10, bkz. Bölüm 7)
+**Hastane riski:** %0 (#1 sadece), başarı oranına ters orantılı (#2-10, bkz. Bölüm 7)
 
 ---
 
@@ -446,7 +446,7 @@ hospital_duration = base_duration × zone_multiplier
 
 **Kritik İlke:** Güçsüz oyuncu = düşük başarı = yüksek hastane riski. Bu, oyuncuları güçlerine uygun zindanlara girmeye teşvik eder.
 
-> **Not:** Zone 1 #1-7 için hastane riski %0'a sabitlenir (başlangıç koruması).
+> **Not:** Sadece #1 (dng_001) için hastane riski %0'a sabitlenir (başlangıç koruması). #2+ tüm zindanlarda hastane riski başarı oranına ters orantılıdır.
 
 ### 7.2 Hastaneden Çıkış
 
