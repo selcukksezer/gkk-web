@@ -446,15 +446,18 @@ class _BankScreenState extends ConsumerState<BankScreen> {
     if (targetLocked || _actionInProgress) return;
 
     if (payload.sourceType == targetType) {
-      if (targetType == _DragSourceType.bank && targetSlot >= _totalSlots)
+      if (targetType == _DragSourceType.bank && targetSlot >= _totalSlots) {
         return;
+      }
     }
 
     if (payload.sourceType == _DragSourceType.inventory &&
-        payload.sourceId.isEmpty)
+        payload.sourceId.isEmpty) {
       return;
-    if (payload.sourceType == _DragSourceType.bank && payload.sourceId.isEmpty)
+    }
+    if (payload.sourceType == _DragSourceType.bank && payload.sourceId.isEmpty) {
       return;
+    }
 
     final bool isStackable = await _isStackableByItemId(
       payload.itemId,
@@ -1638,10 +1641,10 @@ class _BankScreenState extends ConsumerState<BankScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final Future<void> Function() logoutHandler = () async {
+    logoutHandler() async {
       await ref.read(authProvider.notifier).logout();
       ref.read(playerProvider.notifier).clear();
-    };
+    }
 
     return Scaffold(
       drawer: GameDrawer(onLogout: logoutHandler),

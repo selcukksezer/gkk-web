@@ -634,8 +634,9 @@ class _QuestCard extends StatelessWidget {
     }
     if (quest.status == QuestStatus.available) {
       String label = 'Görevi Başlat';
-      if (activeCount >= maxActiveQuests) label = '🔒 Slot Dolu';
-      else if (playerLevel < quest.requiredLevel) label = 'Sev. ${quest.requiredLevel} Gerekli';
+      if (activeCount >= maxActiveQuests) {
+        label = '🔒 Slot Dolu';
+      } else if (playerLevel < quest.requiredLevel) label = 'Sev. ${quest.requiredLevel} Gerekli';
       else if (playerEnergy < quest.energyCost) label = 'Enerji Yetersiz';
       return FilledButton(
         onPressed: (!_canStart || actionLoading) ? null : onStart,

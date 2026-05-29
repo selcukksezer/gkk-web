@@ -133,8 +133,11 @@ class _MekanArenaScreenState extends ConsumerState<MekanArenaScreen> {
       }
 
       if (won) {
-        if (isCritical) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('💥 KRİTİK ZAFER! +$goldStolen altın')));
-        else ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Zafer! +$goldStolen altın, +$ratingChange rating')));
+        if (isCritical) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('💥 KRİTİK ZAFER! +$goldStolen altın')));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Zafer! +$goldStolen altın, +$ratingChange rating')));
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Yenilgi! $ratingChange rating')));
       }

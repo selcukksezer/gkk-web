@@ -60,7 +60,7 @@ class _ChatDesignSystem {
   static const LinearGradient gradientBgPanel = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFF0141B26), Color(0xFFF0090D15)],
+    colors: [Color(0xfff0141b26), Color(0xfff0090d15)],
   );
 
   static const LinearGradient gradientGlobal = LinearGradient(

@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../components/layout/game_chrome.dart';
 import '../../core/services/supabase_service.dart';
-import '../../models/mekan_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/player_provider.dart';
 import '../../routing/app_router.dart';

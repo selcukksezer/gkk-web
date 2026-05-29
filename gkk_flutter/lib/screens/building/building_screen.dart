@@ -122,7 +122,7 @@ class _BuildingScreenState extends ConsumerState<BuildingScreen> {
     try {
       final dynamic result = await SupabaseService.client.rpc('get_buildings');
       if (result is List && result.isNotEmpty) {
-        final List<_Building> parsed = (result as List<dynamic>)
+        final List<_Building> parsed = (result)
             .whereType<Map<String, dynamic>>()
             .map(_buildingFromMap)
             .toList();

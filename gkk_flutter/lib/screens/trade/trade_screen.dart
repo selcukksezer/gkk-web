@@ -298,10 +298,10 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final logoutHandler = () async {
+    logoutHandler() async {
       await ref.read(authProvider.notifier).logout();
       ref.read(playerProvider.notifier).clear();
-    };
+    }
 
     return Scaffold(
       drawer: GameDrawer(onLogout: logoutHandler),

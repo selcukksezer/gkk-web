@@ -871,103 +871,144 @@ class _InventorySlotCard extends StatelessWidget {
   final bool isSelected;
   final VoidCallback? onTap;
 
+  static String _typeEmoji(ItemType t) {
+    switch (t) {
+      case ItemType.weapon:     return '⚔️';
+      case ItemType.armor:      return '🛡️';
+      case ItemType.potion:
+      case ItemType.consumable: return '🧪';
+      case ItemType.material:   return '🪨';
+      case ItemType.scroll:     return '📜';
+      case ItemType.recipe:     return '📋';
+      case ItemType.rune:       return '🔮';
+      case ItemType.cosmetic:   return '✨';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // ── Boş slot ──────────────────────────────────────────────────────────────
     if (item == null) {
       return GestureDetector(
         onTap: onTap,
         child: Container(
-          alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: const Color(0x45101723),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-          ),
-          child: Text(
-            '$slotIndex',
-            style: Theme.of(context).textTheme.labelSmall,
+            color: const Color(0x28101723),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1),
           ),
         ),
       );
     }
 
     final rarityColor = getRarityColor(item!.rarity);
+    final Color borderColor = isSelected
+        ? Theme.of(context).colorScheme.primary
+        : rarityColor.withValues(alpha: 0.65);
+    final double borderWidth = isSelected ? 2.0 : 1.0;
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected ? Theme.of(context).colorScheme.primary : rarityColor.withValues(alpha: 0.7),
-            width: isSelected ? 2 : 1,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: borderColor, width: borderWidth),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: <Color>[
+              rarityColor.withValues(alpha: isSelected ? 0.18 : 0.10),
+              const Color(0xFF0C1220),
+            ],
           ),
         ),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            // Grid hucreleri efektif olarak ~52px'e kadar dusuyor; bu aralikta
-            // detayli layout RenderFlex overflow uretiyor.
-            final bool isCompact = constraints.maxHeight <= 64 || constraints.maxWidth <= 64;
-
-            if (isCompact) {
-              return Padding(
-                padding: const EdgeInsets.all(4),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      item!.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 9, color: rarityColor, height: 1),
-                    ),
-                    if (item!.quantity > 1)
-                      Align(
-                        alignment: Alignment.bottomRight,
-                        child: Text('x${item!.quantity}', style: const TextStyle(fontSize: 9, height: 1)),
-                      ),
-                  ],
+        child: Stack(
+          children: <Widget>[
+            // Rarity şeridi (sol kenar)
+            Positioned(
+              left: 0,
+              top: 6,
+              bottom: 6,
+              child: Container(
+                width: 2.5,
+                decoration: BoxDecoration(
+                  color: rarityColor,
+                  borderRadius: BorderRadius.circular(2),
                 ),
-              );
-            }
+              ),
+            ),
 
-            return Padding(
-              padding: const EdgeInsets.all(6),
+            // İçerik
+            Padding(
+              padding: const EdgeInsets.only(left: 7, right: 5, top: 5, bottom: 5),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
+                  // İsim + favori yıldızı
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Expanded(
                         child: Text(
                           item!.name,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 11, color: rarityColor, height: 1.1),
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            color: rarityColor,
+                            fontWeight: FontWeight.w600,
+                            height: 1.15,
+                          ),
                         ),
                       ),
                       if (item!.isFavorite)
-                        const Icon(Icons.star, size: 12, color: Colors.amber),
+                        const Padding(
+                          padding: EdgeInsets.only(left: 2),
+                          child: Icon(Icons.star_rounded, size: 10, color: Colors.amber),
+                        ),
                     ],
                   ),
-                  Text(
-                    item!.itemType.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 9, color: Colors.white70),
-                  ),
+
                   const Spacer(),
-                  if (item!.quantity > 1)
-                    Align(
-                      alignment: Alignment.bottomRight,
-                      child: Text('x${item!.quantity}', style: const TextStyle(fontSize: 10)),
-                    ),
+
+                  // Alt satır: sol=miktar rozeti, sağ=type emoji
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: <Widget>[
+                      // Miktar rozeti (sol alt) – sadece stackable ve qty > 1
+                      if (item!.isStackable && item!.quantity > 1)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: rarityColor.withValues(alpha: 0.22),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: rarityColor.withValues(alpha: 0.55), width: 0.8),
+                          ),
+                          child: Text(
+                            '${item!.quantity}',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: rarityColor,
+                              height: 1,
+                            ),
+                          ),
+                        )
+                      else
+                        const SizedBox.shrink(),
+
+                      // Tür emojisi (sağ alt)
+                      Text(
+                        _typeEmoji(item!.itemType),
+                        style: const TextStyle(fontSize: 11, height: 1),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-            );
-          },
+            ),
+          ],
         ),
       ),
     );

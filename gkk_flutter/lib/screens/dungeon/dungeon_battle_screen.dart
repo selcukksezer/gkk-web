@@ -7,6 +7,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/player_provider.dart';
 import '../../routing/app_router.dart';
 import '../../core/services/supabase_service.dart';
+import 'dungeon_victory_effects.dart';
 
 class DungeonBattleScreen extends ConsumerStatefulWidget {
   const DungeonBattleScreen({super.key});
@@ -15,7 +16,8 @@ class DungeonBattleScreen extends ConsumerStatefulWidget {
   ConsumerState<DungeonBattleScreen> createState() => _DungeonBattleScreenState();
 }
 
-class _DungeonBattleScreenState extends ConsumerState<DungeonBattleScreen> {
+class _DungeonBattleScreenState extends ConsumerState<DungeonBattleScreen>
+  {
   String _phase = 'idle';
   String _dungeonId = '';
   String _dungeonName = 'Zindan';
@@ -24,6 +26,11 @@ class _DungeonBattleScreenState extends ConsumerState<DungeonBattleScreen> {
   bool _claiming = false;
   Timer? _countdownTimer;
   bool _paramsLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+  }
 
   @override
   void didChangeDependencies() {
@@ -154,10 +161,10 @@ class _DungeonBattleScreenState extends ConsumerState<DungeonBattleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final logoutHandler = () async {
+    logoutHandler() async {
       await ref.read(authProvider.notifier).logout();
       ref.read(playerProvider.notifier).clear();
-    };
+    }
 
     return Scaffold(
       drawer: GameDrawer(onLogout: logoutHandler),
@@ -283,81 +290,51 @@ class _DungeonBattleScreenState extends ConsumerState<DungeonBattleScreen> {
   Widget _buildSuccessPhase() {
     if (_result == null) return const SizedBox.shrink();
     final items = (_result!['items'] as List<String>);
+    final inventoryFull = _result!['inventory_full'] == true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (inventoryFull) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('⚠️ Envanter dolu! Bazı eşyalar alınamadı.'),
+          backgroundColor: Color(0xFFDC2626),
+          duration: Duration(seconds: 4),
+        ));
+      }
+    });
+
+    final badges = <Widget>[
+      VictoryBadge(
+        icon: '💰',
+        label: 'ALTIN',
+        value: '${_result!["gold"]}',
+        color: const Color(0xFFDDB200),
+      ),
+      const SizedBox(width: kBadgeGapBetween),
+      VictoryBadge(
+        icon: '✨',
+        label: 'XP',
+        value: '+${_result!["xp"]}',
+        color: const Color(0xFF22C55E),
+      ),
+      if (items.isNotEmpty) ...[
+        const SizedBox(width: kBadgeGapBetween),
+        VictoryBadge(
+          icon: '🎒',
+          label: 'EŞYA',
+          value: '${items.length}',
+          color: const Color(0xFF3B82F6),
+          sub: items.length == 1 ? _formatItemName(items.first) : null,
+        ),
+      ],
+    ];
+
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Card(
-        color: Colors.white.withValues(alpha: 0.05),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: const Color(0xFF22C55E).withValues(alpha: 0.3)),
-        ),
-        child: const Padding(
-          padding: EdgeInsets.all(20),
-          child: Column(children: [
-            Text('🏆', style: TextStyle(fontSize: 64)),
-            SizedBox(height: 8),
-            Text('ZAFER!',
-                style: TextStyle(
-                    color: Color(0xFF22C55E), fontSize: 24, fontWeight: FontWeight.bold)),
-          ]),
-        ),
+      VictoryCard(
+        animation: const AlwaysStoppedAnimation<double>(1.0),
+        badges: badges,
       ),
-      const SizedBox(height: 12),
-      Card(
-        color: Colors.white.withValues(alpha: 0.05),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('🎁 Ödüller',
-                style: TextStyle(
-                    color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Row(children: [
-              const Text('💰 Altın', style: TextStyle(color: Colors.white70)),
-              const Spacer(),
-              Text('${_result!['gold']}',
-                  style: const TextStyle(
-                      color: Color(0xFFF59E0B), fontWeight: FontWeight.bold)),
-            ]),
-            const SizedBox(height: 4),
-            Row(children: [
-              const Text('✨ Deneyim', style: TextStyle(color: Colors.white70)),
-              const Spacer(),
-              Text('+${_result!['xp']} XP',
-                  style: const TextStyle(
-                      color: Color(0xFF22C55E), fontWeight: FontWeight.bold)),
-            ]),
-            if (items.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              const Divider(color: Colors.white12),
-              const Text('🎒 Eşyalar',
-                  style: TextStyle(color: Colors.white54, fontSize: 12)),
-              const SizedBox(height: 4),
-              Wrap(
-                spacing: 4,
-                runSpacing: 4,
-                children: items.map((item) {
-                  final rarity = _inferRarity(item);
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _rarityColor(rarity).withValues(alpha: 0.15),
-                      border: Border.all(color: _rarityColor(rarity).withValues(alpha: 0.4)),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(_formatItemName(item),
-                        style: TextStyle(color: _rarityColor(rarity), fontSize: 11)),
-                  );
-                }).toList(),
-              ),
-            ],
-          ]),
-        ),
-      ),
-      const SizedBox(height: 12),
+      const SizedBox(height: 16),
       if (!_claiming)
         SizedBox(
           width: double.infinity,
@@ -367,9 +344,10 @@ class _DungeonBattleScreenState extends ConsumerState<DungeonBattleScreen> {
               backgroundColor: const Color(0xFFDDB200),
               foregroundColor: Colors.black,
               padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             ),
-            child: const Text('🎁 Ödülleri Al',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            child: const Text('ÖDÜLLERİ AL',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
           ),
         )
       else
@@ -386,106 +364,47 @@ class _DungeonBattleScreenState extends ConsumerState<DungeonBattleScreen> {
 
   Widget _buildFailurePhase() {
     final hospitalized = _result?['hospitalized'] == true;
-    if (hospitalized) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            colors: [
-              const Color(0xFFDC2626).withValues(alpha: 0.3),
-              const Color(0xFF10131D)
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-          border: Border.all(color: const Color(0xFFDC2626).withValues(alpha: 0.3)),
-        ),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          const Text('🏥', style: TextStyle(fontSize: 64)),
-          const SizedBox(height: 8),
-          const Text('Hastaneye Kaldırıldınız',
-              style: TextStyle(
-                  color: Color(0xFFEF4444), fontSize: 22, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          const Text('Savaş kaybedildi. Ağır yaralı durumdasınız.',
-              style: TextStyle(color: Colors.white70), textAlign: TextAlign.center),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: const Color(0xFFDC2626).withValues(alpha: 0.1),
-            ),
-            child: Column(children: [
-              const Text('Tedavi Süresi',
-                  style: TextStyle(color: Colors.white54, fontSize: 12)),
-              Text(
-                _formatDuration((_result?['hospital_duration'] as int?) ?? 0),
-                style: const TextStyle(
-                    color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
-              ),
-            ]),
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => context.go(AppRoutes.hospital),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFEF4444), foregroundColor: Colors.white),
-              child: const Text('🏥 Hastane'),
-            ),
-          ),
-        ]),
-      );
-    } else {
-      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Card(
-          color: Colors.white.withValues(alpha: 0.05),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: const Color(0xFFEF4444).withValues(alpha: 0.3)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(children: [
-              const Text('💀', style: TextStyle(fontSize: 64)),
-              const SizedBox(height: 8),
-              const Text('YENİLDİN!',
-                  style: TextStyle(
-                      color: Color(0xFFEF4444), fontSize: 24, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text(_dungeonName, style: const TextStyle(color: Colors.white54)),
-            ]),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Card(
-          color: Colors.white.withValues(alpha: 0.05),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
-          ),
-          child: const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text('Bu sefer şanssızdın. Tekrar dene!',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white70)),
-          ),
-        ),
-        const SizedBox(height: 12),
+    final duration = _formatDuration((_result?['hospital_duration'] as int?) ?? 0);
+    final notices = hospitalized
+        ? <String>[
+            'Hastaneye düştün',
+            'Tedavi süresi: $duration',
+          ]
+        : <String>[
+            'Yenildin',
+            'Bu sefer şanssızdın, tekrar dene.',
+          ];
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      DefeatCard(
+        animation: const AlwaysStoppedAnimation<double>(1.0),
+        notices: notices,
+      ),
+      const SizedBox(height: 14),
+      if (hospitalized)
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: () => context.go(AppRoutes.dungeon),
+            onPressed: () => context.go(AppRoutes.hospital),
             style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white24, foregroundColor: Colors.white),
-            child: const Text('← Geri Dön'),
+              backgroundColor: const Color(0xFF991B1B),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('🏥 Hastane'),
           ),
         ),
-      ]);
-    }
+      const SizedBox(height: 8),
+      SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: () => context.go(AppRoutes.dungeon),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.white24,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('← Geri Dön'),
+        ),
+      ),
+    ]);
   }
 }

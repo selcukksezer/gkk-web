@@ -14,6 +14,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_text_styles.dart';
 import '../../screens/chat/chat_screen.dart';
+import 'live_ticker.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GameTopBar
@@ -26,7 +27,7 @@ class GameTopBar extends ConsumerWidget implements PreferredSizeWidget {
   final Future<void> Function()? onLogout;
 
   @override
-  Size get preferredSize => const Size.fromHeight(72);
+  Size get preferredSize => const Size.fromHeight(160);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -39,198 +40,419 @@ class GameTopBar extends ConsumerWidget implements PreferredSizeWidget {
               ? profile.username
               : (profile.displayName ?? profile.username));
 
+    final String usernameStr = profile?.username ?? '';
     final int profileLevel = profile?.level ?? 1;
-    final int energy = profile?.energy ?? 0;
-    final int maxEnergy = profile?.maxEnergy ?? 100;
     final int gold = profile?.gold ?? 0;
     final int gems = profile?.gems ?? 0;
+    final int energy = profile?.energy ?? 0;
+
     final xpProgress = buildXpProgress(
       level: profileLevel,
       totalXp: profile?.xp ?? 0,
     );
     final int level = xpProgress.level;
     final double xpPercent = xpProgress.percent;
-    final bool hasDrawerLogout = onLogout != null;
 
-    return AppBar(
-      automaticallyImplyLeading: false,
-      toolbarHeight: 72,
-      titleSpacing: 12,
-      title: ClipRRect(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+    // Use 95% of width as in the example, or just full width minus margins
+    final double width = MediaQuery.of(context).size.width * 0.95;
+    final double bgHeight = 90;
+    final double cutHeight = 35;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Center(
           child: Container(
-            height: 52,
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-              color: AppColors.chromeBg,
-              border: Border.all(color: AppColors.chromeBorder),
-              boxShadow: const <BoxShadow>[
-                BoxShadow(
-                  color: Color(0x66000000),
-                  blurRadius: 20,
-                  offset: Offset(0, 8),
+            width: width,
+            height: 110,
+            margin: const EdgeInsets.only(top: 8),
+            child: Stack(
+              children: [
+                // 1. Ana Gövde Çizimi
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: bgHeight,
+                  child: CustomPaint(
+                    size: Size(width, bgHeight),
+                    painter: TopBarShapePainter(),
+                  ),
                 ),
-              ],
-            ),
-            child: Row(
-              children: <Widget>[
-                Builder(
-                  builder: (ctx) => IconButton(
-                    onPressed: () => Scaffold.of(ctx).openDrawer(),
-                    icon: const Icon(Icons.menu_rounded, size: 22),
-                    tooltip: hasDrawerLogout
-                        ? 'Menü (Çıkış için menüyü kullan)'
-                        : 'Menü',
-                    color: AppColors.accentBlue,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints.tightFor(
-                      width: 36,
-                      height: 36,
+
+                // Sol Panel
+                Positioned(
+                  top: 0,
+                  left: 15,
+                  width: width * 0.28,
+                  height: bgHeight,
+                  child: SafeArea(
+                    bottom: false,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: GestureDetector(
+                        onTap: () {
+                          if (Scaffold.of(context).hasEndDrawer) {
+                            Scaffold.of(context).openEndDrawer();
+                          } else {
+                            Scaffold.of(context).openDrawer();
+                          }
+                        },
+                        behavior: HitTestBehavior.opaque,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.menu, color: Colors.white),
+                            const SizedBox(width: 8),
+                            _buildStatLeft(
+                              _compact(gold),
+                              Icons.paid_rounded,
+                              Colors.orange,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: AppSpacing.xs),
-                // Level badge
-                _LevelBadge(level: level),
-                const SizedBox(width: AppSpacing.sm),
-                // Name + XP bar
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        displayName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTextStyles.label.copyWith(
-                          color: AppColors.textPrimary.withValues(alpha: 0.9),
-                          fontSize: 11,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      _XpBar(percent: xpPercent),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.xs),
-                Flexible(
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
+
+                // Sağ Panel
+                Positioned(
+                  top: 0,
+                  right: 15,
+                  width: width * 0.28,
+                  height: bgHeight,
+                  child: SafeArea(
+                    bottom: false,
+                    child: Align(
                       alignment: Alignment.centerRight,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          _ResourceChip(
-                            icon: Icons.flash_on_rounded,
-                            value: '$energy/$maxEnergy',
-                            color: AppColors.accentCyan,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          _buildStatRight(
+                            _compact(gems),
+                            Icons.diamond_rounded,
+                            Colors.blue,
                           ),
-                          const SizedBox(width: AppSpacing.xs),
-                          _ResourceChip(
-                            icon: Icons.paid_rounded,
-                            value: _compact(gold),
-                            color: AppColors.gold,
-                          ),
-                          const SizedBox(width: AppSpacing.xs),
-                          _ResourceChip(
-                            icon: Icons.diamond_rounded,
-                            value: _compact(gems),
-                            color: AppColors.accentPurple,
+                          const SizedBox(height: 4),
+                          _buildStatRight(
+                            _compact(energy),
+                            Icons.bolt,
+                            Colors.yellow,
                           ),
                         ],
                       ),
                     ),
                   ),
                 ),
+
+                // Orta Profil (Arkaplanın bittiği yerin üstünde kalacak şekilde)
+                Positioned(
+                  top: 0,
+                  left: width * 0.24,
+                  right: width * 0.24,
+                  height: bgHeight - cutHeight + 5,
+                  child: SafeArea(
+                    bottom: false,
+                    child: Center(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          GestureDetector(
+                            onTap: () {
+                              if (Scaffold.of(context).hasEndDrawer) {
+                                Scaffold.of(context).openEndDrawer();
+                              } else {
+                                Scaffold.of(context).openDrawer();
+                              }
+                            },
+                            child: CircleAvatar(
+                              radius: 20,
+                              backgroundColor: Colors.red.withOpacity(0.3),
+                              child: const Icon(
+                                Icons.person,
+                                color: Colors.white,
+                                size: 28,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Hi, ${displayName.split(' ').first} ⚡",
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              if (usernameStr.isNotEmpty)
+                                Text(
+                                  "@$usernameStr",
+                                  style: const TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // LEVEL PROGRESS BAR (Arkaplandaki kavisin altına yerleşir)
+                Positioned(
+                  top: bgHeight - cutHeight + 8,
+                  left: width * 0.20, // Exp bar left margin
+                  right: width * 0.20, // Exp bar right margin
+                  child: _buildStripedExpBar(
+                    level,
+                    xpPercent,
+                    xpProgress.xpInLevel,
+                    xpProgress.xpNeededInLevel,
+                  ),
+                ),
               ],
             ),
           ),
         ),
-      ),
-      centerTitle: false,
-      backgroundColor: Colors.transparent,
-      elevation: 0,
+        const SizedBox(height: 4),
+        const LiveTicker(),
+      ],
     );
   }
-}
 
-class _LevelBadge extends StatelessWidget {
-  const _LevelBadge({required this.level});
-  final int level;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 30,
-      height: 30,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: <Color>[AppColors.accentPurple, AppColors.accentBlue],
-        ),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: AppColors.accentBlue.withValues(alpha: 0.45),
-            blurRadius: 10,
-          ),
-        ],
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        '$level',
-        style: AppTextStyles.micro.copyWith(
-          color: Colors.white,
-          fontSize: 11,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
+  String _compact(int value) {
+    if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(1)}M';
+    if (value >= 1000) return '${(value / 1000).toStringAsFixed(1)}k';
+    return value.toString();
   }
-}
 
-class _XpBar extends StatelessWidget {
-  const _XpBar({required this.percent});
-  final double percent;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-      child: Stack(
-        children: <Widget>[
-          Container(
-            height: 3,
-            color: AppColors.accentBlue.withValues(alpha: 0.15),
-          ),
-          FractionallySizedBox(
-            widthFactor: percent.clamp(0.0, 1.0),
-            child: Container(
-              height: 3,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: <Color>[AppColors.accentPurple, AppColors.accentBlue],
-                ),
-                boxShadow: <BoxShadow>[
-                  BoxShadow(
-                    color: AppColors.accentBlue.withValues(alpha: 0.55),
-                    blurRadius: 6,
-                  ),
-                ],
-              ),
+  Widget _buildStatLeft(String value, IconData icon, Color color) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 5),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
             ),
           ),
         ],
       ),
     );
   }
+
+  Widget _buildStatRight(String value, IconData icon, Color color) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerRight,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(width: 5),
+          Icon(icon, color: color, size: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStripedExpBar(
+    int level,
+    double percent,
+    int currentXp,
+    int requiredXp,
+  ) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 12, // ProgressBar kalınlığı
+          child: CustomPaint(
+            painter: StripedProgressBarPainter(percent: percent),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              "LEVEL $level",
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              "$currentXp / $requiredXp",
+              style: const TextStyle(color: Colors.white70, fontSize: 10),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class StripedProgressBarPainter extends CustomPainter {
+  final double percent;
+  StripedProgressBarPainter({required this.percent});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final trackRadius = const Radius.circular(6);
+
+    // Background Track (the dark gray part)
+    Paint trackPaint = Paint()
+      ..color = const Color(0xFF1E2633)
+      ..style = PaintingStyle.fill;
+
+    // Border for the track
+    Paint borderPaint = Paint()
+      ..color = Colors.white.withOpacity(0.15)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    final trackRRect = RRect.fromRectAndRadius(Offset.zero & size, trackRadius);
+    canvas.drawRRect(trackRRect, trackPaint);
+    canvas.drawRRect(trackRRect, borderPaint);
+
+    if (percent <= 0) return;
+
+    final fillWidth = size.width * percent;
+    final fillRect = Rect.fromLTWH(0, 0, fillWidth, size.height);
+    final fillRRect = RRect.fromRectAndRadius(fillRect, trackRadius);
+
+    // Gradient fill: Purple to Bright Green (Mora-Yeşil degrade görseldeki gibi)
+    Paint fillPaint = Paint()
+      ..shader = const LinearGradient(
+        colors: [Color(0xFF8B5CF6), Color(0xFFADFF2F)],
+      ).createShader(fillRect);
+
+    canvas.save();
+    canvas.clipRRect(fillRRect);
+    canvas.drawRect(fillRect, fillPaint);
+
+    // Diagonal Stripes (Görseldeki çizgili etki)
+    Paint stripePaint = Paint()
+      ..color = Colors.white.withOpacity(0.2)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+
+    for (double i = -size.height; i < fillWidth; i += 10) {
+      canvas.drawLine(
+        Offset(i, size.height),
+        Offset(i + size.height, 0),
+        stripePaint,
+      );
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+class TopBarShapePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    Paint paint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFF161D27), Color(0xFF0A0F16)],
+      ).createShader(Offset.zero & size)
+      ..style = PaintingStyle.fill;
+
+    Paint strokePaint = Paint()
+      ..color = Colors.white.withOpacity(0.15)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+
+    Path path = Path();
+    double w = size.width;
+    double h = size.height;
+    double r = 20;
+    double cutHeight = 35; // Kavisin yüksekliği
+
+    // Üst köşeler (sol üstten sağ üste düz çizgi)
+    path.moveTo(r, 0);
+    path.lineTo(w - r, 0);
+    path.quadraticBezierTo(w, 0, w, r); // Sağ üst köşe
+
+    // Sağ kenar
+    path.lineTo(w, h - r);
+    path.quadraticBezierTo(w, h, w - r, h); // Sağ alt köşe
+
+    // Kavis koordinatları
+    double pR = w * 0.90; // Sağ panel kenarı (daha sağa alındı)
+    double cR = w * 0.77; // Sağ kavis bitişi
+    double cL = w * 0.23; // Sol kavis bitişi
+    double pL = w * 0.10; // Sol panel kenarı (daha sola alındı)
+
+    // Sağ alt köşeden orta kavisin sağına çizgi
+    path.lineTo(pR, h);
+
+    // Ortadan sağa yukarı kavis
+    path.cubicTo(pR - 10, h, cR + 10, h - cutHeight, cR, h - cutHeight);
+
+    // Ortadaki düzlük (Profilin alt kısmı)
+    path.lineTo(cL, h - cutHeight);
+
+    // Ortadan sola aşağı kavis
+    path.cubicTo(cL - 10, h - cutHeight, pL + 10, h, pL, h);
+
+    // Sol kavis başlangıcından sol alt köşeye
+    path.lineTo(r, h);
+    path.quadraticBezierTo(0, h, 0, h - r); // Sol alt köşe
+
+    // Sol kenar
+    path.lineTo(0, r);
+    path.quadraticBezierTo(0, 0, r, 0); // Sol üst köşe
+    path.close();
+
+    canvas.drawPath(path, paint);
+
+    // Çapraz Çizgiler (Arkaplan dokusu)
+    canvas.save();
+    canvas.clipPath(path);
+    Paint texturePaint = Paint()
+      ..color = Colors.black.withOpacity(0.2)
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    for (double i = -h; i < w; i += 8) {
+      canvas.drawLine(Offset(i, h), Offset(i + h, 0), texturePaint);
+    }
+    canvas.restore();
+
+    canvas.drawPath(path, strokePaint);
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

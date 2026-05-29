@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+﻿import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -13,8 +13,35 @@ import '../../providers/dungeon_provider.dart';
 import '../../providers/inventory_provider.dart';
 import '../../providers/player_provider.dart';
 import '../../routing/app_router.dart';
+import 'dungeon_victory_effects.dart';
 
 // ─── Zone definitions ─────────────────────────────────────────────────────────
+
+// Sabit zafer arkaplanı boyutu (logical pixels)
+const double _kVictoryBgWidth = 380.0;
+const double _kVictoryBgHeight = 500.0;
+
+// ──── BADGE/STRIPE AYARLANABILIR PARAMETRELERI ────
+const double _badgeStripeWidth = 378.0;
+const double _badgeStripeHeight = 103.0;
+const double _badgePositionTop = 265.0;  // Rozetlerin top offset'i
+const double _badgeWidth = 65.0;
+const double _badgeHeight = 67.0;
+const double _badgePaddingVertical = 4.0;
+const double _badgePaddingHorizontal = 3.0;
+const double _badgeGapBetween = 16.0;
+const double _badgeBorderRadius = 8.0;
+const double _badgeBorderWidth = 1.0;
+const double _badgeShadowBlur = 6.0;
+const double _badgeShadowBlur2 = 1.0;
+const double _badgeIconFontSize = 14.0;
+const double _badgeValueFontSize = 12.0;
+const double _badgeLabelFontSize = 8.0;
+const double _badgeSubFontSize = 7.0;
+const double _badgeIconSpacing = 3.0;
+const double _badgeValueSpacing = 2.0;
+const double _badgeLabelSpacing = 2.0;
+const double _badgeSubSpacing = 1.0;
 
 class _Zone {
   const _Zone({
@@ -209,26 +236,36 @@ class _DungeonScreenState extends ConsumerState<DungeonScreen>
     await ref.read(playerProvider.notifier).loadProfile();
     if (!mounted) return;
 
-    showDialog<void>(
-      context: context,
-      builder: (context) => _ResultDialog(result: result, dungeon: dungeon),
-    );
+    if (result.success) {
+      showDialog<void>(
+        context: context,
+        builder: (context) => _ResultDialog(result: result, dungeon: dungeon),
+      );
+    } else {
+      // Başarısız durumlar - defeat kartı göster
+      final notices = result.hospitalized
+          ? <String>[
+              'Hastaneye düştün',
+              'Tedavi süresi: ${_formatHospitalDuration(
+                result.hospitalUntil ?? ref.read(playerProvider).profile?.hospitalUntil,
+                fallbackSeconds: result.hospitalDurationSeconds,
+              )}',
+            ]
+          : <String>[
+              'Yenildin',
+              'Bu sefer şanssızdın, tekrar dene.',
+            ];
 
-    if (result.hospitalized && mounted) {
-      final String? profileHospitalUntil = ref.read(playerProvider).profile?.hospitalUntil;
-      await Future<void>.delayed(const Duration(milliseconds: 400));
-      if (mounted) {
-        showDialog<void>(
-          context: context,
-          builder: (context) => _HospitalResultDialog(
-            durationText: _formatHospitalDuration(
-              result.hospitalUntil ?? profileHospitalUntil,
-              fallbackSeconds: result.hospitalDurationSeconds,
-            ),
-            onGoHospital: () => context.go(AppRoutes.hospital),
-          ),
-        );
-      }
+      showDialog<void>(
+        context: context,
+        builder: (context) => _DefeatResultDialog(
+          notices: notices,
+          hospitalized: result.hospitalized,
+          onGoHospital: result.hospitalized
+              ? () => context.go(AppRoutes.hospital)
+              : null,
+        ),
+      );
     }
   }
 
@@ -1436,78 +1473,147 @@ class _ResultDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool ok = result.success;
-    final bool crit = result.isCritical;
-    final Color accent = ok
-        ? (crit ? const Color(0xFFF5C842) : const Color(0xFF22C55E))
-        : const Color(0xFFEF4444);
-
-    return AlertDialog(
-      backgroundColor: const Color(0xFF0D1525),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: accent.withOpacity(0.3)),
+    final List<String> items = result.items;
+    final int gold = result.goldEarned;
+    final int xp = result.xpEarned;
+    final List<Widget> badges = <Widget>[
+      _badge(
+        icon: '💰',
+        label: 'ALTIN',
+        value: '$gold',
+        color: const Color(0xFFDDB200),
       ),
-      title: Row(
-        children: <Widget>[
-          Icon(
-            ok ? (crit ? Icons.star_rounded : Icons.check_circle_outline) : Icons.cancel_outlined,
-            size: 20,
-            color: accent,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              crit ? 'KRTK ZAFER!' : (ok ? 'Zindan Temizlendi' : 'Başarısız'),
-              style: TextStyle(
-                  fontSize: 15, fontWeight: FontWeight.w800, color: accent),
-            ),
-          ),
-        ],
+      const SizedBox(width: _badgeGapBetween),
+      _badge(
+        icon: '✨',
+        label: 'XP',
+        value: '+$xp',
+        color: const Color(0xFF22C55E),
       ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(dungeon.name,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF4A5880))),
-          const SizedBox(height: 10),
-          if (result.goldEarned > 0)
-            _row(Icons.monetization_on_outlined,
-                '+${result.goldEarned} Altın', const Color(0xFFF5C842)),
-          if (result.xpEarned > 0)
-            _row(Icons.arrow_upward_rounded,
-                '+${result.xpEarned} XP', const Color(0xFF60A5FA)),
-          if (result.items.isNotEmpty)
-            _row(Icons.inventory_2_outlined,
-                result.items.take(3).join(', '), const Color(0xFFA78BFA)),
-          if (result.hospitalized)
-            _row(Icons.local_hospital,
-                'Hastaneye düştün', const Color(0xFFEF4444)),
-        ],
-      ),
-      actions: <Widget>[
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(),
-          style: FilledButton.styleFrom(
-              backgroundColor: accent, foregroundColor: Colors.black),
-          child: const Text('Tamam', style: TextStyle(fontWeight: FontWeight.w800)),
+      if (items.isNotEmpty) ...[
+        const SizedBox(width: _badgeGapBetween),
+        _badge(
+          icon: '🎒',
+          label: 'EŞYA',
+          value: '${items.length}',
+          color: const Color(0xFF3B82F6),
         ),
       ],
+    ];
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Center(
+            child: VictoryCard(
+              animation: const AlwaysStoppedAnimation<double>(1.0),
+              badges: badges,
+            ),
+          ),
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFDDB200),
+              foregroundColor: Colors.black,
+            ),
+            child: const Text('Tamam', style: TextStyle(fontWeight: FontWeight.w800)),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _row(IconData icon, String text, Color color) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: <Widget>[
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(text,
-                style: TextStyle(
-                    fontSize: 12, color: color, fontWeight: FontWeight.w600)),
+  Widget _badge({
+    required String icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return SizedBox(
+      width: _badgeWidth,
+      height: _badgeHeight,
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: _badgePaddingVertical, horizontal: _badgePaddingHorizontal),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0C1220).withOpacity(0.72),
+          border: Border.all(color: color.withOpacity(0.9), width: _badgeBorderWidth),
+          borderRadius: BorderRadius.circular(_badgeBorderRadius),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.45), blurRadius: _badgeShadowBlur, offset: const Offset(0, 4)),
+            BoxShadow(color: Colors.white.withOpacity(0.02), blurRadius: _badgeShadowBlur2, offset: const Offset(0, -1), spreadRadius: -1),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(icon, style: const TextStyle(fontSize: _badgeIconFontSize)),
+            SizedBox(height: _badgeIconSpacing),
+            Text(value, style: TextStyle(color: color, fontSize: _badgeValueFontSize, fontWeight: FontWeight.bold)),
+            SizedBox(height: _badgeValueSpacing),
+            Text(label, style: const TextStyle(color: Colors.white38, fontSize: _badgeLabelFontSize, fontWeight: FontWeight.w700)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Hospital Result Dialog ───────────────────────────────────────────────────
+
+class _DefeatResultDialog extends StatelessWidget {
+  const _DefeatResultDialog({
+    required this.notices,
+    required this.hospitalized,
+    this.onGoHospital,
+  });
+  
+  final List<String> notices;
+  final bool hospitalized;
+  final VoidCallback? onGoHospital;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Center(
+            child: DefeatCard(
+              animation: const AlwaysStoppedAnimation<double>(1.0),
+              notices: notices,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (hospitalized && onGoHospital != null)
+            SizedBox(
+              width: 200,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  onGoHospital?.call();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF991B1B),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('🏥 Hastane'),
+              ),
+            ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: 200,
+            child: TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Kapat', style: TextStyle(color: Colors.white54)),
+            ),
           ),
         ],
       ),
@@ -1515,7 +1621,7 @@ class _ResultDialog extends StatelessWidget {
   }
 }
 
-// ─── Hospital Result Dialog ───────────────────────────────────────────────────
+// ─── Old Hospital Result Dialog (deprecated) ───────────────────────────────────
 
 class _HospitalResultDialog extends StatelessWidget {
   const _HospitalResultDialog({
@@ -1527,45 +1633,47 @@ class _HospitalResultDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: const Color(0xFF0D1525),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Color(0x55EF4444)),
-      ),
-      title: const Row(
-        children: <Widget>[
-          Icon(Icons.local_hospital, size: 20, color: Color(0xFFEF4444)),
-          SizedBox(width: 8),
-          Text('Hastaneye Düştün',
-              style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFFEF4444))),
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Center(
+            child: DefeatCard(
+              animation: const AlwaysStoppedAnimation<double>(1.0),
+              notices: [
+                'Hastaneye düştün',
+                'Tedavi süresi: $durationText',
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: 200,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                onGoHospital();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF991B1B),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('🏥 Hastane'),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: 200,
+            child: TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Kapat', style: TextStyle(color: Colors.white54)),
+            ),
+          ),
         ],
       ),
-      content: Text(
-        'yileşme süresi: $durationText',
-        style: const TextStyle(color: Color(0xFF6070A0)),
-      ),
-      actions: <Widget>[
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child:
-              const Text('Kapat', style: TextStyle(color: Color(0xFF4A5880))),
-        ),
-        FilledButton(
-          onPressed: () {
-            Navigator.of(context).pop();
-            onGoHospital();
-          },
-          style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFEF4444),
-              foregroundColor: Colors.white),
-          child: const Text('Hastaneye Git',
-              style: TextStyle(fontWeight: FontWeight.w700)),
-        ),
-      ],
     );
   }
 }

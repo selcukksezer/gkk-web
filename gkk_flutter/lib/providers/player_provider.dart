@@ -60,7 +60,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
       state = state.copyWith(status: PlayerStatus.ready, profile: profile);
     } on AppException catch (e) {
       state = state.copyWith(status: PlayerStatus.error, errorMessage: e.message);
-    } catch (e, st) {
+    } catch (e) {
       state = state.copyWith(
         status: PlayerStatus.error,
         errorMessage: 'Profil yuklenirken beklenmeyen bir hata olustu.',

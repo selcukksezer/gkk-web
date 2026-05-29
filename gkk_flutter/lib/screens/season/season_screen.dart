@@ -30,8 +30,8 @@ class _SeasonScreenState extends ConsumerState<SeasonScreen> {
   List<Map<String, dynamic>> _rewards = [];
   List<Map<String, dynamic>> _challenges = [];
   List<Map<String, dynamic>> _leaderboardData = [];
-  Set<String> _claimingRewards = {};
-  Set<String> _claimingChallenges = {};
+  final Set<String> _claimingRewards = {};
+  final Set<String> _claimingChallenges = {};
 
   static const Map<int, String> _freeRewards = {
     1: '🪙 200 Altın',
@@ -263,10 +263,10 @@ class _SeasonScreenState extends ConsumerState<SeasonScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final logoutHandler = () async {
+    logoutHandler() async {
       await ref.read(authProvider.notifier).logout();
       ref.read(playerProvider.notifier).clear();
-    };
+    }
 
     return Scaffold(
       drawer: GameDrawer(onLogout: logoutHandler),

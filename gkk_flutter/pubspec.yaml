@@ -41,6 +41,7 @@ dependencies:
   intl: ^0.20.2
   freezed_annotation: ^3.1.0
   json_annotation: ^4.9.0
+  google_fonts: ^6.3.2
 
 dev_dependencies:
   flutter_test:
@@ -68,6 +69,10 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/dungeon/
+    - assets/characters/
+    - assets/elements/
+    - assets/items/
     - assets/items/weapons/
     - assets/items/potions/
     - assets/items/materials/

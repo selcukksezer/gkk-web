@@ -134,7 +134,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
         },
       );
       if (result is List && result.isNotEmpty) {
-        final List<_LeaderboardEntry> entries = (result as List<dynamic>).map((dynamic e) {
+        final List<_LeaderboardEntry> entries = (result).map((dynamic e) {
           final Map<String, dynamic> m = e as Map<String, dynamic>;
           return _LeaderboardEntry(
             rank: (m['rank'] as int?) ?? 0,
@@ -235,7 +235,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     const Color silver = Color(0xFF9CA3AF);
     const Color bronze = Color(0xFFB45309);
 
-    Widget _podiumSlot(_LeaderboardEntry e, String medal, Color color, double height) {
+    Widget podiumSlot(_LeaderboardEntry e, String medal, Color color, double height) {
       return Expanded(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.end,
@@ -266,11 +266,11 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: <Widget>[
-            _podiumSlot(top3[1], '🥈', silver, 80),
+            podiumSlot(top3[1], '🥈', silver, 80),
             const SizedBox(width: 4),
-            _podiumSlot(top3[0], '🥇', gold, 110),
+            podiumSlot(top3[0], '🥇', gold, 110),
             const SizedBox(width: 4),
-            _podiumSlot(top3[2], '🥉', bronze, 65),
+            podiumSlot(top3[2], '🥉', bronze, 65),
           ],
         ),
       ),

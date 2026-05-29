@@ -54,7 +54,7 @@ class _CharacterSelectScreenState extends ConsumerState<CharacterSelectScreen>
       titleLine: 'Frontline Dominator',
       traitSummary: 'STR / DEF / AGG',
       accentColor: Color(0xFFD8A63C),
-      imageAsset: 'assets/characters/savasci.jpg',
+      imageAsset: 'assets/characters/savasci.png',
     ),
     _CharacterClassOption(
       id: 'alchemist',
@@ -64,7 +64,7 @@ class _CharacterSelectScreenState extends ConsumerState<CharacterSelectScreen>
       titleLine: 'Arcane Field Engineer',
       traitSummary: 'INT / CTRL / SUP',
       accentColor: Color(0xFF63D1C5),
-      imageAsset: 'assets/characters/simyaci.jpg',
+      imageAsset: 'assets/characters/simyaci.png',
     ),
     _CharacterClassOption(
       id: 'shadow',
@@ -74,7 +74,7 @@ class _CharacterSelectScreenState extends ConsumerState<CharacterSelectScreen>
       titleLine: 'Precision Elimination',
       traitSummary: 'DEX / SPD / BURST',
       accentColor: Color(0xFF8E93FF),
-      imageAsset: 'assets/characters/golge.jpg',
+      imageAsset: 'assets/characters/golge.png',
     ),
   ];
 
@@ -122,19 +122,19 @@ class _CharacterSelectScreenState extends ConsumerState<CharacterSelectScreen>
           titleLine: 'Frontline Dominator',
           traitSummary: 'STR / DEF / AGG',
           accentColor: const Color(0xFFD8A63C),
-          imageAsset: 'assets/characters/savasci.jpg',
+          imageAsset: 'assets/characters/savasci.png',
         ),
         'alchemist': (
           titleLine: 'Arcane Field Engineer',
           traitSummary: 'INT / CTRL / SUP',
           accentColor: const Color(0xFF63D1C5),
-          imageAsset: 'assets/characters/simyaci.jpg',
+          imageAsset: 'assets/characters/simyaci.png',
         ),
         'shadow': (
           titleLine: 'Precision Elimination',
           traitSummary: 'DEX / SPD / BURST',
           accentColor: const Color(0xFF8E93FF),
-          imageAsset: 'assets/characters/golge.jpg',
+          imageAsset: 'assets/characters/golge.png',
         ),
       };
 
@@ -147,7 +147,7 @@ class _CharacterSelectScreenState extends ConsumerState<CharacterSelectScreen>
               titleLine: 'Adaptive Specialist',
               traitSummary: 'BAL / FLEX / CORE',
               accentColor: const Color(0xFFD8A63C),
-              imageAsset: 'assets/characters/savasci.jpg',
+              imageAsset: 'assets/characters/savasci.png',
             );
         return _CharacterClassOption(
           id: id,

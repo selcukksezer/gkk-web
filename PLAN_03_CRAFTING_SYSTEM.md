@@ -102,7 +102,7 @@ Gerekli Kaynaklar:
   - 6× [İkincil Tesis Legendary Kaynak]
   - 5× [Üçüncül Tesis Epic Kaynak]
   - 1× catalyst_mythic (Zone 7 zindan drop)
-  - 1× res_time_mythic (Infinitas Temporis — Zaman Kuyusu Mythic)
+  - 1× res_time_mythic (Reverse Infinitas Temporis — Zaman Kuyusu Mythic)
 Gold Maliyeti: 25,000,000
 Üretim Süresi: 24 saat
 Başarı Oranı: 30%
@@ -122,12 +122,12 @@ Her slot için birincil/ikincil/üçüncül tesis atamaları:
 
 | Rarity | Birincil | İkincil | Üçüncül | Ekstra | Gold | Süre |
 |--------|----------|---------|---------|--------|------|------|
-| Common | 5× Ferrum Crudum | 3× Lignum Quercus | 1× Ignis Scintilla | — | 10,000 | 5dk |
-| Uncommon | 4× Cuprum Purum | 6× Lignum Quercus | 3× Ignis Scintilla | — | 50,000 | 15dk |
-| Rare | 4× Argentum Vena | 5× Lignum Pinus | 3× Glacies Fragmentum | 1× catalyst_rare | 250,000 | 1s |
-| Epic | 4× Aurum Nobile | 6× Lignum Ebenum | 4× Fulmen Nucleus | 1× catalyst_epic | 1,000,000 | 4s |
-| Legendary | 5× Mithrilium | 6× Lignum Draconum | 5× Terra Cor | 1× catalyst_legendary | 5,000,000 | 12s |
-| Mythic | 5× Celestium Purus | 6× Lignum Mundi | 5× Elementum Purum | catalyst_mythic + Infinitas Temporis | 25,000,000 | 24s |
+| Common | 5× Ferrum Crudum | 3× Oak Lumber | 1× Ignis Scintilla | — | 10,000 | 5dk |
+| Uncommon | 4× Sturdy Cuprum Purum | 6× Oak Lumber | 3× Ignis Scintilla | — | 50,000 | 15dk |
+| Rare | 4× Enhanced Argentum Vena | 5× Pine Lumber | 3× Sturdy Glacies Fragmentum | 1× catalyst_rare | 250,000 | 1s |
+| Epic | 4× Exceptional Aurum Nobile | 6× Maple Lumber | 4× Enhanced Fulmen Nucleus | 1× catalyst_epic | 1,000,000 | 4s |
+| Legendary | 5× Unique Mithrilium | 6× Ebony Lumber | 5× Exceptional Terra Cor | 1× catalyst_legendary | 5,000,000 | 12s |
+| Mythic | 5× Reverse Celestium Purus | 6× Ironwood Lumber | 5× Unique Elementum Purum | catalyst_mythic + Reverse Infinitas Temporis | 25,000,000 | 24s |
 
 ### 3.2 Chest (Zırh) Reçeteleri
 
@@ -135,12 +135,12 @@ Her slot için birincil/ikincil/üçüncül tesis atamaları:
 
 | Rarity | Birincil | İkincil | Üçüncül | Gold | Süre |
 |--------|----------|---------|---------|------|------|
-| Common | 5× Ferrum Crudum | 3× Corium Vulgare | 1× Saxum Vulgare | 10,000 | 5dk |
-| Uncommon | 4× Cuprum Purum | 6× Corium Vulgare | 3× Saxum Vulgare | 50,000 | 15dk |
-| Rare | 4× Argentum Vena | 5× Lana Fortis | 3× Granitus Solidus | 250,000 | 1s |
-| Epic | 4× Aurum Nobile | 6× Cornu Bestiae | 4× Marmor Album | 1,000,000 | 4s |
-| Legendary | 5× Mithrilium | 6× Pellis Wyvernae | 5× Obsidianum Nigrum | 5,000,000 | 12s |
-| Mythic | 5× Celestium Purus | 6× Ungula Unicornis | 5× Adamantium Fragmentum | 25,000,000 | 24s |
+| Common | 5× Ferrum Crudum | 3× Basic Hide | 1× Saxum Vulgare | 10,000 | 5dk |
+| Uncommon | 4× Sturdy Cuprum Purum | 6× Basic Hide | 3× Saxum Vulgare | 50,000 | 15dk |
+| Rare | 4× Enhanced Argentum Vena | 5× Thick Hide | 3× Sturdy Granitus Solidus | 250,000 | 1s |
+| Epic | 4× Exceptional Aurum Nobile | 6× Hard Hide | 4× Enhanced Marmor Album | 1,000,000 | 4s |
+| Legendary | 5× Unique Mithrilium | 6× Dragon Hide | 5× Exceptional Obsidianum Nigrum | 5,000,000 | 12s |
+| Mythic | 5× Reverse Celestium Purus | 6× Manticore Hide | 5× Unique Adamantium Fragmentum | 25,000,000 | 24s |
 
 ### 3.3 Head (Kafalık) Reçeteleri
 
@@ -149,11 +149,11 @@ Her slot için birincil/ikincil/üçüncül tesis atamaları:
 | Rarity | Birincil | İkincil | Üçüncül | Gold | Süre |
 |--------|----------|---------|---------|------|------|
 | Common | 5× Saxum Vulgare | 3× Ferrum Crudum | 1× Triticum Vulgare | 10,000 | 5dk |
-| Uncommon | 4× Granitus Solidus | 6× Ferrum Crudum | 3× Triticum Vulgare | 50,000 | 15dk |
-| Rare | 4× Marmor Album | 5× Cuprum Purum | 3× Hordeum Robustum | 250,000 | 1s |
-| Epic | 4× Obsidianum Nigrum | 6× Argentum Vena | 4× Gossypium Aureum | 1,000,000 | 4s |
-| Legendary | 5× Adamantium Fragmentum | 6× Aurum Nobile | 5× Fructus Draconis | 5,000,000 | 12s |
-| Mythic | 5× Petra Aeterna | 6× Mithrilium | 5× Semen Vitae | 25,000,000 | 24s |
+| Uncommon | 4× Sturdy Granitus Solidus | 6× Ferrum Crudum | 3× Triticum Vulgare | 50,000 | 15dk |
+| Rare | 4× Enhanced Marmor Album | 5× Sturdy Cuprum Purum | 3× Sturdy Hordeum Robustum | 250,000 | 1s |
+| Epic | 4× Exceptional Obsidianum Nigrum | 6× Enhanced Argentum Vena | 4× Enhanced Gossypium Aureum | 1,000,000 | 4s |
+| Legendary | 5× Unique Adamantium Fragmentum | 6× Exceptional Aurum Nobile | 5× Exceptional Fructus Draconis | 5,000,000 | 12s |
+| Mythic | 5× Reverse Petra Aeterna | 6× Unique Mithrilium | 5× Unique Semen Vitae | 25,000,000 | 24s |
 
 ### 3.4 Legs (Ayaklık) Reçeteleri
 
@@ -161,12 +161,12 @@ Her slot için birincil/ikincil/üçüncül tesis atamaları:
 
 | Rarity | Birincil | İkincil | Üçüncül | Gold | Süre |
 |--------|----------|---------|---------|------|------|
-| Common | 5× Corium Vulgare | 3× Triticum Vulgare | 1× Argilla Vulgaris | 10,000 | 5dk |
-| Uncommon | 4× Lana Fortis | 6× Triticum Vulgare | 3× Argilla Vulgaris | 50,000 | 15dk |
-| Rare | 4× Cornu Bestiae | 5× Hordeum Robustum | 3× Argilla Ceramica | 250,000 | 1s |
-| Epic | 4× Pellis Wyvernae | 6× Gossypium Aureum | 4× Argilla Aurata | 1,000,000 | 4s |
-| Legendary | 5× Ungula Unicornis | 6× Fructus Draconis | 5× Argilla Draconis | 5,000,000 | 12s |
-| Mythic | 5× Sanguis Phoenicis | 6× Semen Vitae | 5× Argilla Elementalis | 25,000,000 | 24s |
+| Common | 5× Basic Hide | 3× Triticum Vulgare | 1× Argilla Vulgaris | 10,000 | 5dk |
+| Uncommon | 4× Thick Hide | 6× Triticum Vulgare | 3× Argilla Vulgaris | 50,000 | 15dk |
+| Rare | 4× Hard Hide | 5× Sturdy Hordeum Robustum | 3× Sturdy Argilla Ceramica | 250,000 | 1s |
+| Epic | 4× Dragon Hide | 6× Enhanced Gossypium Aureum | 4× Enhanced Argilla Aurata | 1,000,000 | 4s |
+| Legendary | 5× Manticore Hide | 6× Exceptional Fructus Draconis | 5× Exceptional Argilla Draconis | 5,000,000 | 12s |
+| Mythic | 5× Behemoth Hide | 6× Unique Semen Vitae | 5× Unique Argilla Elementalis | 25,000,000 | 24s |
 
 ### 3.5 Boots (Bot) Reçeteleri
 
@@ -174,12 +174,12 @@ Her slot için birincil/ikincil/üçüncül tesis atamaları:
 
 | Rarity | Birincil | İkincil | Üçüncül | Gold | Süre |
 |--------|----------|---------|---------|------|------|
-| Common | 5× Corium Vulgare | 3× Lignum Quercus | 1× Arena Vulgaris | 10,000 | 5dk |
-| Uncommon | 4× Lana Fortis | 6× Lignum Quercus | 3× Arena Vulgaris | 50,000 | 15dk |
-| Rare | 4× Cornu Bestiae | 5× Lignum Pinus | 3× Arena Vitrea | 250,000 | 1s |
-| Epic | 4× Pellis Wyvernae | 6× Lignum Ebenum | 4× Arena Crystallina | 1,000,000 | 4s |
-| Legendary | 5× Ungula Unicornis | 6× Lignum Draconum | 5× Arena Aurata | 5,000,000 | 12s |
-| Mythic | 5× Sanguis Phoenicis | 6× Lignum Mundi | 5× Arena Stellaris | 25,000,000 | 24s |
+| Common | 5× Basic Hide | 3× Oak Lumber | 1× Arena Vulgaris | 10,000 | 5dk |
+| Uncommon | 4× Thick Hide | 6× Oak Lumber | 3× Arena Vulgaris | 50,000 | 15dk |
+| Rare | 4× Hard Hide | 5× Pine Lumber | 3× Sturdy Arena Vitrea | 250,000 | 1s |
+| Epic | 4× Dragon Hide | 6× Maple Lumber | 4× Enhanced Arena Crystallina | 1,000,000 | 4s |
+| Legendary | 5× Manticore Hide | 6× Ebony Lumber | 5× Exceptional Arena Aurata | 5,000,000 | 12s |
+| Mythic | 5× Behemoth Hide | 6× Ironwood Lumber | 5× Unique Arena Stellaris | 25,000,000 | 24s |
 
 ### 3.6 Gloves (Eldiven) Reçeteleri
 
@@ -187,12 +187,12 @@ Her slot için birincil/ikincil/üçüncül tesis atamaları:
 
 | Rarity | Birincil | İkincil | Üçüncül | Gold | Süre |
 |--------|----------|---------|---------|------|------|
-| Common | 5× Corium Vulgare | 3× Ferrum Crudum | 1× Herba Medicinalis | 10,000 | 5dk |
-| Uncommon | 4× Lana Fortis | 6× Ferrum Crudum | 3× Herba Medicinalis | 50,000 | 15dk |
-| Rare | 4× Cornu Bestiae | 5× Cuprum Purum | 3× Herba Venenata | 250,000 | 1s |
-| Epic | 4× Pellis Wyvernae | 6× Argentum Vena | 4× Flos Lunaris | 1,000,000 | 4s |
-| Legendary | 5× Ungula Unicornis | 6× Aurum Nobile | 5× Radix Draconis | 5,000,000 | 12s |
-| Mythic | 5× Sanguis Phoenicis | 6× Mithrilium | 5× Herba Immortalis | 25,000,000 | 24s |
+| Common | 5× Basic Hide | 3× Ferrum Crudum | 1× Wild Herb | 10,000 | 5dk |
+| Uncommon | 4× Thick Hide | 6× Ferrum Crudum | 3× Wild Herb | 50,000 | 15dk |
+| Rare | 4× Hard Hide | 5× Sturdy Cuprum Purum | 3× Mint Herb | 250,000 | 1s |
+| Epic | 4× Dragon Hide | 6× Enhanced Argentum Vena | 4× Sage Herb | 1,000,000 | 4s |
+| Legendary | 5× Manticore Hide | 6× Exceptional Aurum Nobile | 5× Ginseng | 5,000,000 | 12s |
+| Mythic | 5× Behemoth Hide | 6× Unique Mithrilium | 5× Mandrake | 25,000,000 | 24s |
 
 ### 3.7 Ring (Yüzük) Reçeteleri
 
@@ -201,11 +201,11 @@ Her slot için birincil/ikincil/üçüncül tesis atamaları:
 | Rarity | Birincil | İkincil | Üçüncül | Gold | Süre |
 |--------|----------|---------|---------|------|------|
 | Common | 5× Lapis Runicus | 3× Ferrum Crudum | 1× Aqua Sacra | 10,000 | 5dk |
-| Uncommon | 4× Crystallum Magicum | 6× Ferrum Crudum | 3× Aqua Sacra | 50,000 | 15dk |
-| Rare | 4× Fragmentum Energiae | 5× Cuprum Purum | 3× Crystallum Manae | 250,000 | 1s |
-| Epic | 4× Nucleus Runicus | 6× Argentum Vena | 4× Aqua Purificata | 1,000,000 | 4s |
-| Legendary | 5× Cor Arcanum | 6× Aurum Nobile | 5× Lacrimae Angelorum | 5,000,000 | 12s |
-| Mythic | 5× Essentia Runica | 6× Mithrilium | 5× Fons Vitae | 25,000,000 | 24s |
+| Uncommon | 4× Sturdy Crystallum Magicum | 6× Ferrum Crudum | 3× Aqua Sacra | 50,000 | 15dk |
+| Rare | 4× Enhanced Fragmentum Energiae | 5× Sturdy Cuprum Purum | 3× Sturdy Crystallum Manae | 250,000 | 1s |
+| Epic | 4× Exceptional Nucleus Runicus | 6× Enhanced Argentum Vena | 4× Enhanced Aqua Purificata | 1,000,000 | 4s |
+| Legendary | 5× Unique Cor Arcanum | 6× Exceptional Aurum Nobile | 5× Exceptional Lacrimae Angelorum | 5,000,000 | 12s |
+| Mythic | 5× Reverse Essentia Runica | 6× Unique Mithrilium | 5× Unique Fons Vitae | 25,000,000 | 24s |
 
 ### 3.8 Necklace (Kolye) Reçeteleri
 
@@ -214,11 +214,11 @@ Her slot için birincil/ikincil/üçüncül tesis atamaları:
 | Rarity | Birincil | İkincil | Üçüncül | Gold | Süre |
 |--------|----------|---------|---------|------|------|
 | Common | 5× Aqua Sacra | 3× Lapis Runicus | 1× Pulvis Umbrae | 10,000 | 5dk |
-| Uncommon | 4× Crystallum Manae | 6× Lapis Runicus | 3× Pulvis Umbrae | 50,000 | 15dk |
-| Rare | 4× Aqua Purificata | 5× Crystallum Magicum | 3× Crystallum Umbrale | 250,000 | 1s |
-| Epic | 4× Lacrimae Angelorum | 6× Fragmentum Energiae | 4× Essentia Tenebrarum | 1,000,000 | 4s |
-| Legendary | 5× Fons Vitae | 6× Nucleus Runicus | 5× Cor Umbrae | 5,000,000 | 12s |
-| Mythic | 5× Aqua Aeterna | 6× Cor Arcanum | 5× Nucleus Abyssi | 25,000,000 | 24s |
+| Uncommon | 4× Sturdy Crystallum Manae | 6× Lapis Runicus | 3× Pulvis Umbrae | 50,000 | 15dk |
+| Rare | 4× Enhanced Aqua Purificata | 5× Sturdy Crystallum Magicum | 3× Sturdy Crystallum Umbrale | 250,000 | 1s |
+| Epic | 4× Exceptional Lacrimae Angelorum | 6× Enhanced Fragmentum Energiae | 4× Enhanced Essentia Tenebrarum | 1,000,000 | 4s |
+| Legendary | 5× Unique Fons Vitae | 6× Exceptional Nucleus Runicus | 5× Exceptional Cor Umbrae | 5,000,000 | 12s |
+| Mythic | 5× Reverse Aqua Aeterna | 6× Unique Cor Arcanum | 5× Unique Nucleus Abyssi | 25,000,000 | 24s |
 
 ---
 
@@ -226,16 +226,16 @@ Her slot için birincil/ikincil/üçüncül tesis atamaları:
 
 | İksir | Kaynaklar | Gold | Süre |
 |-------|-----------|------|------|
-| Elixir Vitae Minor | 3× Herba Medicinalis + 2× Mel Silvestre | 5,000 | 2dk |
-| Elixir Vitae Major | 3× Flos Lunaris + 2× Mel Regale | 50,000 | 10dk |
-| Elixir Vitae Suprema | 3× Herba Immortalis + 2× Mel Aureum | 500,000 | 30dk |
+| Elixir Vitae Minor | 3× Wild Herb + 2× Mel Silvestre | 5,000 | 2dk |
+| Elixir Vitae Major | 3× Sage Herb + 2× Enhanced Mel Regale | 50,000 | 10dk |
+| Elixir Vitae Suprema | 3× Mandrake + 2× Unique Mel Aureum | 500,000 | 30dk |
 | Essentia Vigoris Minor | 2× Fungus Medicinalis + 1× Aqua Sacra | 5,000 | 2dk |
-| Essentia Vigoris Major | 2× Fungus Luminescens + 1× Crystallum Manae | 50,000 | 10dk |
-| Essentia Vigoris Suprema | 2× Fungus Temporis + 1× Fons Vitae | 500,000 | 30dk |
-| Furor Bellicum (ATK Buff) | 3× Radix Draconis + 2× Venenum Apis + 1× Ignis Scintilla | 200,000 | 15dk |
-| Scutum Magicum (DEF Buff) | 3× Aqua Purificata + 2× Cera Pura + 1× Saxum Vulgare | 200,000 | 15dk |
-| Fortuna Aurea (LUCK Buff) | 3× Mel Regale + 2× Flos Lunaris + 1× Crystallum Temporale | 300,000 | 20dk |
-| Sapientia Accelerata (XP Buff) | 3× Fungus Crystallinus + 2× Essentia Chronos + 1× Fragmentum Energiae | 500,000 | 30dk |
+| Essentia Vigoris Major | 2× Sturdy Fungus Luminescens + 1× Sturdy Crystallum Manae | 50,000 | 10dk |
+| Essentia Vigoris Suprema | 2× Unique Fungus Temporis + 1× Unique Fons Vitae | 500,000 | 30dk |
+| Furor Bellicum (ATK Buff) | 3× Ginseng + 2× Exceptional Venenum Apis + 1× Ignis Scintilla | 200,000 | 15dk |
+| Scutum Magicum (DEF Buff) | 3× Enhanced Aqua Purificata + 2× Sturdy Cera Pura + 1× Saxum Vulgare | 200,000 | 15dk |
+| Fortuna Aurea (LUCK Buff) | 3× Enhanced Mel Regale + 2× Sage Herb + 1× Enhanced Crystallum Temporale | 300,000 | 20dk |
+| Sapientia Accelerata (XP Buff) | 3× Exceptional Fungus Crystallinus + 2× Exceptional Essentia Chronos + 1× Enhanced Fragmentum Energiae | 500,000 | 30dk |
 
 ---
 
@@ -243,9 +243,9 @@ Her slot için birincil/ikincil/üçüncül tesis atamaları:
 
 | Scroll | Kaynaklar | Gold | Süre |
 |--------|-----------|------|------|
-| Liber Ascensionis Minor | 5× Lapis Runicus + 3× Lignum Quercus + 2× Argilla Vulgaris | 20,000 | 5dk |
-| Liber Ascensionis Medius | 5× Fragmentum Energiae + 3× Lignum Ebenum + 2× Arena Crystallina | 200,000 | 20dk |
-| Liber Ascensionis Major | 5× Cor Arcanum + 3× Lignum Mundi + 2× Essentia Tenebrarum | 2,000,000 | 2s |
+| Liber Ascensionis Minor | 5× Lapis Runicus + 3× Oak Lumber + 2× Argilla Vulgaris | 20,000 | 5dk |
+| Liber Ascensionis Medius | 5× Enhanced Fragmentum Energiae + 3× Maple Lumber + 2× Enhanced Arena Crystallina | 200,000 | 20dk |
+| Liber Ascensionis Major | 5× Unique Cor Arcanum + 3× Ironwood Lumber + 2× Enhanced Essentia Tenebrarum | 2,000,000 | 2s |
 
 ---
 
@@ -257,13 +257,13 @@ Han/Mekan'a özel itemlar (PLAN_07 §5 kataloğu) normal crafting sistemiyle ür
 
 | Item | Item ID | Kaynaklar | Gold | Süre | Başarı |
 |------|---------|-----------|------|------|--------|
-| Küçük Han Şarabı | `han_item_vigor_minor` | 3× Mel Regale + 2× Herba Medicinalis | 50,000 | 30 dk | %95 |
-| Büyük Han Şarabı | `han_item_vigor_major` | 5× Mel Aureum + 3× Flos Lunaris | 200,000 | 2 saat | %85 |
-| Arındırma İçeceği | `han_item_elixir_purge` | 4× Aqua Purificata + 3× Fungus Medicinalis | 100,000 | 1 saat | %90 |
-| Berraklık Potionı | `han_item_clarity` | 5× Fons Vitae + 4× Aqua Aeterna | 500,000 | 4 saat | %80 |
-| Berserker Özü | `han_item_berserk` | 5× Radix Draconis + 3× Venenum Apis + 3× Ignis Scintilla | 1,000,000 | 6 saat | %60 |
-| Gölge Karışımı | `han_item_shadow_brew` | 4× Cor Umbrae + 3× Pulvis Umbrae | 800,000 | 5 saat | %70 |
-| Büyük Restorasyon | `han_item_restoration` | 5× Herba Immortalis + 4× Mel Aureum + 3× Aqua Sacra | 800,000 | 5 saat | %75 |
+| Küçük Han Şarabı | `han_item_vigor_minor` | 3× Enhanced Mel Regale + 2× Wild Herb | 50,000 | 30 dk | %95 |
+| Büyük Han Şarabı | `han_item_vigor_major` | 5× Unique Mel Aureum + 3× Sage Herb | 200,000 | 2 saat | %85 |
+| Arındırma İçeceği | `han_item_elixir_purge` | 4× Enhanced Aqua Purificata + 3× Fungus Medicinalis | 100,000 | 1 saat | %90 |
+| Berraklık Potionı | `han_item_clarity` | 5× Unique Fons Vitae + 4× Reverse Aqua Aeterna | 500,000 | 4 saat | %80 |
+| Berserker Özü | `han_item_berserk` | 5× Ginseng + 3× Exceptional Venenum Apis + 3× Ignis Scintilla | 1,000,000 | 6 saat | %60 |
+| Gölge Karışımı | `han_item_shadow_brew` | 4× Exceptional Cor Umbrae + 3× Pulvis Umbrae | 800,000 | 5 saat | %70 |
+| Büyük Restorasyon | `han_item_restoration` | 5× Mandrake + 4× Unique Mel Aureum + 3× Aqua Sacra | 800,000 | 5 saat | %75 |
 
 **Önemli kurallar:**
 - Bu reçeteler `craft_recipes` tablosunda `recipe_type = 'han_only'` olarak işaretlenir
