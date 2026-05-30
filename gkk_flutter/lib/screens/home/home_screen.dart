@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../components/common/gkk_action_tile.dart';
@@ -244,6 +245,8 @@ class _HomeDashboardState extends ConsumerState<_HomeDashboard> {
                     HeroShowcase(
                       profile: profile,
                       inventoryState: widget.inventoryState,
+                      totalPower: totalPower,
+                      reputation: reputation,
                     ),
                     const SizedBox(height: AppSpacing.xxl),
 
@@ -656,11 +659,14 @@ class _CratePromoBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      height: 200,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Stack(
+    return GestureDetector(
+      onTap: () => context.push(AppRoutes.loot),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: double.infinity,
+        height: 200,
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        child: Stack(
         clipBehavior: Clip.none,
         children: [
           // Background layer
@@ -814,7 +820,8 @@ class _CratePromoBanner extends StatelessWidget {
               ),
             ),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }
