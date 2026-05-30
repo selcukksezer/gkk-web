@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-05-10T15:52:30.131Z",
+  "dungeon": "Nanorum Fiona",
+  "runs_per_class": 1000,
+  "results": {},
+  "expected_order": {
+    "success_rate": "Alchemist > Warrior > Shadow",
+    "avg_gold": "Warrior ≥ Alchemist (warrior +15% boss bonus)",
+    "hospital_rate": "Warrior < Alchemist = Shadow",
+    "avg_items": "Shadow > Alchemist = Warrior (shadow x1.40 luck)"
+  }
+}

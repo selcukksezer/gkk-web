@@ -132,7 +132,7 @@ enhanced_stat = base_stat × (1 + enhancement_level × 0.15)
 
 +10 full set mythic kılıcın güç katkısı:
 ```
-Animus Divinus (Mythic Kılıç): ATK 20,000, LUCK 3,500
+Imperial Halberd (Mythic Kılıç): ATK 20,000, LUCK 3,500
 +10 enhancement (×2.50): ATK 50,000, LUCK 8,750
 Power contribution: 50,000 + 8,750×2 = 67,500
 ```

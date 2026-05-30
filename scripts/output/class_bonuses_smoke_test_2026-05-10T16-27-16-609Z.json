@@ -1,0 +1,657 @@
+{
+  "timestamp": "2026-05-10T16:27:16.608Z",
+  "scenarios": [
+    {
+      "id": "normal",
+      "dungeonId": "dng_036",
+      "dungeonName": "Nanorum Fodina",
+      "runs": 100,
+      "delayMs": 10,
+      "expectHospitalPressure": false
+    },
+    {
+      "id": "hard",
+      "dungeonId": "dng_059",
+      "dungeonName": "Fati Thronus",
+      "runs": 50,
+      "delayMs": 20,
+      "expectHospitalPressure": true
+    }
+  ],
+  "expectedSignals": {
+    "successRate": "alchemist > warrior > shadow",
+    "hospitalizationRate": "hard dungeon should show measurable hospitalization rate",
+    "hospitalDuration": "warrior expected shorter average duration",
+    "lootPerRun": "shadow expected higher items/run via luck multiplier"
+  },
+  "resultByClass": {
+    "warrior": {
+      "class": "warrior",
+      "classLabel": "Warrior",
+      "profile": {
+        "auth_id": "6c0605fc-300e-4c52-9908-4a2a0706f25c",
+        "character_class": "warrior",
+        "level": 50,
+        "power": 25000,
+        "luck": 60,
+        "defense": 60,
+        "energy": 200000
+      },
+      "scenarios": {
+        "normal": {
+          "requestedRuns": 100,
+          "completedRuns": 88,
+          "successes": 5,
+          "failures": 83,
+          "criticalHits": 0,
+          "totalGold": 2620399,
+          "totalXp": 11330,
+          "totalItems": 0,
+          "runsWithLoot": 0,
+          "multiDropRuns": 0,
+          "hospitalizations": 54,
+          "hospitalDurationsSec": [
+            6900,
+            5820,
+            6600,
+            7440,
+            7920,
+            8940,
+            9780,
+            3960,
+            3240,
+            4680,
+            7500,
+            6660,
+            4920,
+            4980,
+            7680,
+            9240,
+            5940,
+            6780,
+            10320,
+            7320,
+            4740,
+            6360,
+            9600,
+            6960,
+            5580,
+            4440,
+            8400,
+            9000,
+            4680,
+            8820,
+            9660,
+            5940,
+            8460,
+            10380,
+            9600,
+            9780,
+            4920,
+            8160,
+            7740,
+            5940,
+            10020,
+            9660,
+            3840,
+            4380,
+            4800,
+            4440,
+            9600,
+            5460,
+            5400,
+            9480,
+            9600,
+            9960,
+            4080,
+            6480
+          ],
+          "inventoryFullHits": 0,
+          "inventoryCleanupCount": 3,
+          "inventoryRowsDeleted": 0,
+          "inventoryCleanupFailures": 0,
+          "errors": {
+            "record \"v_loot_item\" has no field \"item_type\"": 12
+          },
+          "rawErrors": 12,
+          "itemIds": {},
+          "itemRarities": {},
+          "itemTypes": {},
+          "summary": {
+            "successRate": 5.681818181818182,
+            "successRateCI95": {
+              "low": 0.8450406603804015,
+              "high": 10.518595703255961
+            },
+            "hospitalRate": 61.36363636363637,
+            "hospitalByFailure": 65.06024096385542,
+            "lootRate": 0,
+            "multiDropRate": 0,
+            "critRate": 0,
+            "avgGoldPerSuccess": 524079.8,
+            "avgXpPerSuccess": 2266,
+            "avgItemsPerRun": 0,
+            "avgItemsPerSuccess": 0,
+            "avgHospitalSec": 7092.222222222223,
+            "p50HospitalSec": 6900,
+            "p90HospitalSec": 9780,
+            "maxHospitalSec": 10380,
+            "inventoryCleanupCount": 3,
+            "inventoryRowsDeleted": 0,
+            "inventoryCleanupFailures": 0
+          }
+        },
+        "hard": {
+          "requestedRuns": 50,
+          "completedRuns": 48,
+          "successes": 2,
+          "failures": 46,
+          "criticalHits": 0,
+          "totalGold": 8286571,
+          "totalXp": 40293,
+          "totalItems": 0,
+          "runsWithLoot": 0,
+          "multiDropRuns": 0,
+          "hospitalizations": 35,
+          "hospitalDurationsSec": [
+            20400,
+            8760,
+            16620,
+            19080,
+            16080,
+            6960,
+            13620,
+            14580,
+            9780,
+            8340,
+            18240,
+            6960,
+            18360,
+            9420,
+            16380,
+            14400,
+            11100,
+            11280,
+            17340,
+            17400,
+            9720,
+            13860,
+            6840,
+            10320,
+            14820,
+            5880,
+            7200,
+            8040,
+            17280,
+            14040,
+            9780,
+            13020,
+            11040,
+            5580,
+            8100
+          ],
+          "inventoryFullHits": 0,
+          "inventoryCleanupCount": 2,
+          "inventoryRowsDeleted": 0,
+          "inventoryCleanupFailures": 0,
+          "errors": {
+            "record \"v_loot_item\" has no field \"item_type\"": 2
+          },
+          "rawErrors": 2,
+          "itemIds": {},
+          "itemRarities": {},
+          "itemTypes": {},
+          "summary": {
+            "successRate": 4.166666666666666,
+            "successRateCI95": {
+              "low": 0,
+              "high": 9.81978568448591
+            },
+            "hospitalRate": 72.91666666666666,
+            "hospitalByFailure": 76.08695652173914,
+            "lootRate": 0,
+            "multiDropRate": 0,
+            "critRate": 0,
+            "avgGoldPerSuccess": 4143285.5,
+            "avgXpPerSuccess": 20146.5,
+            "avgItemsPerRun": 0,
+            "avgItemsPerSuccess": 0,
+            "avgHospitalSec": 12303.42857142857,
+            "p50HospitalSec": 11280,
+            "p90HospitalSec": 18240,
+            "maxHospitalSec": 20400,
+            "inventoryCleanupCount": 2,
+            "inventoryRowsDeleted": 0,
+            "inventoryCleanupFailures": 0
+          }
+        }
+      },
+      "topLoot": {
+        "normalTopRarity": [],
+        "normalTopTypes": [],
+        "hardTopRarity": [],
+        "hardTopTypes": []
+      }
+    },
+    "alchemist": {
+      "class": "alchemist",
+      "classLabel": "Alchemist",
+      "profile": {
+        "auth_id": "fef07751-33ff-4752-b94e-41df18b51874",
+        "character_class": "alchemist",
+        "level": 50,
+        "power": 25000,
+        "luck": 60,
+        "defense": 60,
+        "energy": 200000
+      },
+      "scenarios": {
+        "normal": {
+          "requestedRuns": 100,
+          "completedRuns": 86,
+          "successes": 9,
+          "failures": 77,
+          "criticalHits": 0,
+          "totalGold": 4409482,
+          "totalXp": 20889,
+          "totalItems": 1,
+          "runsWithLoot": 1,
+          "multiDropRuns": 0,
+          "hospitalizations": 42,
+          "hospitalDurationsSec": [
+            7140,
+            7920,
+            9600,
+            3660,
+            5940,
+            12360,
+            6240,
+            5340,
+            6600,
+            6060,
+            4020,
+            7800,
+            6240,
+            5460,
+            11580,
+            11460,
+            8820,
+            11700,
+            4200,
+            12780,
+            5100,
+            7680,
+            7500,
+            8580,
+            11700,
+            7020,
+            4740,
+            7740,
+            5880,
+            8940,
+            12300,
+            11280,
+            12180,
+            7920,
+            12420,
+            11100,
+            7500,
+            9240,
+            12300,
+            12360,
+            7080,
+            12180
+          ],
+          "inventoryFullHits": 0,
+          "inventoryCleanupCount": 3,
+          "inventoryRowsDeleted": 1,
+          "inventoryCleanupFailures": 0,
+          "errors": {
+            "record \"v_loot_item\" has no field \"item_type\"": 14
+          },
+          "rawErrors": 14,
+          "itemIds": {
+            "scroll_upgrade_low": 1
+          },
+          "itemRarities": {
+            "uncommon": 1
+          },
+          "itemTypes": {
+            "scroll": 1
+          },
+          "summary": {
+            "successRate": 10.465116279069768,
+            "successRateCI95": {
+              "low": 3.9955523039942404,
+              "high": 16.934680254145295
+            },
+            "hospitalRate": 48.837209302325576,
+            "hospitalByFailure": 54.54545454545454,
+            "lootRate": 1.1627906976744187,
+            "multiDropRate": 0,
+            "critRate": 0,
+            "avgGoldPerSuccess": 489942.44444444444,
+            "avgXpPerSuccess": 2321,
+            "avgItemsPerRun": 0.011627906976744186,
+            "avgItemsPerSuccess": 0.1111111111111111,
+            "avgHospitalSec": 8515.714285714286,
+            "p50HospitalSec": 7800,
+            "p90HospitalSec": 12300,
+            "maxHospitalSec": 12780,
+            "inventoryCleanupCount": 3,
+            "inventoryRowsDeleted": 1,
+            "inventoryCleanupFailures": 0
+          }
+        },
+        "hard": {
+          "requestedRuns": 50,
+          "completedRuns": 34,
+          "successes": 4,
+          "failures": 30,
+          "criticalHits": 0,
+          "totalGold": 19292918,
+          "totalXp": 82500,
+          "totalItems": 0,
+          "runsWithLoot": 0,
+          "multiDropRuns": 0,
+          "hospitalizations": 13,
+          "hospitalDurationsSec": [
+            7140,
+            6480,
+            16020,
+            12540,
+            10140,
+            8520,
+            24480,
+            10800,
+            22380,
+            24240,
+            23880,
+            9840,
+            24000
+          ],
+          "inventoryFullHits": 0,
+          "inventoryCleanupCount": 2,
+          "inventoryRowsDeleted": 0,
+          "inventoryCleanupFailures": 0,
+          "errors": {
+            "record \"v_loot_item\" has no field \"item_type\"": 16
+          },
+          "rawErrors": 16,
+          "itemIds": {},
+          "itemRarities": {},
+          "itemTypes": {},
+          "summary": {
+            "successRate": 11.76470588235294,
+            "successRateCI95": {
+              "low": 0.9347093188803557,
+              "high": 22.594702445825522
+            },
+            "hospitalRate": 38.23529411764706,
+            "hospitalByFailure": 43.333333333333336,
+            "lootRate": 0,
+            "multiDropRate": 0,
+            "critRate": 0,
+            "avgGoldPerSuccess": 4823229.5,
+            "avgXpPerSuccess": 20625,
+            "avgItemsPerRun": 0,
+            "avgItemsPerSuccess": 0,
+            "avgHospitalSec": 15420,
+            "p50HospitalSec": 12540,
+            "p90HospitalSec": 24240,
+            "maxHospitalSec": 24480,
+            "inventoryCleanupCount": 2,
+            "inventoryRowsDeleted": 0,
+            "inventoryCleanupFailures": 0
+          }
+        }
+      },
+      "topLoot": {
+        "normalTopRarity": [
+          {
+            "key": "uncommon",
+            "count": 1
+          }
+        ],
+        "normalTopTypes": [
+          {
+            "key": "scroll",
+            "count": 1
+          }
+        ],
+        "hardTopRarity": [],
+        "hardTopTypes": []
+      }
+    },
+    "shadow": {
+      "class": "shadow",
+      "classLabel": "Shadow",
+      "profile": {
+        "auth_id": "ccfabb01-efa3-4cec-a305-27247764eaf6",
+        "character_class": "shadow",
+        "level": 50,
+        "power": 25000,
+        "luck": 60,
+        "defense": 60,
+        "energy": 200000
+      },
+      "scenarios": {
+        "normal": {
+          "requestedRuns": 100,
+          "completedRuns": 90,
+          "successes": 4,
+          "failures": 86,
+          "criticalHits": 2,
+          "totalGold": 2206166,
+          "totalXp": 11402,
+          "totalItems": 0,
+          "runsWithLoot": 0,
+          "multiDropRuns": 0,
+          "hospitalizations": 49,
+          "hospitalDurationsSec": [
+            9600,
+            7440,
+            3480,
+            10440,
+            10620,
+            6780,
+            9000,
+            8460,
+            10860,
+            5040,
+            9660,
+            10560,
+            7560,
+            11760,
+            5100,
+            12720,
+            6120,
+            4020,
+            6780,
+            6660,
+            13080,
+            11040,
+            7680,
+            10800,
+            6360,
+            10200,
+            3960,
+            7980,
+            6780,
+            4140,
+            11280,
+            12060,
+            8580,
+            5460,
+            9600,
+            10920,
+            3840,
+            6840,
+            8700,
+            6600,
+            7140,
+            5460,
+            8340,
+            4500,
+            7260,
+            9180,
+            13020,
+            5400,
+            4440
+          ],
+          "inventoryFullHits": 0,
+          "inventoryCleanupCount": 3,
+          "inventoryRowsDeleted": 0,
+          "inventoryCleanupFailures": 0,
+          "errors": {
+            "record \"v_loot_item\" has no field \"item_type\"": 10
+          },
+          "rawErrors": 10,
+          "itemIds": {},
+          "itemRarities": {},
+          "itemTypes": {},
+          "summary": {
+            "successRate": 4.444444444444445,
+            "successRateCI95": {
+              "low": 0.18677904217988886,
+              "high": 8.702109846709
+            },
+            "hospitalRate": 54.44444444444444,
+            "hospitalByFailure": 56.97674418604651,
+            "lootRate": 0,
+            "multiDropRate": 0,
+            "critRate": 50,
+            "avgGoldPerSuccess": 551541.5,
+            "avgXpPerSuccess": 2850.5,
+            "avgItemsPerRun": 0,
+            "avgItemsPerSuccess": 0,
+            "avgHospitalSec": 8026.530612244898,
+            "p50HospitalSec": 7680,
+            "p90HospitalSec": 11760,
+            "maxHospitalSec": 13080,
+            "inventoryCleanupCount": 3,
+            "inventoryRowsDeleted": 0,
+            "inventoryCleanupFailures": 0
+          }
+        },
+        "hard": {
+          "requestedRuns": 50,
+          "completedRuns": 49,
+          "successes": 4,
+          "failures": 45,
+          "criticalHits": 0,
+          "totalGold": 16519268,
+          "totalXp": 81299,
+          "totalItems": 1,
+          "runsWithLoot": 1,
+          "multiDropRuns": 0,
+          "hospitalizations": 28,
+          "hospitalDurationsSec": [
+            22080,
+            9300,
+            7980,
+            8460,
+            7080,
+            24660,
+            15780,
+            12480,
+            24780,
+            11460,
+            7620,
+            19620,
+            22380,
+            20340,
+            14880,
+            7980,
+            17880,
+            15000,
+            7320,
+            17220,
+            24540,
+            23760,
+            16680,
+            23040,
+            8280,
+            9780,
+            25080,
+            25860
+          ],
+          "inventoryFullHits": 0,
+          "inventoryCleanupCount": 2,
+          "inventoryRowsDeleted": 1,
+          "inventoryCleanupFailures": 0,
+          "errors": {
+            "record \"v_loot_item\" has no field \"item_type\"": 1
+          },
+          "rawErrors": 1,
+          "itemIds": {
+            "scroll_upgrade_low": 1
+          },
+          "itemRarities": {
+            "uncommon": 1
+          },
+          "itemTypes": {
+            "scroll": 1
+          },
+          "summary": {
+            "successRate": 8.16326530612245,
+            "successRateCI95": {
+              "low": 0.4967465261231707,
+              "high": 15.829784086121728
+            },
+            "hospitalRate": 57.14285714285714,
+            "hospitalByFailure": 62.22222222222222,
+            "lootRate": 2.0408163265306123,
+            "multiDropRate": 0,
+            "critRate": 0,
+            "avgGoldPerSuccess": 4129817,
+            "avgXpPerSuccess": 20324.75,
+            "avgItemsPerRun": 0.02040816326530612,
+            "avgItemsPerSuccess": 0.25,
+            "avgHospitalSec": 16118.57142857143,
+            "p50HospitalSec": 15780,
+            "p90HospitalSec": 24780,
+            "maxHospitalSec": 25860,
+            "inventoryCleanupCount": 2,
+            "inventoryRowsDeleted": 1,
+            "inventoryCleanupFailures": 0
+          }
+        }
+      },
+      "topLoot": {
+        "normalTopRarity": [],
+        "normalTopTypes": [],
+        "hardTopRarity": [
+          {
+            "key": "uncommon",
+            "count": 1
+          }
+        ],
+        "hardTopTypes": [
+          {
+            "key": "scroll",
+            "count": 1
+          }
+        ]
+      }
+    }
+  },
+  "crossClassAnalysis": {
+    "normalScenario": {
+      "successDiffAlchemistVsWarrior": 4.783298097251587,
+      "successDiffAlchemistVsShadow": 6.020671834625324,
+      "lootItemsPerRunDiffShadowVsWarriorPct": 0,
+      "lootItemsPerRunDiffShadowVsAlchemistPct": -100
+    },
+    "hardScenario": {
+      "hospitalRateWarrior": 72.91666666666666,
+      "hospitalRateAlchemist": 38.23529411764706,
+      "hospitalRateShadow": 57.14285714285714,
+      "avgHospitalSecWarrior": 12303.42857142857,
+      "avgHospitalSecAlchemist": 15420,
+      "avgHospitalSecShadow": 16118.57142857143,
+      "warriorHospitalDurationReductionVsAlchemistPct": 25.33091821095166,
+      "warriorHospitalDurationReductionVsShadowPct": 31.00877804096421
+    }
+  }
+}

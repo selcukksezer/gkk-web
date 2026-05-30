@@ -11,6 +11,7 @@
     "generate:plan2:seed": "node scripts/generate-plan2-resource-seed.mjs",
     "items:flux:auto": "node scripts/generate-flutter-item-images.mjs",
     "items:flux:dry": "node scripts/generate-flutter-item-images.mjs --dry-run",
+    "items:weapons:prepare": "node scripts/prepare-weapon-pngs.mjs",
     "test:smoke:pvp": "node scripts/pvp_smoke_test.mjs",
     "test:smoke:dungeon": "node scripts/dungeon_smoke_test.mjs",
     "test:smoke:dungeon:detailed": "node scripts/dungeon_detailed_smoke_test.mjs",
@@ -32,6 +33,7 @@
     "node-fetch": "^3.3.2",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "sharp": "^0.34.5",
     "tailwind-merge": "^3.5.0",
     "zustand": "^5.0.11"
   },

@@ -1,0 +1,10 @@
+{
+  "timestamp": "2026-05-10T15:59:18.577Z",
+  "results": {},
+  "analysis": {
+    "expected_order_success_rate": "Alchemist > Warrior > Shadow",
+    "expected_avg_gold": "Warrior ≥ Alchemist (boss bonus)",
+    "expected_hospital_rate": "Warrior < Alchemist = Shadow",
+    "expected_items": "Shadow > Alchemist = Warrior"
+  }
+}

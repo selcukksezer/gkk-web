@@ -1,0 +1,1412 @@
+[
+  {
+    "id": "wpn_dagger_common",
+    "name": "Stiletto",
+    "name_tr": "Stiletto"
+  },
+  {
+    "id": "wpn_dagger_uncommon",
+    "name": "Assassin Dagger",
+    "name_tr": "Assassin Dagger"
+  },
+  {
+    "id": "wpn_dagger_rare",
+    "name": "Cleaver",
+    "name_tr": "Cleaver"
+  },
+  {
+    "id": "wpn_dagger_epic",
+    "name": "Mirage Dagger",
+    "name_tr": "Mirage Dagger"
+  },
+  {
+    "id": "wpn_dagger_legendary",
+    "name": "Shard",
+    "name_tr": "Shard"
+  },
+  {
+    "id": "wpn_dagger_mythic",
+    "name": "Dark Vane",
+    "name_tr": "Dark Vane"
+  },
+  {
+    "id": "wpn_sword_common",
+    "name": "Short Sword",
+    "name_tr": "Short Sword"
+  },
+  {
+    "id": "wpn_sword_uncommon",
+    "name": "Broadsword",
+    "name_tr": "Broadsword"
+  },
+  {
+    "id": "wpn_sword_rare",
+    "name": "Buster",
+    "name_tr": "Buster"
+  },
+  {
+    "id": "wpn_sword_epic",
+    "name": "Blade",
+    "name_tr": "Blade"
+  },
+  {
+    "id": "wpn_sword_legendary",
+    "name": "Mirage",
+    "name_tr": "Mirage"
+  },
+  {
+    "id": "wpn_sword_mythic",
+    "name": "Glave",
+    "name_tr": "Glave"
+  },
+  {
+    "id": "wpn_axe_common",
+    "name": "Wood Chopper",
+    "name_tr": "Wood Chopper"
+  },
+  {
+    "id": "wpn_axe_uncommon",
+    "name": "Tomahawk",
+    "name_tr": "Tomahawk"
+  },
+  {
+    "id": "wpn_axe_rare",
+    "name": "Bardish",
+    "name_tr": "Bardish"
+  },
+  {
+    "id": "wpn_axe_epic",
+    "name": "Totamic Club",
+    "name_tr": "Totamic Club"
+  },
+  {
+    "id": "wpn_axe_legendary",
+    "name": "Deep Scar",
+    "name_tr": "Deep Scar"
+  },
+  {
+    "id": "wpn_axe_mythic",
+    "name": "Avedon",
+    "name_tr": "Avedon"
+  },
+  {
+    "id": "wpn_staff_common",
+    "name": "Wood Staff",
+    "name_tr": "Wood Staff"
+  },
+  {
+    "id": "wpn_staff_uncommon",
+    "name": "Wizard Staff",
+    "name_tr": "Wizard Staff"
+  },
+  {
+    "id": "wpn_staff_rare",
+    "name": "Salamander Staff",
+    "name_tr": "Salamander Staff"
+  },
+  {
+    "id": "wpn_staff_epic",
+    "name": "Oasis Staff",
+    "name_tr": "Oasis Staff"
+  },
+  {
+    "id": "wpn_staff_legendary",
+    "name": "Elixir Staff",
+    "name_tr": "Elixir Staff"
+  },
+  {
+    "id": "wpn_staff_mythic",
+    "name": "Hell Blood",
+    "name_tr": "Hell Blood"
+  },
+  {
+    "id": "chest_plate_common",
+    "name": "Half Plate Pauldron",
+    "name_tr": "Half Plate Pauldron"
+  },
+  {
+    "id": "chest_plate_uncommon",
+    "name": "Full Plate Pauldron",
+    "name_tr": "Full Plate Pauldron"
+  },
+  {
+    "id": "chest_plate_rare",
+    "name": "Chitin Pauldron",
+    "name_tr": "Chitin Pauldron"
+  },
+  {
+    "id": "chest_plate_epic",
+    "name": "Chitin Shell Pauldron",
+    "name_tr": "Chitin Shell Pauldron"
+  },
+  {
+    "id": "chest_plate_legendary",
+    "name": "Krowaz Pauldron",
+    "name_tr": "Krowaz Pauldron"
+  },
+  {
+    "id": "chest_plate_mythic",
+    "name": "Holy Knight Pauldron",
+    "name_tr": "Holy Knight Pauldron"
+  },
+  {
+    "id": "chest_chain_common",
+    "name": "Chain Pauldron",
+    "name_tr": "Chain Pauldron"
+  },
+  {
+    "id": "chest_chain_uncommon",
+    "name": "Scale Pauldron",
+    "name_tr": "Scale Pauldron"
+  },
+  {
+    "id": "chest_chain_rare",
+    "name": "Bone Pauldron",
+    "name_tr": "Bone Pauldron"
+  },
+  {
+    "id": "chest_chain_epic",
+    "name": "Mythril Pauldron",
+    "name_tr": "Mythril Pauldron"
+  },
+  {
+    "id": "chest_chain_legendary",
+    "name": "Dragon Flight Pauldron",
+    "name_tr": "Dragon Flight Pauldron"
+  },
+  {
+    "id": "chest_chain_mythic",
+    "name": "Secret Pauldron",
+    "name_tr": "Secret Pauldron"
+  },
+  {
+    "id": "chest_leather_common",
+    "name": "Leather Pauldron",
+    "name_tr": "Leather Pauldron"
+  },
+  {
+    "id": "chest_leather_uncommon",
+    "name": "Hard Leather Pauldron",
+    "name_tr": "Hard Leather Pauldron"
+  },
+  {
+    "id": "chest_leather_rare",
+    "name": "Studded Leather Pauldron",
+    "name_tr": "Studded Leather Pauldron"
+  },
+  {
+    "id": "chest_leather_epic",
+    "name": "Rogue Chitin Pauldron",
+    "name_tr": "Rogue Chitin Pauldron"
+  },
+  {
+    "id": "chest_leather_legendary",
+    "name": "Rogue Shell Pauldron",
+    "name_tr": "Rogue Shell Pauldron"
+  },
+  {
+    "id": "chest_leather_mythic",
+    "name": "Rogue Krowaz Pauldron",
+    "name_tr": "Rogue Krowaz Pauldron"
+  },
+  {
+    "id": "chest_robe_common",
+    "name": "Linen Robe",
+    "name_tr": "Linen Robe"
+  },
+  {
+    "id": "chest_robe_uncommon",
+    "name": "Cotton Robe",
+    "name_tr": "Cotton Robe"
+  },
+  {
+    "id": "chest_robe_rare",
+    "name": "Silk Robe",
+    "name_tr": "Silk Robe"
+  },
+  {
+    "id": "chest_robe_epic",
+    "name": "Crimson Robe",
+    "name_tr": "Crimson Robe"
+  },
+  {
+    "id": "chest_robe_legendary",
+    "name": "Complete Robe",
+    "name_tr": "Complete Robe"
+  },
+  {
+    "id": "chest_robe_mythic",
+    "name": "Mage Krowaz Robe",
+    "name_tr": "Mage Krowaz Robe"
+  },
+  {
+    "id": "head_helm_common",
+    "name": "Basic Helmet",
+    "name_tr": "Basic Helmet"
+  },
+  {
+    "id": "head_helm_uncommon",
+    "name": "Apprentice Helmet",
+    "name_tr": "Apprentice Helmet"
+  },
+  {
+    "id": "head_helm_rare",
+    "name": "Master Helmet",
+    "name_tr": "Master Helmet"
+  },
+  {
+    "id": "head_helm_epic",
+    "name": "Grandmaster Helmet",
+    "name_tr": "Grandmaster Helmet"
+  },
+  {
+    "id": "head_helm_legendary",
+    "name": "Legendary Helmet",
+    "name_tr": "Legendary Helmet"
+  },
+  {
+    "id": "head_helm_mythic",
+    "name": "Mythic Helmet",
+    "name_tr": "Mythic Helmet"
+  },
+  {
+    "id": "head_hood_common",
+    "name": "Basic Helmet (Alt)",
+    "name_tr": "Basic Helmet (Alt)"
+  },
+  {
+    "id": "head_hood_uncommon",
+    "name": "Apprentice Helmet (Alt)",
+    "name_tr": "Apprentice Helmet (Alt)"
+  },
+  {
+    "id": "head_hood_rare",
+    "name": "Master Helmet (Alt)",
+    "name_tr": "Master Helmet (Alt)"
+  },
+  {
+    "id": "head_hood_epic",
+    "name": "Grandmaster Helmet (Alt)",
+    "name_tr": "Grandmaster Helmet (Alt)"
+  },
+  {
+    "id": "head_hood_legendary",
+    "name": "Legendary Helmet (Alt)",
+    "name_tr": "Legendary Helmet (Alt)"
+  },
+  {
+    "id": "head_hood_mythic",
+    "name": "Mythic Helmet (Alt)",
+    "name_tr": "Mythic Helmet (Alt)"
+  },
+  {
+    "id": "head_crown_common",
+    "name": "Basic Helmet (Rare Alt)",
+    "name_tr": "Basic Helmet (Rare Alt)"
+  },
+  {
+    "id": "head_crown_uncommon",
+    "name": "Apprentice Helmet (Rare Alt)",
+    "name_tr": "Apprentice Helmet (Rare Alt)"
+  },
+  {
+    "id": "head_crown_rare",
+    "name": "Master Helmet (Rare Alt)",
+    "name_tr": "Master Helmet (Rare Alt)"
+  },
+  {
+    "id": "head_crown_epic",
+    "name": "Grandmaster Helmet (Rare Alt)",
+    "name_tr": "Grandmaster Helmet (Rare Alt)"
+  },
+  {
+    "id": "head_crown_legendary",
+    "name": "Legendary Helmet (Rare Alt)",
+    "name_tr": "Legendary Helmet (Rare Alt)"
+  },
+  {
+    "id": "head_crown_mythic",
+    "name": "Mythic Helmet (Rare Alt)",
+    "name_tr": "Mythic Helmet (Rare Alt)"
+  },
+  {
+    "id": "head_circlet_common",
+    "name": "Basic Helmet (Rare Alt)",
+    "name_tr": "Basic Helmet (Rare Alt)"
+  },
+  {
+    "id": "head_circlet_uncommon",
+    "name": "Apprentice Helmet (Rare Alt)",
+    "name_tr": "Apprentice Helmet (Rare Alt)"
+  },
+  {
+    "id": "head_circlet_rare",
+    "name": "Master Helmet (Rare Alt)",
+    "name_tr": "Master Helmet (Rare Alt)"
+  },
+  {
+    "id": "head_circlet_epic",
+    "name": "Grandmaster Helmet (Rare Alt)",
+    "name_tr": "Grandmaster Helmet (Rare Alt)"
+  },
+  {
+    "id": "head_circlet_legendary",
+    "name": "Legendary Helmet (Rare Alt)",
+    "name_tr": "Legendary Helmet (Rare Alt)"
+  },
+  {
+    "id": "head_circlet_mythic",
+    "name": "Mythic Helmet (Rare Alt)",
+    "name_tr": "Mythic Helmet (Rare Alt)"
+  },
+  {
+    "id": "legs_greaves_common",
+    "name": "Basic Pads",
+    "name_tr": "Basic Pads"
+  },
+  {
+    "id": "legs_greaves_uncommon",
+    "name": "Apprentice Pads",
+    "name_tr": "Apprentice Pads"
+  },
+  {
+    "id": "legs_greaves_rare",
+    "name": "Master Pads",
+    "name_tr": "Master Pads"
+  },
+  {
+    "id": "legs_greaves_epic",
+    "name": "Grandmaster Pads",
+    "name_tr": "Grandmaster Pads"
+  },
+  {
+    "id": "legs_greaves_legendary",
+    "name": "Legendary Pads",
+    "name_tr": "Legendary Pads"
+  },
+  {
+    "id": "legs_greaves_mythic",
+    "name": "Mythic Pads",
+    "name_tr": "Mythic Pads"
+  },
+  {
+    "id": "legs_leggings_common",
+    "name": "Basic Pads (Alt)",
+    "name_tr": "Basic Pads (Alt)"
+  },
+  {
+    "id": "legs_leggings_uncommon",
+    "name": "Apprentice Pads (Alt)",
+    "name_tr": "Apprentice Pads (Alt)"
+  },
+  {
+    "id": "legs_leggings_rare",
+    "name": "Master Pads (Alt)",
+    "name_tr": "Master Pads (Alt)"
+  },
+  {
+    "id": "legs_leggings_epic",
+    "name": "Grandmaster Pads (Alt)",
+    "name_tr": "Grandmaster Pads (Alt)"
+  },
+  {
+    "id": "legs_leggings_legendary",
+    "name": "Legendary Pads (Alt)",
+    "name_tr": "Legendary Pads (Alt)"
+  },
+  {
+    "id": "legs_leggings_mythic",
+    "name": "Mythic Pads (Alt)",
+    "name_tr": "Mythic Pads (Alt)"
+  },
+  {
+    "id": "legs_tassets_common",
+    "name": "Half Plate Pads",
+    "name_tr": "Half Plate Pads"
+  },
+  {
+    "id": "legs_tassets_uncommon",
+    "name": "Full Plate Pads",
+    "name_tr": "Full Plate Pads"
+  },
+  {
+    "id": "legs_tassets_rare",
+    "name": "Chitin Pads",
+    "name_tr": "Chitin Pads"
+  },
+  {
+    "id": "legs_tassets_epic",
+    "name": "Chitin Shell Pads",
+    "name_tr": "Chitin Shell Pads"
+  },
+  {
+    "id": "legs_tassets_legendary",
+    "name": "Krowaz Pads",
+    "name_tr": "Krowaz Pads"
+  },
+  {
+    "id": "legs_tassets_mythic",
+    "name": "Holy Knight Pads",
+    "name_tr": "Holy Knight Pads"
+  },
+  {
+    "id": "legs_pteruges_common",
+    "name": "Basic Pads (Rare Alt)",
+    "name_tr": "Basic Pads (Rare Alt)"
+  },
+  {
+    "id": "legs_pteruges_uncommon",
+    "name": "Apprentice Pads (Rare Alt)",
+    "name_tr": "Apprentice Pads (Rare Alt)"
+  },
+  {
+    "id": "legs_pteruges_rare",
+    "name": "Master Pads (Rare Alt)",
+    "name_tr": "Master Pads (Rare Alt)"
+  },
+  {
+    "id": "legs_pteruges_epic",
+    "name": "Grandmaster Pads (Rare Alt)",
+    "name_tr": "Grandmaster Pads (Rare Alt)"
+  },
+  {
+    "id": "legs_pteruges_legendary",
+    "name": "Legendary Pads (Rare Alt)",
+    "name_tr": "Legendary Pads (Rare Alt)"
+  },
+  {
+    "id": "legs_pteruges_mythic",
+    "name": "Mythic Pads (Rare Alt)",
+    "name_tr": "Mythic Pads (Rare Alt)"
+  },
+  {
+    "id": "boots_sabaton_common",
+    "name": "Half Plate Boots",
+    "name_tr": "Half Plate Boots"
+  },
+  {
+    "id": "boots_sabaton_uncommon",
+    "name": "Full Plate Boots",
+    "name_tr": "Full Plate Boots"
+  },
+  {
+    "id": "boots_sabaton_rare",
+    "name": "Chitin Boots",
+    "name_tr": "Chitin Boots"
+  },
+  {
+    "id": "boots_sabaton_epic",
+    "name": "Chitin Shell Boots",
+    "name_tr": "Chitin Shell Boots"
+  },
+  {
+    "id": "boots_sabaton_legendary",
+    "name": "Krowaz Boots",
+    "name_tr": "Krowaz Boots"
+  },
+  {
+    "id": "boots_sabaton_mythic",
+    "name": "Holy Knight Boots",
+    "name_tr": "Holy Knight Boots"
+  },
+  {
+    "id": "boots_treads_common",
+    "name": "Basic Boots",
+    "name_tr": "Basic Boots"
+  },
+  {
+    "id": "boots_treads_uncommon",
+    "name": "Apprentice Boots",
+    "name_tr": "Apprentice Boots"
+  },
+  {
+    "id": "boots_treads_rare",
+    "name": "Master Boots",
+    "name_tr": "Master Boots"
+  },
+  {
+    "id": "boots_treads_epic",
+    "name": "Grandmaster Boots",
+    "name_tr": "Grandmaster Boots"
+  },
+  {
+    "id": "boots_treads_legendary",
+    "name": "Legendary Boots",
+    "name_tr": "Legendary Boots"
+  },
+  {
+    "id": "boots_treads_mythic",
+    "name": "Mythic Boots",
+    "name_tr": "Mythic Boots"
+  },
+  {
+    "id": "boots_sandals_common",
+    "name": "Linen Boots",
+    "name_tr": "Linen Boots"
+  },
+  {
+    "id": "boots_sandals_uncommon",
+    "name": "Cotton Boots",
+    "name_tr": "Cotton Boots"
+  },
+  {
+    "id": "boots_sandals_rare",
+    "name": "Silk Boots",
+    "name_tr": "Silk Boots"
+  },
+  {
+    "id": "boots_sandals_epic",
+    "name": "Crimson Boots",
+    "name_tr": "Crimson Boots"
+  },
+  {
+    "id": "boots_sandals_legendary",
+    "name": "Complete Boots",
+    "name_tr": "Complete Boots"
+  },
+  {
+    "id": "boots_sandals_mythic",
+    "name": "Mage Krowaz Boots",
+    "name_tr": "Mage Krowaz Boots"
+  },
+  {
+    "id": "boots_moccasins_common",
+    "name": "Basic Boots (Alt)",
+    "name_tr": "Basic Boots (Alt)"
+  },
+  {
+    "id": "boots_moccasins_uncommon",
+    "name": "Apprentice Boots (Alt)",
+    "name_tr": "Apprentice Boots (Alt)"
+  },
+  {
+    "id": "boots_moccasins_rare",
+    "name": "Master Boots (Alt)",
+    "name_tr": "Master Boots (Alt)"
+  },
+  {
+    "id": "boots_moccasins_epic",
+    "name": "Grandmaster Boots (Alt)",
+    "name_tr": "Grandmaster Boots (Alt)"
+  },
+  {
+    "id": "boots_moccasins_legendary",
+    "name": "Legendary Boots (Alt)",
+    "name_tr": "Legendary Boots (Alt)"
+  },
+  {
+    "id": "boots_moccasins_mythic",
+    "name": "Mythic Boots (Alt)",
+    "name_tr": "Mythic Boots (Alt)"
+  },
+  {
+    "id": "gloves_gauntlet_common",
+    "name": "Half Plate Gauntlets",
+    "name_tr": "Half Plate Gauntlets"
+  },
+  {
+    "id": "gloves_gauntlet_uncommon",
+    "name": "Full Plate Gauntlets",
+    "name_tr": "Full Plate Gauntlets"
+  },
+  {
+    "id": "gloves_gauntlet_rare",
+    "name": "Chitin Gauntlets",
+    "name_tr": "Chitin Gauntlets"
+  },
+  {
+    "id": "gloves_gauntlet_epic",
+    "name": "Chitin Shell Gauntlets",
+    "name_tr": "Chitin Shell Gauntlets"
+  },
+  {
+    "id": "gloves_gauntlet_legendary",
+    "name": "Krowaz Gauntlets",
+    "name_tr": "Krowaz Gauntlets"
+  },
+  {
+    "id": "gloves_gauntlet_mythic",
+    "name": "Holy Knight Gauntlets",
+    "name_tr": "Holy Knight Gauntlets"
+  },
+  {
+    "id": "gloves_bracers_common",
+    "name": "Basic Gauntlets",
+    "name_tr": "Basic Gauntlets"
+  },
+  {
+    "id": "gloves_bracers_uncommon",
+    "name": "Apprentice Gauntlets",
+    "name_tr": "Apprentice Gauntlets"
+  },
+  {
+    "id": "gloves_bracers_rare",
+    "name": "Master Gauntlets",
+    "name_tr": "Master Gauntlets"
+  },
+  {
+    "id": "gloves_bracers_epic",
+    "name": "Grandmaster Gauntlets",
+    "name_tr": "Grandmaster Gauntlets"
+  },
+  {
+    "id": "gloves_bracers_legendary",
+    "name": "Legendary Gauntlets",
+    "name_tr": "Legendary Gauntlets"
+  },
+  {
+    "id": "gloves_bracers_mythic",
+    "name": "Mythic Gauntlets",
+    "name_tr": "Mythic Gauntlets"
+  },
+  {
+    "id": "gloves_wraps_common",
+    "name": "Basic Gauntlets (Alt)",
+    "name_tr": "Basic Gauntlets (Alt)"
+  },
+  {
+    "id": "gloves_wraps_uncommon",
+    "name": "Apprentice Gauntlets (Alt)",
+    "name_tr": "Apprentice Gauntlets (Alt)"
+  },
+  {
+    "id": "gloves_wraps_rare",
+    "name": "Master Gauntlets (Alt)",
+    "name_tr": "Master Gauntlets (Alt)"
+  },
+  {
+    "id": "gloves_wraps_epic",
+    "name": "Grandmaster Gauntlets (Alt)",
+    "name_tr": "Grandmaster Gauntlets (Alt)"
+  },
+  {
+    "id": "gloves_wraps_legendary",
+    "name": "Legendary Gauntlets (Alt)",
+    "name_tr": "Legendary Gauntlets (Alt)"
+  },
+  {
+    "id": "gloves_wraps_mythic",
+    "name": "Mythic Gauntlets (Alt)",
+    "name_tr": "Mythic Gauntlets (Alt)"
+  },
+  {
+    "id": "gloves_mitts_common",
+    "name": "Basic Gauntlets (Rare Alt)",
+    "name_tr": "Basic Gauntlets (Rare Alt)"
+  },
+  {
+    "id": "gloves_mitts_uncommon",
+    "name": "Apprentice Gauntlets (Rare Alt)",
+    "name_tr": "Apprentice Gauntlets (Rare Alt)"
+  },
+  {
+    "id": "gloves_mitts_rare",
+    "name": "Master Gauntlets (Rare Alt)",
+    "name_tr": "Master Gauntlets (Rare Alt)"
+  },
+  {
+    "id": "gloves_mitts_epic",
+    "name": "Grandmaster Gauntlets (Rare Alt)",
+    "name_tr": "Grandmaster Gauntlets (Rare Alt)"
+  },
+  {
+    "id": "gloves_mitts_legendary",
+    "name": "Legendary Gauntlets (Rare Alt)",
+    "name_tr": "Legendary Gauntlets (Rare Alt)"
+  },
+  {
+    "id": "gloves_mitts_mythic",
+    "name": "Mythic Gauntlets (Rare Alt)",
+    "name_tr": "Mythic Gauntlets (Rare Alt)"
+  },
+  {
+    "id": "ring_signet_common",
+    "name": "Ring of Life",
+    "name_tr": "Ring of Life"
+  },
+  {
+    "id": "ring_signet_uncommon",
+    "name": "Ring of Courage",
+    "name_tr": "Ring of Courage"
+  },
+  {
+    "id": "ring_signet_rare",
+    "name": "Ring of Magic",
+    "name_tr": "Ring of Magic"
+  },
+  {
+    "id": "ring_signet_epic",
+    "name": "Diamond Ring",
+    "name_tr": "Diamond Ring"
+  },
+  {
+    "id": "ring_signet_legendary",
+    "name": "Heros Valor",
+    "name_tr": "Heros Valor"
+  },
+  {
+    "id": "ring_signet_mythic",
+    "name": "Legionnaire Band",
+    "name_tr": "Legionnaire Band"
+  },
+  {
+    "id": "ring_band_common",
+    "name": "Ring of Life (Alt)",
+    "name_tr": "Ring of Life (Alt)"
+  },
+  {
+    "id": "ring_band_uncommon",
+    "name": "Ring of Courage (Alt)",
+    "name_tr": "Ring of Courage (Alt)"
+  },
+  {
+    "id": "ring_band_rare",
+    "name": "Ring of Magic (Alt)",
+    "name_tr": "Ring of Magic (Alt)"
+  },
+  {
+    "id": "ring_band_epic",
+    "name": "Diamond Ring (Alt)",
+    "name_tr": "Diamond Ring (Alt)"
+  },
+  {
+    "id": "ring_band_legendary",
+    "name": "Heros Valor (Alt)",
+    "name_tr": "Heros Valor (Alt)"
+  },
+  {
+    "id": "ring_band_mythic",
+    "name": "Legionnaire Band (Alt)",
+    "name_tr": "Legionnaire Band (Alt)"
+  },
+  {
+    "id": "ring_loop_common",
+    "name": "Ring of Life (Rare Alt)",
+    "name_tr": "Ring of Life (Rare Alt)"
+  },
+  {
+    "id": "ring_loop_uncommon",
+    "name": "Ring of Courage (Rare Alt)",
+    "name_tr": "Ring of Courage (Rare Alt)"
+  },
+  {
+    "id": "ring_loop_rare",
+    "name": "Ring of Magic (Rare Alt)",
+    "name_tr": "Ring of Magic (Rare Alt)"
+  },
+  {
+    "id": "ring_loop_epic",
+    "name": "Grandmaster Helmet (Rare Alt)",
+    "name_tr": "Grandmaster Helmet (Rare Alt)"
+  },
+  {
+    "id": "ring_loop_legendary",
+    "name": "Master Helmet (Rare Alt)",
+    "name_tr": "Master Helmet (Rare Alt)"
+  },
+  {
+    "id": "ring_loop_mythic",
+    "name": "Legionnaire Band (Rare Alt)",
+    "name_tr": "Legionnaire Band (Rare Alt)"
+  },
+  {
+    "id": "ring_seal_common",
+    "name": "Ring of Life (Rare Alt)",
+    "name_tr": "Ring of Life (Rare Alt)"
+  },
+  {
+    "id": "ring_seal_uncommon",
+    "name": "Ring of Courage (Rare Alt)",
+    "name_tr": "Ring of Courage (Rare Alt)"
+  },
+  {
+    "id": "ring_seal_rare",
+    "name": "Ring of Magic (Rare Alt)",
+    "name_tr": "Ring of Magic (Rare Alt)"
+  },
+  {
+    "id": "ring_seal_epic",
+    "name": "Diamond Ring (Rare Alt)",
+    "name_tr": "Diamond Ring (Rare Alt)"
+  },
+  {
+    "id": "ring_seal_legendary",
+    "name": "Heros Valor (Rare Alt)",
+    "name_tr": "Heros Valor (Rare Alt)"
+  },
+  {
+    "id": "ring_seal_mythic",
+    "name": "Legionnaire Band (Rare Alt)",
+    "name_tr": "Legionnaire Band (Rare Alt)"
+  },
+  {
+    "id": "neck_pendant_common",
+    "name": "Amulet of Str",
+    "name_tr": "Amulet of Str"
+  },
+  {
+    "id": "neck_pendant_uncommon",
+    "name": "Amulet of Dex",
+    "name_tr": "Amulet of Dex"
+  },
+  {
+    "id": "neck_pendant_rare",
+    "name": "Amulet of Health",
+    "name_tr": "Amulet of Health"
+  },
+  {
+    "id": "neck_pendant_epic",
+    "name": "Warrior Pendant",
+    "name_tr": "Warrior Pendant"
+  },
+  {
+    "id": "neck_pendant_legendary",
+    "name": "Priest Pendant",
+    "name_tr": "Priest Pendant"
+  },
+  {
+    "id": "neck_pendant_mythic",
+    "name": "Iron Necklace",
+    "name_tr": "Iron Necklace"
+  },
+  {
+    "id": "neck_amulet_common",
+    "name": "Amulet of Str (Alt)",
+    "name_tr": "Amulet of Str (Alt)"
+  },
+  {
+    "id": "neck_amulet_uncommon",
+    "name": "Amulet of Dex (Alt)",
+    "name_tr": "Amulet of Dex (Alt)"
+  },
+  {
+    "id": "neck_amulet_rare",
+    "name": "Amulet of Health (Alt)",
+    "name_tr": "Amulet of Health (Alt)"
+  },
+  {
+    "id": "neck_amulet_epic",
+    "name": "Warrior Pendant (Alt)",
+    "name_tr": "Warrior Pendant (Alt)"
+  },
+  {
+    "id": "neck_amulet_legendary",
+    "name": "Priest Pendant (Alt)",
+    "name_tr": "Priest Pendant (Alt)"
+  },
+  {
+    "id": "neck_amulet_mythic",
+    "name": "Iron Necklace (Alt)",
+    "name_tr": "Iron Necklace (Alt)"
+  },
+  {
+    "id": "neck_choker_common",
+    "name": "Amulet of Str (Rare Alt)",
+    "name_tr": "Amulet of Str (Rare Alt)"
+  },
+  {
+    "id": "neck_choker_uncommon",
+    "name": "Amulet of Dex (Rare Alt)",
+    "name_tr": "Amulet of Dex (Rare Alt)"
+  },
+  {
+    "id": "neck_choker_rare",
+    "name": "Amulet of Health (Rare Alt)",
+    "name_tr": "Amulet of Health (Rare Alt)"
+  },
+  {
+    "id": "neck_choker_epic",
+    "name": "Warrior Pendant (Rare Alt)",
+    "name_tr": "Warrior Pendant (Rare Alt)"
+  },
+  {
+    "id": "neck_choker_legendary",
+    "name": "Priest Pendant (Rare Alt)",
+    "name_tr": "Priest Pendant (Rare Alt)"
+  },
+  {
+    "id": "neck_choker_mythic",
+    "name": "Iron Necklace (Rare Alt)",
+    "name_tr": "Iron Necklace (Rare Alt)"
+  },
+  {
+    "id": "neck_talisman_common",
+    "name": "Amulet of Str (Rare Alt)",
+    "name_tr": "Amulet of Str (Rare Alt)"
+  },
+  {
+    "id": "neck_talisman_uncommon",
+    "name": "Amulet of Dex (Rare Alt)",
+    "name_tr": "Amulet of Dex (Rare Alt)"
+  },
+  {
+    "id": "neck_talisman_rare",
+    "name": "Amulet of Health (Rare Alt)",
+    "name_tr": "Amulet of Health (Rare Alt)"
+  },
+  {
+    "id": "neck_talisman_epic",
+    "name": "Warrior Pendant (Rare Alt)",
+    "name_tr": "Warrior Pendant (Rare Alt)"
+  },
+  {
+    "id": "neck_talisman_legendary",
+    "name": "Priest Pendant (Rare Alt)",
+    "name_tr": "Priest Pendant (Rare Alt)"
+  },
+  {
+    "id": "neck_talisman_mythic",
+    "name": "Iron Necklace (Rare Alt)",
+    "name_tr": "Iron Necklace (Rare Alt)"
+  },
+  {
+    "id": "res_mining_common",
+    "name": "Ferrum Crudum",
+    "name_tr": "Ferrum Crudum"
+  },
+  {
+    "id": "res_mining_uncommon",
+    "name": "Sturdy Cuprum Purum",
+    "name_tr": "Sturdy Cuprum Purum"
+  },
+  {
+    "id": "res_mining_rare",
+    "name": "Enhanced Argentum Vena",
+    "name_tr": "Enhanced Argentum Vena"
+  },
+  {
+    "id": "res_mining_epic",
+    "name": "Exceptional Aurum Nobile",
+    "name_tr": "Exceptional Aurum Nobile"
+  },
+  {
+    "id": "res_mining_legendary",
+    "name": "Unique Mithrilium",
+    "name_tr": "Unique Mithrilium"
+  },
+  {
+    "id": "res_mining_mythic",
+    "name": "Reverse Celestium Purus",
+    "name_tr": "Reverse Celestium Purus"
+  },
+  {
+    "id": "res_quarry_common",
+    "name": "Saxum Vulgare",
+    "name_tr": "Saxum Vulgare"
+  },
+  {
+    "id": "res_quarry_uncommon",
+    "name": "Sturdy Granitus Solidus",
+    "name_tr": "Sturdy Granitus Solidus"
+  },
+  {
+    "id": "res_quarry_rare",
+    "name": "Enhanced Marmor Album",
+    "name_tr": "Enhanced Marmor Album"
+  },
+  {
+    "id": "res_quarry_epic",
+    "name": "Exceptional Obsidianum Nigrum",
+    "name_tr": "Exceptional Obsidianum Nigrum"
+  },
+  {
+    "id": "res_quarry_legendary",
+    "name": "Unique Adamantium Fragmentum",
+    "name_tr": "Unique Adamantium Fragmentum"
+  },
+  {
+    "id": "res_quarry_mythic",
+    "name": "Reverse Petra Aeterna",
+    "name_tr": "Reverse Petra Aeterna"
+  },
+  {
+    "id": "res_lumber_common",
+    "name": "Oak Lumber",
+    "name_tr": "Oak Lumber"
+  },
+  {
+    "id": "res_lumber_uncommon",
+    "name": "Pine Lumber",
+    "name_tr": "Pine Lumber"
+  },
+  {
+    "id": "res_lumber_rare",
+    "name": "Maple Lumber",
+    "name_tr": "Maple Lumber"
+  },
+  {
+    "id": "res_lumber_epic",
+    "name": "Ebony Lumber",
+    "name_tr": "Ebony Lumber"
+  },
+  {
+    "id": "res_lumber_legendary",
+    "name": "Ironwood Lumber",
+    "name_tr": "Ironwood Lumber"
+  },
+  {
+    "id": "res_lumber_mythic",
+    "name": "Worldtree Lumber",
+    "name_tr": "Worldtree Lumber"
+  },
+  {
+    "id": "res_clay_common",
+    "name": "Argilla Vulgaris",
+    "name_tr": "Argilla Vulgaris"
+  },
+  {
+    "id": "res_clay_uncommon",
+    "name": "Sturdy Argilla Ceramica",
+    "name_tr": "Sturdy Argilla Ceramica"
+  },
+  {
+    "id": "res_clay_rare",
+    "name": "Enhanced Argilla Aurata",
+    "name_tr": "Enhanced Argilla Aurata"
+  },
+  {
+    "id": "res_clay_epic",
+    "name": "Exceptional Argilla Draconis",
+    "name_tr": "Exceptional Argilla Draconis"
+  },
+  {
+    "id": "res_clay_legendary",
+    "name": "Unique Argilla Elementalis",
+    "name_tr": "Unique Argilla Elementalis"
+  },
+  {
+    "id": "res_clay_mythic",
+    "name": "Reverse Argilla Primaeva",
+    "name_tr": "Reverse Argilla Primaeva"
+  },
+  {
+    "id": "res_sand_common",
+    "name": "Arena Vulgaris",
+    "name_tr": "Arena Vulgaris"
+  },
+  {
+    "id": "res_sand_uncommon",
+    "name": "Sturdy Arena Vitrea",
+    "name_tr": "Sturdy Arena Vitrea"
+  },
+  {
+    "id": "res_sand_rare",
+    "name": "Enhanced Arena Crystallina",
+    "name_tr": "Enhanced Arena Crystallina"
+  },
+  {
+    "id": "res_sand_epic",
+    "name": "Exceptional Arena Aurata",
+    "name_tr": "Exceptional Arena Aurata"
+  },
+  {
+    "id": "res_sand_legendary",
+    "name": "Unique Arena Stellaris",
+    "name_tr": "Unique Arena Stellaris"
+  },
+  {
+    "id": "res_sand_mythic",
+    "name": "Reverse Arena Temporis",
+    "name_tr": "Reverse Arena Temporis"
+  },
+  {
+    "id": "res_farming_common",
+    "name": "Triticum Vulgare",
+    "name_tr": "Triticum Vulgare"
+  },
+  {
+    "id": "res_farming_uncommon",
+    "name": "Sturdy Hordeum Robustum",
+    "name_tr": "Sturdy Hordeum Robustum"
+  },
+  {
+    "id": "res_farming_rare",
+    "name": "Enhanced Gossypium Aureum",
+    "name_tr": "Enhanced Gossypium Aureum"
+  },
+  {
+    "id": "res_farming_epic",
+    "name": "Exceptional Fructus Draconis",
+    "name_tr": "Exceptional Fructus Draconis"
+  },
+  {
+    "id": "res_farming_legendary",
+    "name": "Unique Semen Vitae",
+    "name_tr": "Unique Semen Vitae"
+  },
+  {
+    "id": "res_farming_mythic",
+    "name": "Reverse Flora Aeterna",
+    "name_tr": "Reverse Flora Aeterna"
+  },
+  {
+    "id": "res_herb_common",
+    "name": "Wild Herb",
+    "name_tr": "Wild Herb"
+  },
+  {
+    "id": "res_herb_uncommon",
+    "name": "Mint Herb",
+    "name_tr": "Mint Herb"
+  },
+  {
+    "id": "res_herb_rare",
+    "name": "Sage Herb",
+    "name_tr": "Sage Herb"
+  },
+  {
+    "id": "res_herb_epic",
+    "name": "Ginseng",
+    "name_tr": "Ginseng"
+  },
+  {
+    "id": "res_herb_legendary",
+    "name": "Mandrake",
+    "name_tr": "Mandrake"
+  },
+  {
+    "id": "res_herb_mythic",
+    "name": "Elixir Herb",
+    "name_tr": "Elixir Herb"
+  },
+  {
+    "id": "res_ranch_common",
+    "name": "Basic Hide",
+    "name_tr": "Basic Hide"
+  },
+  {
+    "id": "res_ranch_uncommon",
+    "name": "Thick Hide",
+    "name_tr": "Thick Hide"
+  },
+  {
+    "id": "res_ranch_rare",
+    "name": "Hard Hide",
+    "name_tr": "Hard Hide"
+  },
+  {
+    "id": "res_ranch_epic",
+    "name": "Dragon Hide",
+    "name_tr": "Dragon Hide"
+  },
+  {
+    "id": "res_ranch_legendary",
+    "name": "Manticore Hide",
+    "name_tr": "Manticore Hide"
+  },
+  {
+    "id": "res_ranch_mythic",
+    "name": "Behemoth Hide",
+    "name_tr": "Behemoth Hide"
+  },
+  {
+    "id": "res_apiary_common",
+    "name": "Mel Silvestre",
+    "name_tr": "Mel Silvestre"
+  },
+  {
+    "id": "res_apiary_uncommon",
+    "name": "Sturdy Cera Pura",
+    "name_tr": "Sturdy Cera Pura"
+  },
+  {
+    "id": "res_apiary_rare",
+    "name": "Enhanced Mel Regale",
+    "name_tr": "Enhanced Mel Regale"
+  },
+  {
+    "id": "res_apiary_epic",
+    "name": "Exceptional Venenum Apis",
+    "name_tr": "Exceptional Venenum Apis"
+  },
+  {
+    "id": "res_apiary_legendary",
+    "name": "Unique Mel Aureum",
+    "name_tr": "Unique Mel Aureum"
+  },
+  {
+    "id": "res_apiary_mythic",
+    "name": "Reverse Ambrosia Divina",
+    "name_tr": "Reverse Ambrosia Divina"
+  },
+  {
+    "id": "res_mushroom_common",
+    "name": "Fungus Medicinalis",
+    "name_tr": "Fungus Medicinalis"
+  },
+  {
+    "id": "res_mushroom_uncommon",
+    "name": "Sturdy Fungus Luminescens",
+    "name_tr": "Sturdy Fungus Luminescens"
+  },
+  {
+    "id": "res_mushroom_rare",
+    "name": "Enhanced Fungus Venenatus",
+    "name_tr": "Enhanced Fungus Venenatus"
+  },
+  {
+    "id": "res_mushroom_epic",
+    "name": "Exceptional Fungus Crystallinus",
+    "name_tr": "Exceptional Fungus Crystallinus"
+  },
+  {
+    "id": "res_mushroom_legendary",
+    "name": "Unique Fungus Temporis",
+    "name_tr": "Unique Fungus Temporis"
+  },
+  {
+    "id": "res_mushroom_mythic",
+    "name": "Reverse Fungus Primordialis",
+    "name_tr": "Reverse Fungus Primordialis"
+  },
+  {
+    "id": "res_rune_common",
+    "name": "Lapis Runicus",
+    "name_tr": "Lapis Runicus"
+  },
+  {
+    "id": "res_rune_uncommon",
+    "name": "Sturdy Crystallum Magicum",
+    "name_tr": "Sturdy Crystallum Magicum"
+  },
+  {
+    "id": "res_rune_rare",
+    "name": "Enhanced Fragmentum Energiae",
+    "name_tr": "Enhanced Fragmentum Energiae"
+  },
+  {
+    "id": "res_rune_epic",
+    "name": "Exceptional Nucleus Runicus",
+    "name_tr": "Exceptional Nucleus Runicus"
+  },
+  {
+    "id": "res_rune_legendary",
+    "name": "Unique Cor Arcanum",
+    "name_tr": "Unique Cor Arcanum"
+  },
+  {
+    "id": "res_rune_mythic",
+    "name": "Reverse Essentia Runica",
+    "name_tr": "Reverse Essentia Runica"
+  },
+  {
+    "id": "res_holy_common",
+    "name": "Aqua Sacra",
+    "name_tr": "Aqua Sacra"
+  },
+  {
+    "id": "res_holy_uncommon",
+    "name": "Sturdy Crystallum Manae",
+    "name_tr": "Sturdy Crystallum Manae"
+  },
+  {
+    "id": "res_holy_rare",
+    "name": "Enhanced Aqua Purificata",
+    "name_tr": "Enhanced Aqua Purificata"
+  },
+  {
+    "id": "res_holy_epic",
+    "name": "Exceptional Lacrimae Angelorum",
+    "name_tr": "Exceptional Lacrimae Angelorum"
+  },
+  {
+    "id": "res_holy_legendary",
+    "name": "Unique Fons Vitae",
+    "name_tr": "Unique Fons Vitae"
+  },
+  {
+    "id": "res_holy_mythic",
+    "name": "Reverse Aqua Aeterna",
+    "name_tr": "Reverse Aqua Aeterna"
+  },
+  {
+    "id": "res_shadow_common",
+    "name": "Pulvis Umbrae",
+    "name_tr": "Pulvis Umbrae"
+  },
+  {
+    "id": "res_shadow_uncommon",
+    "name": "Sturdy Crystallum Umbrale",
+    "name_tr": "Sturdy Crystallum Umbrale"
+  },
+  {
+    "id": "res_shadow_rare",
+    "name": "Enhanced Essentia Tenebrarum",
+    "name_tr": "Enhanced Essentia Tenebrarum"
+  },
+  {
+    "id": "res_shadow_epic",
+    "name": "Exceptional Cor Umbrae",
+    "name_tr": "Exceptional Cor Umbrae"
+  },
+  {
+    "id": "res_shadow_legendary",
+    "name": "Unique Nucleus Abyssi",
+    "name_tr": "Unique Nucleus Abyssi"
+  },
+  {
+    "id": "res_shadow_mythic",
+    "name": "Reverse Vacuum Aeternale",
+    "name_tr": "Reverse Vacuum Aeternale"
+  },
+  {
+    "id": "res_elemental_common",
+    "name": "Ignis Scintilla",
+    "name_tr": "Ignis Scintilla"
+  },
+  {
+    "id": "res_elemental_uncommon",
+    "name": "Sturdy Glacies Fragmentum",
+    "name_tr": "Sturdy Glacies Fragmentum"
+  },
+  {
+    "id": "res_elemental_rare",
+    "name": "Enhanced Fulmen Nucleus",
+    "name_tr": "Enhanced Fulmen Nucleus"
+  },
+  {
+    "id": "res_elemental_epic",
+    "name": "Exceptional Terra Cor",
+    "name_tr": "Exceptional Terra Cor"
+  },
+  {
+    "id": "res_elemental_legendary",
+    "name": "Unique Elementum Purum",
+    "name_tr": "Unique Elementum Purum"
+  },
+  {
+    "id": "res_elemental_mythic",
+    "name": "Reverse Quintessentia",
+    "name_tr": "Reverse Quintessentia"
+  },
+  {
+    "id": "res_time_common",
+    "name": "Pulvis Temporis",
+    "name_tr": "Pulvis Temporis"
+  },
+  {
+    "id": "res_time_uncommon",
+    "name": "Sturdy Fragmentum Horae",
+    "name_tr": "Sturdy Fragmentum Horae"
+  },
+  {
+    "id": "res_time_rare",
+    "name": "Enhanced Crystallum Temporale",
+    "name_tr": "Enhanced Crystallum Temporale"
+  },
+  {
+    "id": "res_time_epic",
+    "name": "Exceptional Essentia Chronos",
+    "name_tr": "Exceptional Essentia Chronos"
+  },
+  {
+    "id": "res_time_legendary",
+    "name": "Unique Momentum Aeternum",
+    "name_tr": "Unique Momentum Aeternum"
+  },
+  {
+    "id": "res_time_mythic",
+    "name": "Reverse Infinitas Temporis",
+    "name_tr": "Reverse Infinitas Temporis"
+  }
+]

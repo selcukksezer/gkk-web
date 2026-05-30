@@ -50,12 +50,12 @@ Tesis seviyesi, o tesisten çıkacak kaynak nadirliğini belirler:
 
 | Rarity | Resource ID | Latince İsim | Türkçe |
 |--------|------------|--------------|--------|
-| Common | `res_mining_common` | Ferrum Crudum | Ham Demir |
-| Uncommon | `res_mining_uncommon` | Cuprum Purum | Saf Bakır |
-| Rare | `res_mining_rare` | Argentum Vena | Gümüş Damarı |
-| Epic | `res_mining_epic` | Aurum Nobile | Asil Altın |
-| Legendary | `res_mining_legendary` | Mithrilium | Mithril |
-| Mythic | `res_mining_mythic` | Celestium Purus | Saf Celestium |
+| Common | `res_mining_common` | Iron Ore | Demir Cevheri |
+| Uncommon | `res_mining_uncommon` | Copper Deposit | Bakır Birikintisi |
+| Rare | `res_mining_rare` | Silver Vein | Gümüş Damarı |
+| Epic | `res_mining_epic` | Gold Nugget | Külçe Altın |
+| Legendary | `res_mining_legendary` | Mithril Shard | Mithril Parçası |
+| Mythic | `res_mining_mythic` | Celestium Crystal | Celestium Kristali |
 
 **Birincil Kullanım:** Silahlar, Zırhlar (Plate/Chain)  
 **Base Rate:** 10.0/saat (Lv 1)
@@ -66,12 +66,12 @@ Tesis seviyesi, o tesisten çıkacak kaynak nadirliğini belirler:
 
 | Rarity | Resource ID | Latince İsim | Türkçe |
 |--------|------------|--------------|--------|
-| Common | `res_quarry_common` | Saxum Vulgare | Sıradan Taş |
-| Uncommon | `res_quarry_uncommon` | Granitus Solidus | Katı Granit |
-| Rare | `res_quarry_rare` | Marmor Album | Beyaz Mermer |
-| Epic | `res_quarry_epic` | Obsidianum Nigrum | Kara Obsidyen |
-| Legendary | `res_quarry_legendary` | Adamantium Fragmentum | Adamantit Parçası |
-| Mythic | `res_quarry_mythic` | Petra Aeterna | Ebedi Taş |
+| Common | `res_quarry_common` | Rough Stone | Kaba Taş |
+| Uncommon | `res_quarry_uncommon` | Solid Granite | Sert Granit |
+| Rare | `res_quarry_rare` | White Marble | Beyaz Mermer |
+| Epic | `res_quarry_epic` | Dark Obsidian | Kara Obsidyen |
+| Legendary | `res_quarry_legendary` | Adamantine Rock | Adamantium Taşı |
+| Mythic | `res_quarry_mythic` | Eternal Bedrock | Sonsuzluk Kayası |
 
 **Birincil Kullanım:** Kafalıklar (Helm/Crown), Yüzükler  
 **Base Rate:** 8.0/saat
@@ -82,12 +82,12 @@ Tesis seviyesi, o tesisten çıkacak kaynak nadirliğini belirler:
 
 | Rarity | Resource ID | Latince İsim | Türkçe |
 |--------|------------|--------------|--------|
-| Common | `res_lumber_common` | Lignum Quercus | Meşe Kerestesi |
-| Uncommon | `res_lumber_uncommon` | Lignum Pinus | Çam Kerestesi |
-| Rare | `res_lumber_rare` | Lignum Ebenum | Abanoz |
-| Epic | `res_lumber_epic` | Lignum Draconum | Ejder Ağacı |
-| Legendary | `res_lumber_legendary` | Lignum Mundi | Dünya Ağacı Dalı |
-| Mythic | `res_lumber_mythic` | Lignum Yggdrasil | Yggdrasil Dalı |
+| Common | `res_lumber_common` | Oak Wood | Meşe Kütüğü |
+| Uncommon | `res_lumber_uncommon` | Pine Timber | Çam Kerestesi |
+| Rare | `res_lumber_rare` | Ebony Log | Abanoz Kütük |
+| Epic | `res_lumber_epic` | Ironwood Branch | Demirağaç Dalı |
+| Legendary | `res_lumber_legendary` | Worldtree Bark | Dünya Ağacı Kabuğu |
+| Mythic | `res_lumber_mythic` | Yggdrasil Splinter | Yggdrasil Parçası |
 
 **Birincil Kullanım:** Silahlar (Staff/Bow kabzası), Botlar  
 **Base Rate:** 12.0/saat
@@ -98,12 +98,12 @@ Tesis seviyesi, o tesisten çıkacak kaynak nadirliğini belirler:
 
 | Rarity | Resource ID | Latince İsim | Türkçe |
 |--------|------------|--------------|--------|
-| Common | `res_clay_common` | Argilla Vulgaris | Sıradan Kil |
-| Uncommon | `res_clay_uncommon` | Argilla Ceramica | Seramik Kili |
-| Rare | `res_clay_rare` | Argilla Aurata | Altın Kil |
-| Epic | `res_clay_epic` | Argilla Draconis | Ejder Kili |
-| Legendary | `res_clay_legendary` | Argilla Elementalis | Elementel Kil |
-| Mythic | `res_clay_mythic` | Argilla Primaeva | İlkel Kil |
+| Common | `res_clay_common` | Muddy Clay | Çamurlu Kil |
+| Uncommon | `res_clay_uncommon` | Ceramic Clay | Seramik Kili |
+| Rare | `res_clay_rare` | Golden Silt | Altın Mil |
+| Epic | `res_clay_epic` | Dragon Ash | Ejderha Külü |
+| Legendary | `res_clay_legendary` | Elemental Soil | Element Toprağı |
+| Mythic | `res_clay_mythic` | Primordial Earth | İlksel Toprak |
 
 **Birincil Kullanım:** Ayaklıklar, İksir şişeleri  
 **Base Rate:** 15.0/saat
@@ -114,12 +114,12 @@ Tesis seviyesi, o tesisten çıkacak kaynak nadirliğini belirler:
 
 | Rarity | Resource ID | Latince İsim | Türkçe |
 |--------|------------|--------------|--------|
-| Common | `res_sand_common` | Arena Vulgaris | Sıradan Kum |
-| Uncommon | `res_sand_uncommon` | Arena Vitrea | Cam Kumu |
-| Rare | `res_sand_rare` | Arena Crystallina | Kristal Kum |
-| Epic | `res_sand_epic` | Arena Aurata | Altın Kum |
-| Legendary | `res_sand_legendary` | Arena Stellaris | Yıldız Kumu |
-| Mythic | `res_sand_mythic` | Arena Temporis | Zaman Kumu |
+| Common | `res_sand_common` | Coarse Sand | Kaba Kum |
+| Uncommon | `res_sand_uncommon` | Glass Sand | Cam Kumu |
+| Rare | `res_sand_rare` | Quartz Dust | Kuvars Tozu |
+| Epic | `res_sand_epic` | Gilded Sand | Yaldızlı Kum |
+| Legendary | `res_sand_legendary` | Stardust | Yıldız Tozu |
+| Mythic | `res_sand_mythic` | Sands of Time | Zaman Kumu |
 
 **Birincil Kullanım:** Botlar, Cam eşyalar  
 **Base Rate:** 20.0/saat
@@ -130,12 +130,12 @@ Tesis seviyesi, o tesisten çıkacak kaynak nadirliğini belirler:
 
 | Rarity | Resource ID | Latince İsim | Türkçe |
 |--------|------------|--------------|--------|
-| Common | `res_farming_common` | Triticum Vulgare | Sıradan Buğday |
-| Uncommon | `res_farming_uncommon` | Hordeum Robustum | Güçlü Arpa |
-| Rare | `res_farming_rare` | Gossypium Aureum | Altın Pamuk |
-| Epic | `res_farming_epic` | Fructus Draconis | Ejder Meyvesi |
-| Legendary | `res_farming_legendary` | Semen Vitae | Yaşam Tohumu |
-| Mythic | `res_farming_mythic` | Flora Aeterna | Ebedi Bitki |
+| Common | `res_farming_common` | Wheat Sheaf | Buğday Demeti |
+| Uncommon | `res_farming_uncommon` | Sturdy Barley | Dayanıklı Arpa |
+| Rare | `res_farming_rare` | Sunsilk Cotton | Güneş Pamuğu |
+| Epic | `res_farming_epic` | Dragonfruit Seed | Ejder Meyvesi Tohumu |
+| Legendary | `res_farming_legendary` | Seed of Life | Yaşam Tohumu |
+| Mythic | `res_farming_mythic` | Everbloom Petal | Sonsuz Çiçek Yaprağı |
 
 **Birincil Kullanım:** Kafalıklar (Hood), Cüppeler, İksirler  
 **Base Rate:** 18.0/saat
@@ -146,12 +146,12 @@ Tesis seviyesi, o tesisten çıkacak kaynak nadirliğini belirler:
 
 | Rarity | Resource ID | Latince İsim | Türkçe |
 |--------|------------|--------------|--------|
-| Common | `res_herb_common` | Herba Medicinalis | Şifalı Ot |
-| Uncommon | `res_herb_uncommon` | Herba Venenata | Zehirli Ot |
-| Rare | `res_herb_rare` | Flos Lunaris | Ay Çiçeği |
-| Epic | `res_herb_epic` | Radix Draconis | Ejder Kökü |
-| Legendary | `res_herb_legendary` | Herba Immortalis | Ölümsüzlük Otu |
-| Mythic | `res_herb_mythic` | Essentia Vitalis | Hayat Özü |
+| Common | `res_herb_common` | Healing Herb | Şifalı Ot |
+| Uncommon | `res_herb_uncommon` | Venomweed | Zehirli Ot |
+| Rare | `res_herb_rare` | Moonflower | Ay Çiçeği |
+| Epic | `res_herb_epic` | Bloodroot | Kan Kökü |
+| Legendary | `res_herb_legendary` | Immortality Leaf | Ölümsüzlük Yaprağı |
+| Mythic | `res_herb_mythic` | Essence of Vitality | Yaşam Özü |
 
 **Birincil Kullanım:** İksirler, Eldivenler (Wraps), Buff yiyecekler  
 **Base Rate:** 10.0/saat
@@ -162,12 +162,12 @@ Tesis seviyesi, o tesisten çıkacak kaynak nadirliğini belirler:
 
 | Rarity | Resource ID | Latince İsim | Türkçe |
 |--------|------------|--------------|--------|
-| Common | `res_ranch_common` | Corium Vulgare | Sıradan Deri |
-| Uncommon | `res_ranch_uncommon` | Lana Fortis | Güçlü Yün |
-| Rare | `res_ranch_rare` | Cornu Bestiae | Canavar Boynuzu |
-| Epic | `res_ranch_epic` | Pellis Wyvernae | Wyvern Derisi |
-| Legendary | `res_ranch_legendary` | Ungula Unicornis | Unicorn Tırnağı |
-| Mythic | `res_ranch_mythic` | Sanguis Phoenicis | Anka Kanı |
+| Common | `res_ranch_common` | Rawhide | Ham Deri |
+| Uncommon | `res_ranch_uncommon` | Thick Wool | Kalın Yün |
+| Rare | `res_ranch_rare` | Beast Horn | Canavar Boynuzu |
+| Epic | `res_ranch_epic` | Wyvern Scale | Wyvern Pulu |
+| Legendary | `res_ranch_legendary` | Unicorn Hair | Tekboynuz Kılı |
+| Mythic | `res_ranch_mythic` | Phoenix Feather | Anka Tüyü |
 
 **Birincil Kullanım:** Deri Zırhlar, Ayaklıklar, Botlar, Eldivenler  
 **Base Rate:** 12.0/saat
@@ -178,12 +178,12 @@ Tesis seviyesi, o tesisten çıkacak kaynak nadirliğini belirler:
 
 | Rarity | Resource ID | Latince İsim | Türkçe |
 |--------|------------|--------------|--------|
-| Common | `res_apiary_common` | Mel Silvestre | Orman Balı |
-| Uncommon | `res_apiary_uncommon` | Cera Pura | Saf Balmumu |
-| Rare | `res_apiary_rare` | Mel Regale | Kraliyet Jelesi |
-| Epic | `res_apiary_epic` | Venenum Apis | Arı Zehiri Özü |
-| Legendary | `res_apiary_legendary` | Mel Aureum | Altın Bal |
-| Mythic | `res_apiary_mythic` | Ambrosia Divina | İlahi Ambrosia |
+| Common | `res_apiary_common` | Wild Honey | Yaban Balı |
+| Uncommon | `res_apiary_uncommon` | Pure Beeswax | Saf Balmumu |
+| Rare | `res_apiary_rare` | Royal Jelly | Arı Sütü |
+| Epic | `res_apiary_epic` | Sting Extract | İğne Özütü |
+| Legendary | `res_apiary_legendary` | Golden Nectar | Altın Nektar |
+| Mythic | `res_apiary_mythic` | Divine Ambrosia | İlahi Ambrosia |
 
 **Birincil Kullanım:** İksirler, Buff yiyecekler, Kolyeler  
 **Base Rate:** 8.0/saat
@@ -194,12 +194,12 @@ Tesis seviyesi, o tesisten çıkacak kaynak nadirliğini belirler:
 
 | Rarity | Resource ID | Latince İsim | Türkçe |
 |--------|------------|--------------|--------|
-| Common | `res_mushroom_common` | Fungus Medicinalis | Şifalı Mantar |
-| Uncommon | `res_mushroom_uncommon` | Fungus Luminescens | Parlayan Mantar |
-| Rare | `res_mushroom_rare` | Fungus Venenatus | Zehirli Mantar |
-| Epic | `res_mushroom_epic` | Fungus Crystallinus | Kristal Mantar |
-| Legendary | `res_mushroom_legendary` | Fungus Temporis | Zaman Mantarı |
-| Mythic | `res_mushroom_mythic` | Fungus Primordialis | İlkel Mantar |
+| Common | `res_mushroom_common` | Brown Cap | Kahverengi Şapkalı Mantar |
+| Uncommon | `res_mushroom_uncommon` | Glowshroom | Parlama Mantarı |
+| Rare | `res_mushroom_rare` | Deathcap | Ölüm Şapkası |
+| Epic | `res_mushroom_epic` | Crystal Fungus | Kristal Mantar |
+| Legendary | `res_mushroom_legendary` | Void Spore | Hiçlik Sporu |
+| Mythic | `res_mushroom_mythic` | Genesis Truffle | Yaratılış Mantarı |
 
 **Birincil Kullanım:** İksirler (zehir/buff), Scroll malzemeleri  
 **Base Rate:** 10.0/saat
@@ -210,12 +210,12 @@ Tesis seviyesi, o tesisten çıkacak kaynak nadirliğini belirler:
 
 | Rarity | Resource ID | Latince İsim | Türkçe |
 |--------|------------|--------------|--------|
-| Common | `res_rune_common` | Lapis Runicus | Ham Rune Taşı |
-| Uncommon | `res_rune_uncommon` | Crystallum Magicum | Büyü Kristali |
-| Rare | `res_rune_rare` | Fragmentum Energiae | Enerji Parçası |
-| Epic | `res_rune_epic` | Nucleus Runicus | Rune Çekirdeği |
-| Legendary | `res_rune_legendary` | Cor Arcanum | Gizemli Kalp |
-| Mythic | `res_rune_mythic` | Essentia Runica | Rune Özü |
+| Common | `res_rune_common` | Blank Runestone | Boş Rün Taşı |
+| Uncommon | `res_rune_uncommon` | Magic Crystal | Büyü Kristali |
+| Rare | `res_rune_rare` | Energy Shard | Enerji Parçası |
+| Epic | `res_rune_epic` | Runic Core | Rün Çekirdeği |
+| Legendary | `res_rune_legendary` | Arcane Heart | Arkan Kalbi |
+| Mythic | `res_rune_mythic` | Soul of Magic | Büyünün Ruhu |
 
 **Birincil Kullanım:** Yüzükler, Enhancement Rune'ları, Scroll'lar  
 **Base Rate:** 5.0/saat
@@ -226,12 +226,12 @@ Tesis seviyesi, o tesisten çıkacak kaynak nadirliğini belirler:
 
 | Rarity | Resource ID | Latince İsim | Türkçe |
 |--------|------------|--------------|--------|
-| Common | `res_holy_common` | Aqua Sacra | Kutsal Su |
-| Uncommon | `res_holy_uncommon` | Crystallum Manae | Mana Kristali |
-| Rare | `res_holy_rare` | Aqua Purificata | Arındırma Suyu |
-| Epic | `res_holy_epic` | Lacrimae Angelorum | Melek Gözyaşı |
-| Legendary | `res_holy_legendary` | Fons Vitae | Yaşam Kaynağı |
-| Mythic | `res_holy_mythic` | Aqua Aeterna | Ebedi Su |
+| Common | `res_holy_common` | Sacred Water | Kutsal Su |
+| Uncommon | `res_holy_uncommon` | Mana Dew | Mana Çiyi |
+| Rare | `res_holy_rare` | Purified Tear | Arındırılmış Gözyaşı |
+| Epic | `res_holy_epic` | Angel Weep | Melek Gözyaşı |
+| Legendary | `res_holy_legendary` | Font of Radiance | Işık Kaynağı |
+| Mythic | `res_holy_mythic` | Eternity Drop | Sonsuzluk Damlası |
 
 **Birincil Kullanım:** Kolyeler, Kutsal iksirler, Holy enhancement  
 **Base Rate:** 6.0/saat
@@ -242,12 +242,12 @@ Tesis seviyesi, o tesisten çıkacak kaynak nadirliğini belirler:
 
 | Rarity | Resource ID | Latince İsim | Türkçe |
 |--------|------------|--------------|--------|
-| Common | `res_shadow_common` | Pulvis Umbrae | Gölge Tozu |
-| Uncommon | `res_shadow_uncommon` | Crystallum Umbrale | Gölge Kristali |
-| Rare | `res_shadow_rare` | Essentia Tenebrarum | Karanlık Esansı |
-| Epic | `res_shadow_epic` | Cor Umbrae | Gölge Kalbi |
-| Legendary | `res_shadow_legendary` | Nucleus Abyssi | Uçurum Çekirdeği |
-| Mythic | `res_shadow_mythic` | Vacuum Aeternale | Ebedi Boşluk |
+| Common | `res_shadow_common` | Shadow Dust | Gölge Tozu |
+| Uncommon | `res_shadow_uncommon` | Gloom Crystal | Karanlık Kristal |
+| Rare | `res_shadow_rare` | Dark Essence | Karanlık Öz |
+| Epic | `res_shadow_epic` | Heart of the Abyss | Hiçliğin Kalbi |
+| Legendary | `res_shadow_legendary` | Nether Core | Nether Çekirdeği |
+| Mythic | `res_shadow_mythic` | Void Tear | Boşluk Yırtığı |
 
 **Birincil Kullanım:** Kolyeler, Gölge silahları, Zehirli iksirler  
 **Base Rate:** 4.0/saat
@@ -258,12 +258,12 @@ Tesis seviyesi, o tesisten çıkacak kaynak nadirliğini belirler:
 
 | Rarity | Resource ID | Latince İsim | Türkçe |
 |--------|------------|--------------|--------|
-| Common | `res_elemental_common` | Ignis Scintilla | Ateş Kıvılcımı |
-| Uncommon | `res_elemental_uncommon` | Glacies Fragmentum | Buz Parçası |
-| Rare | `res_elemental_rare` | Fulmen Nucleus | Yıldırım Çekirdeği |
-| Epic | `res_elemental_epic` | Terra Cor | Toprak Kalbi |
-| Legendary | `res_elemental_legendary` | Elementum Purum | Saf Element |
-| Mythic | `res_elemental_mythic` | Quintessentia | Beşinci Element |
+| Common | `res_elemental_common` | Fire Spark | Ateş Kıvılcımı |
+| Uncommon | `res_elemental_uncommon` | Frost Shard | Buzul Parçası |
+| Rare | `res_elemental_rare` | Storm Nucleus | Fırtına Çekirdeği |
+| Epic | `res_elemental_epic` | Earth Heart | Toprağın Kalbi |
+| Legendary | `res_elemental_legendary` | Pure Element | Saf Element |
+| Mythic | `res_elemental_mythic` | The Quintessence | Mutlak Element |
 
 **Birincil Kullanım:** Silahlar (üst tier), Mistik zırhlar, Enhancement  
 **Base Rate:** 5.0/saat
@@ -274,12 +274,12 @@ Tesis seviyesi, o tesisten çıkacak kaynak nadirliğini belirler:
 
 | Rarity | Resource ID | Latince İsim | Türkçe |
 |--------|------------|--------------|--------|
-| Common | `res_time_common` | Pulvis Temporis | Zaman Tozu |
-| Uncommon | `res_time_uncommon` | Fragmentum Horae | Saat Parçası |
-| Rare | `res_time_rare` | Crystallum Temporale | Zaman Kristali |
-| Epic | `res_time_epic` | Essentia Chronos | Kronos Esansı |
-| Legendary | `res_time_legendary` | Momentum Aeternum | Ebedi An |
-| Mythic | `res_time_mythic` | Infinitas Temporis | Sonsuz Zaman |
+| Common | `res_time_common` | Time Dust | Zaman Tozu |
+| Uncommon | `res_time_uncommon` | Hour Shard | Saat Parçası |
+| Rare | `res_time_rare` | Temporal Crystal | Zaman Kristali |
+| Epic | `res_time_epic` | Chronos Essence | Kronos Özü |
+| Legendary | `res_time_legendary` | Eternal Moment | Ebediyet Anı |
+| Mythic | `res_time_mythic` | Infinity Loop | Sonsuzluk Döngüsü |
 
 **Birincil Kullanım:** Mythic crafting zorunlu katalizör, Hızlandırma, Özel buff  
 **Base Rate:** 3.0/saat
@@ -397,7 +397,7 @@ Hangi slottaki ekipman hangi tesislerden kaynak gerektirir:
 ### Özel Not: Mythic Crafting
 
 Tüm **Mythic** rarity ekipmanlar, yukarıdaki 3 kaynağa ek olarak:
-- **1× Zaman Kuyusu Mythic kaynağı** (`res_time_mythic` — Infinitas Temporis)
+- **1× Zaman Kuyusu Mythic kaynağı** (`res_time_mythic` — Infinity Loop)
 - **1× Mythic Catalyst** (`catalyst_mythic` — Zindan drop'u)
 
 gerektirir. Bu, Mythic itemleri son derece nadir ve değerli yapar.
