@@ -26,6 +26,7 @@ import '../screens/hospital/hospital_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/inventory/inventory_screen.dart';
 import '../screens/leaderboard/leaderboard_screen.dart';
+import '../screens/loot/loot_hub_screen.dart';
 import '../screens/map/map_screen.dart';
 import '../screens/market/market_screen.dart';
 import '../screens/mekans/mekans_screen.dart';
@@ -74,6 +75,7 @@ class AppRoutes {
   static const String guildMonument = '/guild/monument';
   static const String guildMonumentDonate = '/guild/monument/donate';
   static const String leaderboard = '/leaderboard';
+  static const String loot = '/loot';
   static const String map = '/map';
   static const String mekans = '/mekans';
   static const String mekanCreate = '/mekans/create';
@@ -259,6 +261,10 @@ GoRouter createAppRouter({Listenable? refreshListenable}) {
     GoRoute(
       path: AppRoutes.leaderboard,
       builder: (BuildContext context, GoRouterState state) => const LeaderboardScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.loot,
+      builder: (BuildContext context, GoRouterState state) => const LootHubScreen(),
     ),
     GoRoute(
       path: AppRoutes.map,
