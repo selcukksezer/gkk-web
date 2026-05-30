@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../components/common/item_icon_view.dart';
 import '../../components/layout/game_chrome.dart';
 import '../../models/inventory_model.dart';
 import '../../models/item_model.dart';
@@ -760,42 +761,183 @@ class _EquippedPanel extends StatelessWidget {
       children: slots.map((slotMeta) {
         final item = equippedItems[slotMeta.$1];
         final bool hasItem = item != null;
+        final Color rarityColor = hasItem
+            ? getRarityColor(item.rarity)
+            : Colors.white54;
         final Widget slotBody = Container(
           width: 165,
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             border: Border.all(
-              color: hasItem ? getRarityColor(item.rarity).withValues(alpha: 0.8) : Colors.white24,
+              color: hasItem
+                  ? rarityColor.withValues(alpha: 0.85)
+                  : Colors.white24,
+              width: hasItem ? 1.4 : 1,
             ),
             borderRadius: BorderRadius.circular(12),
-            color: const Color(0x66101824),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: <Color>[Color(0xCC101824), Color(0xCC0A101A)],
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Row(
                 children: <Widget>[
-                  Icon(slotMeta.$3, size: 14, color: Colors.white70),
+                  Icon(
+                    slotMeta.$3,
+                    size: 13,
+                    color: hasItem
+                        ? rarityColor.withValues(alpha: 0.95)
+                        : Colors.white60,
+                  ),
                   const SizedBox(width: 6),
-                  Text(slotMeta.$2.toUpperCase(), style: Theme.of(context).textTheme.labelSmall),
+                  Text(
+                    slotMeta.$2.toUpperCase(),
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      letterSpacing: 1.1,
+                      color: Colors.white60,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 4),
-              Text(item?.name ?? 'Bos', maxLines: 1, overflow: TextOverflow.ellipsis),
-              if (hasItem)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    'ATK ${item.attack}  DEF ${item.defense}',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.white70),
+              const SizedBox(height: 8),
+              if (item != null)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: rarityColor.withValues(alpha: 0.45),
+                        ),
+                      ),
+                      padding: const EdgeInsets.all(3),
+                      child: ItemIconView(
+                        iconValue: item.icon,
+                        itemId: item.itemId,
+                        itemType: item.itemType,
+                        size: 30,
+                        expand: true,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            item.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.92),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            item.itemId,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.45),
+                              fontSize: 8,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                )
+              else
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white12),
+                  ),
+                  child: const Text(
+                    'Bos',
+                    style: TextStyle(color: Colors.white60, fontSize: 12),
                   ),
                 ),
-              if (item != null)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () => onUnequip(slotMeta.$1),
-                    child: const Text('Cikar'),
+              if (hasItem)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: <Widget>[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.25),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.16),
+                              ),
+                            ),
+                            child: Text(
+                              'ATK ${item.attack}',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.25),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.16),
+                              ),
+                            ),
+                            child: Text(
+                              'DEF ${item.defense}',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () => onUnequip(slotMeta.$1),
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size(0, 28),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            foregroundColor: const Color(0xFF66A3FF),
+                          ),
+                          child: const Text('Cikar'),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
             ],
@@ -871,20 +1013,6 @@ class _InventorySlotCard extends StatelessWidget {
   final bool isSelected;
   final VoidCallback? onTap;
 
-  static String _typeEmoji(ItemType t) {
-    switch (t) {
-      case ItemType.weapon:     return '⚔️';
-      case ItemType.armor:      return '🛡️';
-      case ItemType.potion:
-      case ItemType.consumable: return '🧪';
-      case ItemType.material:   return '🪨';
-      case ItemType.scroll:     return '📜';
-      case ItemType.recipe:     return '📋';
-      case ItemType.rune:       return '🔮';
-      case ItemType.cosmetic:   return '✨';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     // ── Boş slot ──────────────────────────────────────────────────────────────
@@ -913,99 +1041,92 @@ class _InventorySlotCard extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: borderColor, width: borderWidth),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: <Color>[
-              rarityColor.withValues(alpha: isSelected ? 0.18 : 0.10),
-              const Color(0xFF0C1220),
-            ],
-          ),
+          color: const Color(0xFF0C1220),
         ),
         child: Stack(
           children: <Widget>[
-            // Rarity şeridi (sol kenar)
-            Positioned(
-              left: 0,
-              top: 6,
-              bottom: 6,
-              child: Container(
-                width: 2.5,
-                decoration: BoxDecoration(
-                  color: rarityColor,
-                  borderRadius: BorderRadius.circular(2),
+            // Item icon fills the slot body area.
+            Positioned.fill(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(4, 18, 4, 14),
+                child: ItemIconView(
+                  iconValue: item!.icon,
+                  itemId: item!.itemId,
+                  itemType: item!.itemType,
+                  size: 56,
+                  expand: true,
                 ),
               ),
             ),
 
-            // İçerik
-            Padding(
-              padding: const EdgeInsets.only(left: 7, right: 5, top: 5, bottom: 5),
-              child: Column(
+            // Name badge (top)
+            Positioned(
+              left: 4,
+              right: 4,
+              top: 4,
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  // İsim + favori yıldızı
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Expanded(
-                        child: Text(
-                          item!.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 9.5,
-                            color: rarityColor,
-                            fontWeight: FontWeight.w600,
-                            height: 1.15,
-                          ),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        item!.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: rarityColor,
+                          fontWeight: FontWeight.w700,
+                          height: 1.1,
                         ),
                       ),
-                      if (item!.isFavorite)
-                        const Padding(
-                          padding: EdgeInsets.only(left: 2),
-                          child: Icon(Icons.star_rounded, size: 10, color: Colors.amber),
-                        ),
-                    ],
+                    ),
                   ),
-
-                  const Spacer(),
-
-                  // Alt satır: sol=miktar rozeti, sağ=type emoji
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: <Widget>[
-                      // Miktar rozeti (sol alt) – sadece stackable ve qty > 1
-                      if (item!.isStackable && item!.quantity > 1)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: rarityColor.withValues(alpha: 0.22),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: rarityColor.withValues(alpha: 0.55), width: 0.8),
-                          ),
-                          child: Text(
-                            '${item!.quantity}',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              color: rarityColor,
-                              height: 1,
-                            ),
-                          ),
-                        )
-                      else
-                        const SizedBox.shrink(),
-
-                      // Tür emojisi (sağ alt)
-                      Text(
-                        _typeEmoji(item!.itemType),
-                        style: const TextStyle(fontSize: 11, height: 1),
-                      ),
-                    ],
-                  ),
+                  if (item!.isFavorite)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 2),
+                      child: Icon(Icons.star_rounded, size: 10, color: Colors.amber),
+                    ),
                 ],
+              ),
+            ),
+
+            // Quantity badge (bottom-left)
+            if (item!.isStackable && item!.quantity > 1)
+              Positioned(
+                left: 4,
+                bottom: 4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: rarityColor.withValues(alpha: 0.55), width: 0.8),
+                  ),
+                  child: Text(
+                    '${item!.quantity}',
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: rarityColor,
+                      height: 1,
+                    ),
+                  ),
+                ),
+              ),
+
+            // Slot index (bottom-right)
+            Positioned(
+              right: 5,
+              bottom: 4,
+              child: Text(
+                '#${slotIndex + 1}',
+                style: const TextStyle(fontSize: 10, height: 1, color: Colors.white60),
               ),
             ),
           ],
@@ -1061,7 +1182,30 @@ class _SelectedItemPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(item!.name, style: Theme.of(context).textTheme.titleMedium),
+            Row(
+              children: <Widget>[
+                Container(
+                  width: 34,
+                  height: 34,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: ItemIconView(
+                    iconValue: item!.icon,
+                    itemId: item!.itemId,
+                    itemType: item!.itemType,
+                    size: 34,
+                    expand: true,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(item!.name, style: Theme.of(context).textTheme.titleMedium),
+                ),
+              ],
+            ),
             const SizedBox(height: 6),
             Text(item!.description, maxLines: 2, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 8),

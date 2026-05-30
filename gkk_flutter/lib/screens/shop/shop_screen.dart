@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../components/common/item_icon_view.dart';
 import '../../components/layout/game_chrome.dart';
 import '../../core/services/supabase_service.dart';
 import '../../providers/auth_provider.dart';
@@ -111,40 +112,15 @@ class _ShopScreenState extends ConsumerState<ShopScreen>
     return fallback;
   }
 
-  bool _isImagePath(String icon) {
-    return icon.contains('/') &&
-        (icon.endsWith('.png') ||
-            icon.endsWith('.webp') ||
-            icon.endsWith('.jpg') ||
-            icon.endsWith('.jpeg'));
-  }
-
-  String _toFlutterAssetPath(String icon) {
-    if (icon.startsWith('assets/icons/')) {
-      return icon.replaceFirst('assets/icons/', 'assets/items/');
-    }
-    if (icon.startsWith('/assets/icons/')) {
-      return icon.replaceFirst('/assets/icons/', 'assets/items/');
-    }
-    if (icon.startsWith('assets/items/')) return icon;
-    if (icon.startsWith('/assets/items/')) return icon.substring(1);
-    return icon;
-  }
-
-  Widget _buildItemIcon(String iconValue) {
-    final String icon = iconValue.trim();
-    if (icon.isNotEmpty && _isImagePath(icon)) {
-      return Image.asset(
-        _toFlutterAssetPath(icon),
-        width: 30,
-        height: 30,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) {
-          return Text(icon.isEmpty ? '🎁' : icon, style: const TextStyle(fontSize: 20));
-        },
-      );
-    }
-    return Text(icon.isEmpty ? '🎁' : icon, style: const TextStyle(fontSize: 20));
+  Widget _buildItemIcon(Map<String, dynamic> item) {
+    final String icon = (item['icon']?.toString() ?? '').trim();
+    return ItemIconView(
+      iconValue: icon,
+      itemId: item['item_id']?.toString(),
+      size: 64,
+      expand: true,
+      fallback: '🎁',
+    );
   }
 
   List<Map<String, dynamic>> _mapItemsForShop(
@@ -989,7 +965,7 @@ class _ItemsTab extends StatelessWidget {
   final ValueChanged<String> onSearchChanged;
   final void Function(Map<String, dynamic>) onBuyTap;
   final Color Function(String?) rarityColor;
-  final Widget Function(String) buildItemIcon;
+  final Widget Function(Map<String, dynamic>) buildItemIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -1070,42 +1046,95 @@ class _ItemsTab extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: const Color(0xFF121A2A),
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: rc.withValues(alpha: 0.4)),
+                          border: Border.all(color: rc.withValues(alpha: 0.65), width: 1.2),
+                          boxShadow: <BoxShadow>[
+                            BoxShadow(
+                              color: rc.withValues(alpha: 0.12),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            // Rarity dot
-                            Align(alignment: Alignment.topRight, child: Padding(
-                              padding: const EdgeInsets.all(5),
-                              child: Container(width: 6, height: 6, decoration: BoxDecoration(shape: BoxShape.circle, color: rc)),
-                            )),
-                            // Item icon
-                            Container(
-                              width: 44, height: 44,
-                              decoration: BoxDecoration(color: rc.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10), border: Border.all(color: rc.withValues(alpha: 0.3))),
-                              alignment: Alignment.center,
-                              child: buildItemIcon(item['icon']?.toString() ?? '🎁'),
-                            ),
-                            const SizedBox(height: 4),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
-                              child: Text(item['name']?.toString() ?? '', style: const TextStyle(color: Colors.white70, fontSize: 9.5, fontWeight: FontWeight.w600), textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
-                            ),
-                            const SizedBox(height: 4),
-                            Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 6),
-                              padding: const EdgeInsets.symmetric(vertical: 3),
-                              decoration: BoxDecoration(
-                                color: (isGem ? Colors.blue : Colors.amber).withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: (isGem ? Colors.blue : Colors.amber).withValues(alpha: 0.25)),
+                        child: Stack(
+                          children: <Widget>[
+                            Positioned.fill(
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(8, 18, 8, 34),
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(10),
+                                    color: Colors.black.withValues(alpha: 0.16),
+                                    border: Border.all(color: Colors.white10),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: buildItemIcon(item),
+                                  ),
+                                ),
                               ),
-                              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                                Text(isGem ? '💎' : '🪙', style: const TextStyle(fontSize: 9)),
-                                const SizedBox(width: 2),
-                                Text(isBuying ? '...' : '$price', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isGem ? const Color(0xFF7DD3FC) : const Color(0xFFFDE68A))),
-                              ]),
+                            ),
+                            Positioned(
+                              top: 6,
+                              left: 8,
+                              right: 20,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.36),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  item['name']?.toString() ?? '',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: Container(
+                                width: 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: rc,
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              left: 8,
+                              right: 8,
+                              bottom: 8,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: (isGem ? Colors.blue : Colors.amber).withValues(alpha: 0.17),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: (isGem ? Colors.blue : Colors.amber).withValues(alpha: 0.28)),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: <Widget>[
+                                    Text(isGem ? '💎' : '🪙', style: const TextStyle(fontSize: 9)),
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      isBuying ? '...' : '$price',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: isGem ? const Color(0xFF7DD3FC) : const Color(0xFFFDE68A),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ],
                         ),

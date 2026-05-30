@@ -564,6 +564,12 @@ class GameDrawer extends ConsumerWidget {
                 _sectionHeader('EKONOMİ'),
                 _navItem(
                   context,
+                  icon: Icons.casino_outlined,
+                  label: 'Kasa & Çark',
+                  route: AppRoutes.loot,
+                ),
+                _navItem(
+                  context,
                   icon: Icons.storefront_outlined,
                   label: 'Pazar',
                   route: AppRoutes.market,

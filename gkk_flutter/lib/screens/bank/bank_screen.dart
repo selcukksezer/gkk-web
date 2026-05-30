@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../components/common/item_icon_view.dart';
 import '../../components/layout/game_chrome.dart';
 import '../../core/services/supabase_service.dart';
 import '../../models/inventory_model.dart';
@@ -455,7 +456,8 @@ class _BankScreenState extends ConsumerState<BankScreen> {
         payload.sourceId.isEmpty) {
       return;
     }
-    if (payload.sourceType == _DragSourceType.bank && payload.sourceId.isEmpty) {
+    if (payload.sourceType == _DragSourceType.bank &&
+        payload.sourceId.isEmpty) {
       return;
     }
 
@@ -806,53 +808,25 @@ class _BankScreenState extends ConsumerState<BankScreen> {
     }
   }
 
-  bool _isImagePath(String icon) {
-    return icon.contains('/') && (icon.endsWith('.png') || icon.endsWith('.webp') || icon.endsWith('.jpg') || icon.endsWith('.jpeg'));
-  }
-
-  String _toFlutterAssetPath(String icon) {
-    if (icon.startsWith('assets/icons/')) {
-      return icon.replaceFirst('assets/icons/', 'assets/items/');
-    }
-    if (icon.startsWith('/assets/icons/')) {
-      return icon.replaceFirst('/assets/icons/', 'assets/items/');
-    }
-    if (icon.startsWith('assets/items/')) return icon;
-    if (icon.startsWith('/assets/items/')) return icon.substring(1);
-    return icon;
-  }
-
-  Widget _buildItemIcon({required String icon, required Color rarityColor}) {
+  Widget _buildItemIcon({
+    required String icon,
+    required Color rarityColor,
+    String? itemId,
+  }) {
     final String value = icon.trim();
-    final bool isImage = value.isNotEmpty && _isImagePath(value);
-    final String assetPath = _toFlutterAssetPath(value);
 
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: rarityColor.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: rarityColor.withValues(alpha: 0.35)),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        decoration: BoxDecoration(color: rarityColor.withValues(alpha: 0.08)),
+        child: ItemIconView(
+          iconValue: value,
+          itemId: itemId,
+          size: 56,
+          expand: true,
+          fallback: '📦',
+        ),
       ),
-      alignment: Alignment.center,
-      child: isImage
-          ? Image.asset(
-              assetPath,
-              width: 30,
-              height: 30,
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) {
-                return Text(
-                  value.isEmpty ? '📦' : value,
-                  style: const TextStyle(fontSize: 20),
-                );
-              },
-            )
-          : Text(
-              value.isEmpty ? '📦' : value,
-              style: const TextStyle(fontSize: 20),
-            ),
     );
   }
 
@@ -891,27 +865,38 @@ class _BankScreenState extends ConsumerState<BankScreen> {
       ),
       child: hasItem
           ? Stack(
+              fit: StackFit.expand,
               children: <Widget>[
-                Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      _buildItemIcon(icon: item.icon, rarityColor: rarityColor),
-                      const SizedBox(height: 4),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Text(
-                          item.name,
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 8,
-                          ),
-                        ),
-                      ),
-                    ],
+                Positioned.fill(
+                  child: Padding(
+                    padding: const EdgeInsets.all(3),
+                    child: _buildItemIcon(
+                      icon: item.icon,
+                      rarityColor: rarityColor,
+                      itemId: item.itemId,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 3,
+                  right: 3,
+                  bottom: 3,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.62),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      item.name,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white, fontSize: 8),
+                    ),
                   ),
                 ),
                 if (item.quantity > 1)
@@ -1072,30 +1057,38 @@ class _BankScreenState extends ConsumerState<BankScreen> {
           ? const Center(child: Text('🔒', style: TextStyle(fontSize: 16)))
           : hasItem
           ? Stack(
+              fit: StackFit.expand,
               children: <Widget>[
-                Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      _buildItemIcon(
-                        icon: item['icon']?.toString() ?? '',
-                        rarityColor: rarityColor,
-                      ),
-                      const SizedBox(height: 4),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Text(
-                          item['name']?.toString() ?? '',
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 8,
-                          ),
-                        ),
-                      ),
-                    ],
+                Positioned.fill(
+                  child: Padding(
+                    padding: const EdgeInsets.all(3),
+                    child: _buildItemIcon(
+                      icon: item['icon']?.toString() ?? '',
+                      rarityColor: rarityColor,
+                      itemId: item['item_id']?.toString(),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 3,
+                  right: 3,
+                  bottom: 3,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.62),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      item['name']?.toString() ?? '',
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white, fontSize: 8),
+                    ),
                   ),
                 ),
                 if (qty > 1)

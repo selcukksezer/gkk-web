@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../components/common/item_icon_view.dart';
 import '../../components/layout/game_chrome.dart';
 import '../../core/services/supabase_service.dart';
 import '../../models/crafting_model.dart';
@@ -592,9 +593,12 @@ class _PreviewPanel extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.07),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text(
-                    recipe!.outputItemId.isNotEmpty ? '📦' : '❔',
-                    style: const TextStyle(fontSize: 26),
+                  child: ItemIconView(
+                    iconValue: recipe!.outputItemId,
+                    itemId: recipe!.outputItemId,
+                    size: 52,
+                    expand: true,
+                    fallback: '❔',
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -671,7 +675,16 @@ class _PreviewPanel extends StatelessWidget {
                 ),
                 child: Column(
                   children: <Widget>[
-                    const Text('📦', style: TextStyle(fontSize: 22)),
+                    SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: ItemIconView(
+                        iconValue: ing.itemId,
+                        itemId: ing.itemId,
+                        size: 24,
+                        expand: true,
+                      ),
+                    ),
                     const SizedBox(height: 2),
                     Text(
                       ingredientName,
@@ -1209,8 +1222,13 @@ class _QueueItemTile extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(
-                  item.recipeIcon?.isNotEmpty == true ? item.recipeIcon! : '📦',
+                child: ItemIconView(
+                  iconValue: item.recipeIcon?.trim().isNotEmpty == true
+                      ? item.recipeIcon!
+                      : (item.outputItemId ?? ''),
+                  itemId: item.outputItemId,
+                  size: 36,
+                  expand: true,
                 ),
               ),
               const SizedBox(width: 10),

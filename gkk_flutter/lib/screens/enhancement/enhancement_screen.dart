@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../components/common/item_icon_view.dart';
 import '../../components/layout/game_chrome.dart';
 import '../../core/services/supabase_service.dart';
 import '../../models/inventory_model.dart';
@@ -305,6 +306,20 @@ class _EnhancementScreenState extends ConsumerState<EnhancementScreen> {
 
   bool _isRuneItem(InventoryItem item) {
     return item.itemType == ItemType.rune || item.itemId.startsWith('rune_');
+  }
+
+  InventoryItem? _findSelectedRuneItem() {
+    if (_selectedRune == 'none') return null;
+    final String runeId = 'rune_$_selectedRune';
+    final List<InventoryItem> inventoryItems = ref
+        .watch(inventoryProvider)
+        .items;
+    for (final InventoryItem item in inventoryItems) {
+      if (item.itemId == runeId) {
+        return item;
+      }
+    }
+    return null;
   }
 
   void _showResultDialog(_EnhanceResult result) {
@@ -724,17 +739,45 @@ class _EnhancementScreenState extends ConsumerState<EnhancementScreen> {
                       : Colors.white.withValues(alpha: 0.02),
                 ),
                 child: _selectedItem != null
-                    ? Row(
+                    ? Stack(
+                        fit: StackFit.expand,
                         children: <Widget>[
-                          Expanded(
-                            child: Text(
-                              '+${_selectedItem!.enhancementLevel} ${_selectedItem!.name}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: _rarityColor(_selectedItem!.rarity),
+                          Padding(
+                            padding: const EdgeInsets.all(2),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: ItemIconView(
+                                iconValue: _selectedItem!.icon,
+                                itemId: _selectedItem!.itemId,
+                                itemType: _selectedItem!.itemType,
+                                size: 50,
+                                expand: true,
+                                fallback: '⚔️',
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            left: 3,
+                            right: 3,
+                            bottom: 3,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.55),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                '+${_selectedItem!.enhancementLevel} ${_selectedItem!.name}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w600,
+                                  color: _rarityColor(_selectedItem!.rarity),
+                                ),
                               ),
                             ),
                           ),
@@ -773,6 +816,8 @@ class _EnhancementScreenState extends ConsumerState<EnhancementScreen> {
   }
 
   Widget _buildRuneSlot() {
+    final InventoryItem? selectedRuneItem = _findSelectedRuneItem();
+
     return DragTarget<InventoryItem>(
       onWillAcceptWithDetails: (DragTargetDetails<InventoryItem> details) {
         return _isRuneItem(details.data);
@@ -807,18 +852,51 @@ class _EnhancementScreenState extends ConsumerState<EnhancementScreen> {
                       : Colors.white.withValues(alpha: 0.02),
                 ),
                 child: _selectedRune != 'none'
-                    ? Row(
+                    ? Stack(
+                        fit: StackFit.expand,
                         children: <Widget>[
-                          Text('🔮', style: TextStyle(fontSize: 16)),
-                          const SizedBox(
-                            width: _EnhancementDesignSystem.spaceSm,
+                          Padding(
+                            padding: const EdgeInsets.all(2),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: selectedRuneItem != null
+                                  ? ItemIconView(
+                                      iconValue: selectedRuneItem.icon,
+                                      itemId: selectedRuneItem.itemId,
+                                      itemType: selectedRuneItem.itemType,
+                                      size: 50,
+                                      expand: true,
+                                      fallback: '🔮',
+                                    )
+                                  : const Center(
+                                      child: Text(
+                                        '🔮',
+                                        style: TextStyle(fontSize: 20),
+                                      ),
+                                    ),
+                            ),
                           ),
-                          Expanded(
-                            child: Text(
-                              _kRuneLabels[_selectedRune] ?? _selectedRune,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Color(0xFFA855F7),
+                          Positioned(
+                            left: 3,
+                            right: 3,
+                            bottom: 3,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.55),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                _kRuneLabels[_selectedRune] ?? _selectedRune,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 8,
+                                  color: Color(0xFFA855F7),
+                                ),
                               ),
                             ),
                           ),
@@ -916,22 +994,32 @@ class _EnhancementScreenState extends ConsumerState<EnhancementScreen> {
                       : Colors.white.withValues(alpha: 0.02),
                 ),
                 child: scroll != null
-                    ? Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                    ? Stack(
+                        fit: StackFit.expand,
                         children: <Widget>[
-                          Text('📜', style: TextStyle(fontSize: 12)),
-                          Text(
-                            scroll.name,
-                            style: TextStyle(
-                              fontSize: 7,
-                              color: Colors.white70,
-                              overflow: TextOverflow.ellipsis,
+                          Padding(
+                            padding: const EdgeInsets.all(1),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: ItemIconView(
+                                iconValue: scroll.icon,
+                                itemId: scroll.itemId,
+                                itemType: scroll.itemType,
+                                size: 26,
+                                expand: true,
+                                fallback: '📜',
+                              ),
                             ),
                           ),
                           if (!isCompatible)
-                            Text(
-                              '✗',
-                              style: TextStyle(fontSize: 8, color: Colors.red),
+                            const Positioned(
+                              left: 2,
+                              top: 2,
+                              child: Icon(
+                                Icons.warning_amber_rounded,
+                                size: 10,
+                                color: Colors.red,
+                              ),
                             ),
                         ],
                       )
@@ -1367,50 +1455,88 @@ class _EnhancementScreenState extends ConsumerState<EnhancementScreen> {
                     fit: StackFit.expand,
                     children: <Widget>[
                       Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: <Widget>[
-                            Text(
-                              _getItemEmoji(selectedInventoryItem),
-                              style: const TextStyle(fontSize: 16),
-                            ),
-                            const SizedBox(height: 2),
-                            Flexible(
-                              child: Text(
-                                selectedInventoryItem.name,
-                                style: TextStyle(
-                                  fontSize: 8,
-                                  color: _rarityColor(
-                                    selectedInventoryItem.rarity,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                textAlign: TextAlign.center,
-                                maxLines: 1,
-                              ),
-                            ),
-                            if (selectedInventoryItem.enhancementLevel > 0)
-                              Text(
-                                '+${selectedInventoryItem.enhancementLevel}',
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  color: Colors.amber,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            if (selectedInventoryItem.quantity > 1)
-                              Text(
-                                'x${selectedInventoryItem.quantity}',
-                                style: TextStyle(
-                                  fontSize: 8,
-                                  color: Colors.white54,
-                                ),
-                              ),
-                          ],
+                        padding: const EdgeInsets.all(3),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(9),
+                          child: ItemIconView(
+                            iconValue: selectedInventoryItem.icon,
+                            itemId: selectedInventoryItem.itemId,
+                            itemType: selectedInventoryItem.itemType,
+                            size: 48,
+                            expand: true,
+                          ),
                         ),
                       ),
+                      Positioned(
+                        left: 2,
+                        right: 2,
+                        bottom: 2,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            selectedInventoryItem.name,
+                            style: const TextStyle(
+                              fontSize: 7,
+                              color: Colors.white,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                          ),
+                        ),
+                      ),
+                      if (selectedInventoryItem.enhancementLevel > 0)
+                        Positioned(
+                          left: 2,
+                          top: 2,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.55),
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: Text(
+                              '+${selectedInventoryItem.enhancementLevel}',
+                              style: const TextStyle(
+                                fontSize: 8,
+                                color: Colors.amber,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (selectedInventoryItem.quantity > 1)
+                        Positioned(
+                          right: 2,
+                          bottom: 15,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.55),
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: Text(
+                              'x${selectedInventoryItem.quantity}',
+                              style: const TextStyle(
+                                fontSize: 8,
+                                color: Colors.white70,
+                              ),
+                            ),
+                          ),
+                        ),
                       if (isSelected)
                         Positioned(
                           top: 2,
@@ -1494,25 +1620,6 @@ class _EnhancementScreenState extends ConsumerState<EnhancementScreen> {
     } else if (_isRuneItem(item)) {
       setState(() => _selectedRune = item.itemId.replaceFirst('rune_', ''));
     }
-  }
-
-  String _getItemEmoji(InventoryItem item) {
-    if (item.itemType == ItemType.weapon) {
-      return '⚔️';
-    }
-    if (item.itemType == ItemType.armor) {
-      return '🛡️';
-    }
-    if (_isScrollItem(item)) {
-      return '📜';
-    }
-    if (_isRuneItem(item)) {
-      return '🔮';
-    }
-    if (item.itemType == ItemType.potion) {
-      return '🧪';
-    }
-    return '📦';
   }
 }
 

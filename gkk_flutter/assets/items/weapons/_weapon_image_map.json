@@ -1,0 +1,122 @@
+[
+  {
+    "itemId": "wpn_dagger_common",
+    "source": "rookie-piercer.jpeg",
+    "output": "wpn_dagger_common.png"
+  },
+  {
+    "itemId": "wpn_dagger_uncommon",
+    "source": "shadow-shiv.jpeg",
+    "output": "wpn_dagger_uncommon.png"
+  },
+  {
+    "itemId": "wpn_dagger_rare",
+    "source": "bone-slicer.jpeg",
+    "output": "wpn_dagger_rare.png"
+  },
+  {
+    "itemId": "wpn_dagger_epic",
+    "source": "phantom-edge.jpeg",
+    "output": "wpn_dagger_epic.png"
+  },
+  {
+    "itemId": "wpn_dagger_legendary",
+    "source": "obsidian-skewer.jpeg",
+    "output": "wpn_dagger_legendary.png"
+  },
+  {
+    "itemId": "wpn_dagger_mythic",
+    "source": "twilight-fang.jpeg",
+    "output": "wpn_dagger_mythic.png"
+  },
+  {
+    "itemId": "wpn_sword_common",
+    "source": "militia-sword.jpeg",
+    "output": "wpn_sword_common.png"
+  },
+  {
+    "itemId": "wpn_sword_uncommon",
+    "source": "mercenary-broadsword.jpeg",
+    "output": "wpn_sword_uncommon.png"
+  },
+  {
+    "itemId": "wpn_sword_rare",
+    "source": "giant-chopper.jpeg",
+    "output": "wpn_sword_rare.png"
+  },
+  {
+    "itemId": "wpn_sword_epic",
+    "source": "war-blade.jpeg",
+    "output": "wpn_sword_epic.png"
+  },
+  {
+    "itemId": "wpn_sword_legendary",
+    "source": "illusion-sabre.jpeg",
+    "output": "wpn_sword_legendary.png"
+  },
+  {
+    "itemId": "wpn_sword_mythic",
+    "source": "imperial-halberd.jpeg",
+    "output": "wpn_sword_mythic.png"
+  },
+  {
+    "itemId": "wpn_axe_common",
+    "source": "forester-axe.jpeg",
+    "output": "wpn_axe_common.png"
+  },
+  {
+    "itemId": "wpn_axe_uncommon",
+    "source": "savage-tomahawk.jpeg",
+    "output": "wpn_axe_uncommon.png"
+  },
+  {
+    "itemId": "wpn_axe_rare",
+    "source": "battle-bardiche.jpeg",
+    "output": "wpn_axe_rare.png"
+  },
+  {
+    "itemId": "wpn_axe_epic",
+    "source": "tribal-maul.jpeg",
+    "output": "wpn_axe_epic.png"
+  },
+  {
+    "itemId": "wpn_axe_legendary",
+    "source": "crimson-scar.jpeg",
+    "output": "wpn_axe_legendary.png"
+  },
+  {
+    "itemId": "wpn_axe_mythic",
+    "source": "executioner-axe.jpeg",
+    "output": "wpn_axe_mythic.png"
+  },
+  {
+    "itemId": "wpn_staff_common",
+    "source": "oak-staff.jpeg",
+    "output": "wpn_staff_common.png"
+  },
+  {
+    "itemId": "wpn_staff_uncommon",
+    "source": "apprentice-branch.jpeg",
+    "output": "wpn_staff_uncommon.png"
+  },
+  {
+    "itemId": "wpn_staff_rare",
+    "source": "serpent-staff.jpeg",
+    "output": "wpn_staff_rare.png"
+  },
+  {
+    "itemId": "wpn_staff_epic",
+    "source": "ember-wand.jpeg",
+    "output": "wpn_staff_epic.png"
+  },
+  {
+    "itemId": "wpn_staff_legendary",
+    "source": "alchemists-rod.jpeg",
+    "output": "wpn_staff_legendary.png"
+  },
+  {
+    "itemId": "wpn_staff_mythic",
+    "source": "demon-blood.jpeg",
+    "output": "wpn_staff_mythic.png"
+  }
+]
