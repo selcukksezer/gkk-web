@@ -1,0 +1,115 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:
+    inputs:
+      signed_build:
+        description: "true => signed IPA (requires iOS signing secrets), false => unsigned IPA"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+jobs:
+  build-ios-ipa:
+    runs-on: macos-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: gkk_flutter
+
+    env:
+      FLUTTER_VERSION: "3.32.0"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Build unsigned IPA
+        if: ${{ github.event.inputs.signed_build == 'false' }}
+        run: |
+          flutter build ios --release --no-codesign
+          mkdir -p build/ios/ipa/Payload
+          cp -R build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
+          cd build/ios/ipa
+          /usr/bin/zip -r Runner-unsigned.ipa Payload
+
+      - name: Install signing assets
+        if: ${{ github.event.inputs.signed_build == 'true' }}
+        env:
+          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          IOS_EXPORT_OPTIONS_PLIST_BASE64: ${{ secrets.IOS_EXPORT_OPTIONS_PLIST_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+        run: |
+          if [ -z "$IOS_CERTIFICATE_BASE64" ] || [ -z "$IOS_CERTIFICATE_PASSWORD" ] || [ -z "$IOS_PROVISIONING_PROFILE_BASE64" ] || [ -z "$IOS_EXPORT_OPTIONS_PLIST_BASE64" ] || [ -z "$KEYCHAIN_PASSWORD" ]; then
+            echo "Missing one or more required signing secrets."
+            exit 1
+          fi
+
+          CERTIFICATE_PATH="$RUNNER_TEMP/dist.p12"
+          PROFILE_PATH="$RUNNER_TEMP/profile.mobileprovision"
+          EXPORT_PLIST_PATH="$RUNNER_TEMP/ExportOptions.plist"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+
+          decode_b64() {
+            local input="$1"
+            local output="$2"
+            if echo -n "$input" | base64 --decode > "$output" 2>/dev/null; then
+              return 0
+            fi
+            echo -n "$input" | base64 -D > "$output"
+          }
+
+          decode_b64 "$IOS_CERTIFICATE_BASE64" "$CERTIFICATE_PATH"
+          decode_b64 "$IOS_PROVISIONING_PROFILE_BASE64" "$PROFILE_PATH"
+          decode_b64 "$IOS_EXPORT_OPTIONS_PLIST_BASE64" "$EXPORT_PLIST_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "$IOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles"
+
+      - name: Build signed IPA
+        if: ${{ github.event.inputs.signed_build == 'true' }}
+        run: |
+          flutter build ipa --release --export-options-plist="$RUNNER_TEMP/ExportOptions.plist"
+
+      - name: Upload unsigned IPA artifact
+        if: ${{ github.event.inputs.signed_build == 'false' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-unsigned-ipa
+          path: gkk_flutter/build/ios/ipa/Runner-unsigned.ipa
+
+      - name: Upload signed IPA artifact
+        if: ${{ github.event.inputs.signed_build == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-signed-ipa
+          path: gkk_flutter/build/ios/ipa/*.ipa
+
+      - name: Cleanup keychain
+        if: ${{ always() && github.event.inputs.signed_build == 'true' }}
+        run: |
+          if [ -n "$RUNNER_TEMP" ]; then
+            security delete-keychain "$RUNNER_TEMP/app-signing.keychain-db" || true
+          fi
